@@ -10,7 +10,7 @@ public class CameraTransformController : MonoBehaviour
     [SerializeField] private float farSideShiftMultiplier = 0.5f;
     [SerializeField] private float closeCameraDistance = 1.5f;
     [SerializeField] private float closeSideShiftMultiplier = 0.7f;
-    [SerializeField] private float cameraSpeed = 15f;
+    [SerializeField] private float sideShiftSpeed = 15f;
     [SerializeField] private float smoothTime = 0.05f;
     [SerializeField] private float rotationSmoothTime = 0.05f;
     [SerializeField] private LayerMask ignoreLayers;
@@ -95,7 +95,7 @@ public class CameraTransformController : MonoBehaviour
     {
         MakeCameraSettings();
         
-        sideShiftMultiplier = Mathf.Lerp(sideShiftMultiplier, targetSideShiftMultiplier, cameraSpeed * Time.unscaledDeltaTime);
+        sideShiftMultiplier = Mathf.Lerp(sideShiftMultiplier, targetSideShiftMultiplier, sideShiftSpeed * Time.unscaledDeltaTime);
         if (Mathf.Abs(sideShiftMultiplier - targetSideShiftMultiplier) < 0.001f) sideShiftMultiplier = targetSideShiftMultiplier;
         
         

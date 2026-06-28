@@ -18,6 +18,7 @@ public class PlayerDashController : MonoBehaviour
     private Vector3 capsuleCenterToTop;
     private float capsuleRadius;
     private AnimationController animationController;
+    private MovementController movementController;
     private Rigidbody rb;
     private Utility.ValueTimer<bool> isDashing = new(false);
 
@@ -28,6 +29,7 @@ public class PlayerDashController : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         animationController = GetComponent<AnimationController>();
         CapsuleCollider capsule = GetComponent<CapsuleCollider>();
+        movementController = GetComponent<MovementController>();
         capsuleRadius = capsule.radius;
         capsuleCenterToTop = Vector3.up * (capsule.height / 2);
     }

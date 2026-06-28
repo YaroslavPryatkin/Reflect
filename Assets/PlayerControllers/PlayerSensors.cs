@@ -6,6 +6,8 @@ public class PlayerSensors : MonoBehaviour
 {
     [SerializeField] private float groundCheckDistance = 1.1f;
     [SerializeField] private float groundCheckRadius = 0.4f;
+    [SerializeField] private float farGroundCheckDistance = 1.5f;
+    [SerializeField] private float farGroundCheckRadius = 0.4f;
     [SerializeField] private LayerMask groundLayer;
     [SerializeField]private float wallCheckDistance = 1.5f;
     [SerializeField] private float wallMinimalAngle = 75f;
@@ -18,8 +20,8 @@ public class PlayerSensors : MonoBehaviour
     [SerializeField] private LayerMask wallRunLayer;
     
 
-    public bool IsMidAir { get; private set; }
     public bool IsGrounded { get; private set; }
+    public bool IsFarGrounded { get; private set; }
     public bool IsNearLeftWall { get; private set; }
     public bool IsNearRightWall { get; private set; }
 
@@ -56,7 +58,8 @@ public class PlayerSensors : MonoBehaviour
     {
         var spherePosition = transform.position + Vector3.down * (groundCheckDistance - groundCheckRadius);
         IsGrounded = Physics.CheckSphere(spherePosition, groundCheckRadius, groundLayer);
-        IsMidAir = !IsGrounded;
+        spherePosition = transform.position + Vector3.down * (farGroundCheckDistance - farGroundCheckRadius);
+        IsFarGrounded = Physics.CheckSphere(spherePosition, farGroundCheckRadius, groundLayer) || IsGrounded;
         
         RaycastHit hitInfo;
 
