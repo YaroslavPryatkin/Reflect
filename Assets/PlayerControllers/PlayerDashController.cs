@@ -17,7 +17,7 @@ public class PlayerDashController : MonoBehaviour
 
     private Vector3 capsuleCenterToTop;
     private float capsuleRadius;
-    private PlayerMovementInputController _playerMovementInputController;
+    private AnimationController animationController;
     private Rigidbody rb;
     private Utility.ValueTimer<bool> isDashing = new(false);
 
@@ -26,7 +26,7 @@ public class PlayerDashController : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
-        _playerMovementInputController = GetComponent<PlayerMovementInputController>();
+        animationController = GetComponent<AnimationController>();
         CapsuleCollider capsule = GetComponent<CapsuleCollider>();
         capsuleRadius = capsule.radius;
         capsuleCenterToTop = Vector3.up * (capsule.height / 2);
@@ -39,14 +39,14 @@ public class PlayerDashController : MonoBehaviour
     
     private void OnEnable()
     {
-        GlobalInputManager.Instance.OnDashPressEvent += HandleDashPress;
-        GlobalInputManager.Instance.OnDashReleaseEvent += HandleDashRelease;
+        PlayerMapInputManager.Instance.OnDashPressEvent += HandleDashPress;
+        PlayerMapInputManager.Instance.OnDashReleaseEvent += HandleDashRelease;
     }
 
     private void OnDisable()
     {
-        GlobalInputManager.Instance.OnDashPressEvent -= HandleDashPress;
-        GlobalInputManager.Instance.OnDashReleaseEvent -= HandleDashRelease;
+        PlayerMapInputManager.Instance.OnDashPressEvent -= HandleDashPress;
+        PlayerMapInputManager.Instance.OnDashReleaseEvent -= HandleDashRelease;
     }
 
     private void HandleDashPress()
@@ -54,6 +54,7 @@ public class PlayerDashController : MonoBehaviour
         //Debug.Log("Dash Press");
         if (!isDashing && isDashing.CanBeChanged)
         {
+            animationController.HandleDashPressed();
             ChangeTimePace(slowMotionCoefficient);
             isDashing.SetForce(true, 0);
             ghost.SetActive(true);
@@ -65,6 +66,7 @@ public class PlayerDashController : MonoBehaviour
         //Debug.Log("Dash Release");
         if (isDashing)
         {
+            animationController.HandleDashReleased();
             ChangeTimePace(1);
             isDashing.SetForce(false, dashRechargeTime);
             ghost.SetActive(false);

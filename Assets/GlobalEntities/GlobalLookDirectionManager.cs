@@ -38,12 +38,12 @@ public class GlobalLookDirectionManager : MonoBehaviour
     
     private void OnEnable()
     {
-        GlobalInputManager.Instance.OnLookEvent += HandleLook;
+        PlayerMapInputManager.Instance.OnLookEvent += HandleLook;
     }
 
     private void OnDisable()
     {
-        GlobalInputManager.Instance.OnLookEvent -= HandleLook;
+        PlayerMapInputManager.Instance.OnLookEvent -= HandleLook;
     }
 
     private void HandleLook(Vector2 lookVec)

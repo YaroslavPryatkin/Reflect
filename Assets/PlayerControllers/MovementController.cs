@@ -42,6 +42,7 @@ public class MovementController : MonoBehaviour
     
     private PlayerSensors playerSensors;
     private PlayerMovementInputController _playerMovementInputController;
+    private AnimationController animationController;
     private Rigidbody rb;
 
     private Vector3 targetMoveVector;
@@ -51,6 +52,7 @@ public class MovementController : MonoBehaviour
     private Vector3 wallRunNormal = Vector3.zero;
     private Vector3 wallRunPoint = Vector3.zero;
 
+    public int WallRunning => wallRunning.Value;
     
     private Utility.DelayDurationValueTimer<int> canJump = 0; // 0 - not, 1 - from ground, 2 - from wall
     
@@ -59,6 +61,7 @@ public class MovementController : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         playerSensors = GetComponent<PlayerSensors>();
         _playerMovementInputController = GetComponent<PlayerMovementInputController>();
+        animationController = GetComponent<AnimationController>();
         
         rb.maxAngularVelocity = maxPhysicsRotationSpeed;
     }
@@ -85,6 +88,7 @@ public class MovementController : MonoBehaviour
         
         if (canJump == 2)
         {
+            animationController.HandleJump();
             rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
             rb.AddForce(Vector3.up * wallRunJumpUpStrength + wallRunNormal * wallRunJumpSideStrength,
                 ForceMode.Impulse);
@@ -95,6 +99,7 @@ public class MovementController : MonoBehaviour
         }
         else if (canJump == 1)
         {
+            animationController.HandleJump();
             rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
             rb.AddForce(Vector3.up * jumpStrength, ForceMode.Impulse);
 

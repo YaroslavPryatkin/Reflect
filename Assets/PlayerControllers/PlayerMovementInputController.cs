@@ -22,18 +22,18 @@ public class PlayerMovementInputController : MonoBehaviour
     
     private void OnEnable()
     {
-        GlobalInputManager.Instance.OnMoveEvent += HandleMove;
-        GlobalInputManager.Instance.OnJumpEvent += HandleJump;
-        GlobalInputManager.Instance.OnDashPressEvent += HandleDashPressed;
-        GlobalInputManager.Instance.OnDashReleaseEvent += HandleDashReleased;
+        PlayerMapInputManager.Instance.OnMoveEvent += HandleMove;
+        PlayerMapInputManager.Instance.OnJumpEvent += HandleJump;
+        PlayerMapInputManager.Instance.OnDashPressEvent += HandleDashPressed;
+        PlayerMapInputManager.Instance.OnDashReleaseEvent += HandleDashReleased;
     }
 
     private void OnDisable()
     {
-        GlobalInputManager.Instance.OnMoveEvent -= HandleMove;
-        GlobalInputManager.Instance.OnJumpEvent -= HandleJump;
-        GlobalInputManager.Instance.OnDashPressEvent -= HandleDashPressed;
-        GlobalInputManager.Instance.OnDashReleaseEvent -= HandleDashReleased;
+        PlayerMapInputManager.Instance.OnMoveEvent -= HandleMove;
+        PlayerMapInputManager.Instance.OnJumpEvent -= HandleJump;
+        PlayerMapInputManager.Instance.OnDashPressEvent -= HandleDashPressed;
+        PlayerMapInputManager.Instance.OnDashReleaseEvent -= HandleDashReleased;
     }
 
     private void HandleDashPressed()

@@ -66,14 +66,14 @@ public class CameraTransformController : MonoBehaviour
     
     private void OnEnable()
     {
-        GlobalInputManager.Instance.OnDashPressEvent += HandleDashPress;
-        GlobalInputManager.Instance.OnDashReleaseEvent += HandleDashRelease;
+        PlayerMapInputManager.Instance.OnDashPressEvent += HandleDashPress;
+        PlayerMapInputManager.Instance.OnDashReleaseEvent += HandleDashRelease;
     }
 
     private void OnDisable()
     {
-        GlobalInputManager.Instance.OnDashPressEvent -= HandleDashPress;
-        GlobalInputManager.Instance.OnDashReleaseEvent -= HandleDashRelease;
+        PlayerMapInputManager.Instance.OnDashPressEvent -= HandleDashPress;
+        PlayerMapInputManager.Instance.OnDashReleaseEvent -= HandleDashRelease;
     }
 
     private void HandleDashPress()
