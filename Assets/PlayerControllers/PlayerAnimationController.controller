@@ -57,6 +57,9 @@ AnimatorStateTransition:
   - m_ConditionMode: 6
     m_ConditionEvent: WallRunning
     m_EventTreshold: 0
+  - m_ConditionMode: 2
+    m_ConditionEvent: IsDashing
+    m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -3127405829572851149}
   m_Solo: 0

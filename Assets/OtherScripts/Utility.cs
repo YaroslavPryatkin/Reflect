@@ -4,6 +4,9 @@ using UnityEngine;
 
 public static class Utility
 {
+    private static float distancePrecision = 0.01f;
+    private static float fractionPrecision = 0.01f;
+    private static float stepFromHitPoint = 0.05f;
     public static Vector3 GetSphereRayCastPoint(Vector3 origin, Vector3 direction, float distance, float cameraRadius, LayerMask ignoreLayers)
     {
         direction.Normalize();
@@ -16,7 +19,7 @@ public static class Utility
         return origin + direction * distance;
     }
     
-    public static Vector3 GetCapsuleRayCastPoint(Vector3 origin, Vector3 centerToTop, float capsuleRadius, Vector3 direction, float distance, LayerMask ignoreLayers)
+    public static Vector3 GetCapsuleRayCastPointOld(Vector3 origin, Vector3 centerToTop, float capsuleRadius, Vector3 direction, float distance, LayerMask ignoreLayers)
     {
         direction.Normalize();
         RaycastHit hit;
@@ -27,6 +30,103 @@ public static class Utility
         }
     
         return origin + direction * distance;
+    }
+    
+    public static Vector3 GetCapsuleRayCastPoint(Vector3 origin, Vector3 centerToTop, float capsuleRadius, Vector3 direction, float distance, LayerMask ignoreLayers)
+    {
+        direction.Normalize();
+        LayerMask targetMask = ~ignoreLayers;
+        
+        int iterations = 70;
+        var capsuleUp = centerToTop.normalized;
+
+        Vector3 result = origin;
+        //String resultCouse = "Origin";
+
+        var binSearchResPoint = Vector3.zero;
+        var binSearchResNormal = Vector3.zero;
+        
+        float distLeft = 0;
+        float distRight = distance;
+        while (distRight - distLeft > distancePrecision)
+        {
+            var distMid = (distLeft + distRight) / 2;
+
+
+            bool found = false;
+            //this internal binary search projects the point origin + direction * distMid onto the closest surface touched by capsule
+            float fracLeft = 0f;
+            float fracRight = 1f;
+            while (fracRight - fracLeft > fractionPrecision)
+            {
+                iterations--;
+                if (iterations <= 0)
+                    return result;
+                
+                
+                var fracMid = (fracRight + fracLeft) / 2;
+                var midCenterToTop = centerToTop * fracMid;
+                var midRadius = capsuleRadius * fracMid;
+
+
+                if (Physics.CapsuleCast(origin - midCenterToTop, origin + midCenterToTop, midRadius,
+                        direction, out RaycastHit hit, distMid, targetMask))
+                {
+                    //Debug.Log("Fraction checking: " + fracMid + " for dist mid = " + distMid + " === success");
+                    fracRight = fracMid;
+                    binSearchResPoint = hit.point;
+                    binSearchResNormal = hit.normal;
+                    found = true;
+                }
+                else
+                {
+                    //Debug.Log("Fraction checking: " + fracMid + " for dist mid = " + distMid + " === fail");
+                    fracLeft = fracMid;
+                }
+            }
+
+            if (found)
+            {
+                //some capsule touched some surface
+                Vector3 targetPos;
+
+                float dot = Vector3.Dot(binSearchResNormal, capsuleUp);
+
+                targetPos = binSearchResPoint + binSearchResNormal * (capsuleRadius + stepFromHitPoint);
+                if (dot > 0.01f)
+                {
+                    targetPos += centerToTop;
+                }
+                else if (dot < -0.01f)
+                {
+                    targetPos -= centerToTop;
+                }
+
+                if (!Physics.CheckCapsule(targetPos - centerToTop, targetPos + centerToTop, capsuleRadius,
+                        targetMask))
+                {
+                    //resultCouse = "Found by checking, ";
+                    result = targetPos;
+                    distLeft = distMid;
+                }
+                else
+                {
+                    //Debug.Log("Distance checking = " + distMid + " === making less");
+                    distRight = distMid;
+                }
+            }
+            else
+            {
+                //we are free to move to that position since no capsule touched anything
+                //Debug.Log("Distance checking = " + distMid + " === making more by free to move");
+                //resultCouse = "Free place";
+                result = origin + direction * distMid;
+                distLeft = distMid;
+            }
+
+        }
+        //Debug.Log(resultCouse);
+        return result;
     }
     
     public static Vector3 FromLocalToGlobalByZX(Vector3 forward, Vector3 localVector)
