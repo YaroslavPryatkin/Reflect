@@ -12,8 +12,8 @@ public class PlayerDashController : MonoBehaviour
     [SerializeField] private float dashRechargeTime = 1f;
     [SerializeField] private float angleUp = 15f;
     [SerializeField] private LayerMask ignoreLayers;
-    
     [SerializeField] private float slowMotionCoefficient = 0.2f;
+    [SerializeField] private float ghostSmoothSpeed = 30f;
 
     private Vector3 capsuleCenterToTop;
     private float capsuleRadius;
@@ -22,7 +22,12 @@ public class PlayerDashController : MonoBehaviour
     private Rigidbody rb;
     private Utility.ValueTimer<bool> isDashing = new(false);
 
-    private float newSpeed = 0;
+    
+    public bool Dashing => isDashing.Value;
+    
+    private Vector3 newVelocity = Vector3.zero;
+    private Quaternion newRotation = Quaternion.identity;
+    private bool firstUpdateAfterPressedDash = false;
     
     private void Awake()
     {
@@ -31,7 +36,8 @@ public class PlayerDashController : MonoBehaviour
         CapsuleCollider capsule = GetComponent<CapsuleCollider>();
         movementController = GetComponent<MovementController>();
         capsuleRadius = capsule.radius;
-        capsuleCenterToTop = Vector3.up * (capsule.height / 2);
+        capsuleCenterToTop = Vector3.up * (capsule.height / 2 - capsule.radius);
+        //Debug.Log(capsuleCenterToTop.magnitude + ", " + capsuleRadius);
     }
 
     private void Start()
@@ -56,6 +62,7 @@ public class PlayerDashController : MonoBehaviour
         //Debug.Log("Dash Press");
         if (!isDashing && isDashing.CanBeChanged)
         {
+            firstUpdateAfterPressedDash = true;
             animationController.HandleDashPressed();
             ChangeTimePace(slowMotionCoefficient);
             isDashing.SetForce(true, 0);
@@ -63,11 +70,13 @@ public class PlayerDashController : MonoBehaviour
         }
     }
 
+
     private void HandleDashRelease()
     {
         //Debug.Log("Dash Release");
         if (isDashing)
         {
+            firstUpdateAfterPressedDash = false;
             animationController.HandleDashReleased();
             ChangeTimePace(1);
             isDashing.SetForce(false, dashRechargeTime);
@@ -75,13 +84,13 @@ public class PlayerDashController : MonoBehaviour
             finishDash();
         }
     }
-    
 
     void Update()
     {
         if (isDashing)
         {
-            moveGhost();
+            MoveGhost();
+            firstUpdateAfterPressedDash = false;
         }
         
     }
@@ -93,7 +102,7 @@ public class PlayerDashController : MonoBehaviour
         Time.fixedDeltaTime = 0.02f * time;
     }
 
-    private void moveGhost()
+    private void MoveGhost()
     {
         Vector3 lookDir = GlobalLookDirectionManager.CurrentLookDirection;
         Vector3 right = Vector3.Cross(lookDir, Vector3.up);
@@ -107,29 +116,43 @@ public class PlayerDashController : MonoBehaviour
         var currentSpeed = rb.linearVelocity.magnitude;
         var speedChange = Math.Min(dashSpeedGainMaxSpeed - currentSpeed, dashSpeedGain);
 
-        newSpeed = currentSpeed + speedChange;
+        var newSpeed = currentSpeed + speedChange;
         //Debug.Log("Moving ghost to position " + targetPosition);
-        ghost.transform.position = targetPosition;
+        if (firstUpdateAfterPressedDash)
+            ghost.transform.position = targetPosition;
+        else
+            ghost.transform.position = Vector3.Lerp(
+                ghost.transform.position, 
+                targetPosition, 
+                ghostSmoothSpeed * Time.unscaledDeltaTime
+            );
+        
+        
+        
         var targetRotation = targetPosition - transform.position;
-        Vector3 xzRotation = new Vector3(targetRotation.x, 0f, targetRotation.z);
-
+        var xzRotation = new Vector3(targetRotation.x, 0f, targetRotation.z);
+        
         
         if (xzRotation.sqrMagnitude < 0.0001f)
         {
-            ghost.transform.rotation =  Quaternion.identity;
+            newRotation =  Quaternion.identity;
+            newVelocity = Vector3.zero;
         }
         else
         {
-            ghost.transform.rotation = Quaternion.LookRotation(xzRotation.normalized, Vector3.up);
+            newVelocity = xzRotation.normalized * newSpeed;
+            newRotation = Quaternion.LookRotation(xzRotation.normalized, Vector3.up);
         }
+
+        //HandleDashRelease();
     }
 
     private void finishDash()
     {
         //Debug.Log("dashing");
         transform.position = ghost.transform.position;
-        transform.rotation = ghost.transform.rotation;
-        rb.linearVelocity = ghost.transform.forward * newSpeed;
+        transform.rotation = newRotation;
+        rb.linearVelocity = newVelocity;
         rb.angularVelocity = Vector3.zero;
     }
 }

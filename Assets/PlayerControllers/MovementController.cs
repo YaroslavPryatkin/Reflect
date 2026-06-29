@@ -48,9 +48,10 @@ public class MovementController : MonoBehaviour
     [SerializeField] private float maxPhysicsRotationSpeed = 20f;
     
     
-    private PlayerSensors playerSensors;
+    private PlayerSensors _playerSensors;
     private PlayerMovementInputController _playerMovementInputController;
-    private AnimationController animationController;
+    private AnimationController _animationController;
+    private PlayerDashController _playerDashController;
     private Rigidbody rb;
 
     private Vector3 targetMoveVector;
@@ -76,9 +77,10 @@ public class MovementController : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
-        playerSensors = GetComponent<PlayerSensors>();
+        _playerSensors = GetComponent<PlayerSensors>();
         _playerMovementInputController = GetComponent<PlayerMovementInputController>();
-        animationController = GetComponent<AnimationController>();
+        _animationController = GetComponent<AnimationController>();
+        _playerDashController = GetComponent<PlayerDashController>();
         
         rb.maxAngularVelocity = maxPhysicsRotationSpeed;
     }
@@ -106,7 +108,7 @@ public class MovementController : MonoBehaviour
         //Debug.Log(rolling.Value);
         var x = rb.linearVelocity.x;
         var  z = rb.linearVelocity.z;
-        if (IsHighJump && playerSensors.IsFarGrounded && x*x + z*z >= minSpeedToRoll* minSpeedToRoll)
+        if (IsHighJump && _playerSensors.IsFarGrounded && x*x + z*z >= minSpeedToRoll* minSpeedToRoll)
         {
             rolling.Activate(rollDuration);
         }
@@ -114,16 +116,16 @@ public class MovementController : MonoBehaviour
 
     private void ChangeIsHighJump()
     {
-        if (playerSensors.IsGrounded)
+        if (_playerSensors.IsGrounded)
             IsHighJump = false;
         
-        if(!playerSensors.IsFarGrounded)
+        if(!_playerSensors.IsFarGrounded)
             IsHighJump = true;
     }
     
     private void ChangeCanJump()
     {
-        if (IsRolling)
+        if (IsRolling || _playerDashController.Dashing)
         {
             if(canJump != 0)
                 canJump.SetForce(0,0,0);
@@ -133,7 +135,7 @@ public class MovementController : MonoBehaviour
             if (canJump != 2)
                 canJump.SetForce(2, 0, 0);
         }
-        else if (playerSensors.IsGrounded && canJump.CanBeChanged && !IsRolling)
+        else if (_playerSensors.IsGrounded && canJump.CanBeChanged && !IsRolling)
         {
             if (canJump != 1)
                 canJump.SetForce(1, 0, 0);
@@ -149,7 +151,8 @@ public class MovementController : MonoBehaviour
         
         if (canJump == 2)
         {
-            animationController.HandleJump();
+            //Debug.Log("Wall jump");
+            _animationController.HandleJump();
             rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
             rb.AddForce(Vector3.up * wallRunJumpUpStrength + wallRunNormal * wallRunJumpSideStrength,
                 ForceMode.Impulse);
@@ -160,7 +163,8 @@ public class MovementController : MonoBehaviour
         }
         else if (canJump == 1)
         {
-            animationController.HandleJump();
+            //Debug.Log("Gound jump");
+            _animationController.HandleJump();
             rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
             rb.AddForce(Vector3.up * jumpStrength, ForceMode.Impulse);
 
@@ -183,30 +187,30 @@ public class MovementController : MonoBehaviour
         {
             //Debug.Log("Is left wall run = " + playerSensors.IsLeftWallRun + ", dot product = " +
                      // Vector3.Dot(inputMoveVector, playerSensors.LeftWallRunNormal));
-            if (playerSensors.IsLeftWallRun && 
-                Vector3.Dot(inputMoveVector, playerSensors.LeftWallRunNormal) < angleToStartWallRun)
+            if (_playerSensors.IsLeftWallRun && 
+                Vector3.Dot(inputMoveVector, _playerSensors.LeftWallRunNormal) < angleToStartWallRun)
             {
                 wallRunning.SetForce(-1, 0);
-                wallRunNormal = playerSensors.LeftWallRunNormal;
-                wallRunPoint = playerSensors.LeftWallRunPoint;
+                wallRunNormal = _playerSensors.LeftWallRunNormal;
+                wallRunPoint = _playerSensors.LeftWallRunPoint;
                 //SnapToWall();
             }
-            else if (playerSensors.IsRightWallRun &&
-                     Vector3.Dot(inputMoveVector, playerSensors.RightWallRunNormal) < angleToStartWallRun)
+            else if (_playerSensors.IsRightWallRun &&
+                     Vector3.Dot(inputMoveVector, _playerSensors.RightWallRunNormal) < angleToStartWallRun)
             {
                 wallRunning.SetForce(1, 0);
-                wallRunNormal = playerSensors.RightWallRunNormal;
-                wallRunPoint = playerSensors.RightWallRunPoint;
+                wallRunNormal = _playerSensors.RightWallRunNormal;
+                wallRunPoint = _playerSensors.RightWallRunPoint;
                 //SnapToWall();
             }
         }
         else if (wallRunning == 1) //right wall running
         {
-            if (!playerSensors.IsRightWallRun)
+            if (!_playerSensors.IsRightWallRun)
             {
                 wallRunning.SetForce(0, 0);
             }
-            else if (Vector3.Dot(inputMoveVector, playerSensors.RightWallRunNormal) >= angleToFinishWallRun)
+            else if (Vector3.Dot(inputMoveVector, _playerSensors.RightWallRunNormal) >= angleToFinishWallRun)
             {
                 wallRunning.SetForce(0, canNotWallRunAfterWallRunDelay);
             }
@@ -216,17 +220,17 @@ public class MovementController : MonoBehaviour
             }
             else
             {
-                wallRunNormal = playerSensors.RightWallRunNormal;
-                wallRunPoint = playerSensors.RightWallRunPoint;
+                wallRunNormal = _playerSensors.RightWallRunNormal;
+                wallRunPoint = _playerSensors.RightWallRunPoint;
             }
         }
         else if (wallRunning == -1)//left wall running
         {
-            if (!playerSensors.IsLeftWallRun)
+            if (!_playerSensors.IsLeftWallRun)
             {
                 wallRunning.SetForce(0, 0);
             }
-            else if (Vector3.Dot(inputMoveVector, playerSensors.LeftWallRunNormal) >= angleToFinishWallRun)
+            else if (Vector3.Dot(inputMoveVector, _playerSensors.LeftWallRunNormal) >= angleToFinishWallRun)
             {
                 wallRunning.SetForce(0, canNotWallRunAfterWallRunDelay);
             }
@@ -236,8 +240,8 @@ public class MovementController : MonoBehaviour
             }
             else
             {
-                wallRunNormal = playerSensors.LeftWallRunNormal;
-                wallRunPoint = playerSensors.LeftWallRunPoint;
+                wallRunNormal = _playerSensors.LeftWallRunNormal;
+                wallRunPoint = _playerSensors.LeftWallRunPoint;
             }
         }
     }
@@ -248,16 +252,17 @@ public class MovementController : MonoBehaviour
         var maxError = wallRunDistanceFromWall * wallRunDistanceFromWallError;
         if (Mathf.Abs(dist - wallRunDistanceFromWall) > maxError)
         {
-            //Debug.Log("Snapped position");
             transform.position = wallRunPoint + wallRunNormal * wallRunDistanceFromWall;
+            //Debug.Log("Snapped position to " + transform.position);
         }
 
         if (Vector3.Dot(rb.linearVelocity, targetMoveVector.normalized) < 1 - wallRunRotationFromWallError)
         {
-            //Debug.Log("Snapped rotation");
+            
             var projectedVelocity = Vector3.ProjectOnPlane(rb.linearVelocity, wallRunNormal);
             projectedVelocity.y = 0;
             rb.linearVelocity = projectedVelocity;
+            //Debug.Log("Snapped valocity to " + rb.linearVelocity);
         }
 
         //Debug.Log("Snapped to wall, final speed = " + GetHorizontalSpeed());
@@ -275,7 +280,7 @@ public class MovementController : MonoBehaviour
         if (wallRunning == 0)
         {
             rb.useGravity = true;
-            if(playerSensors.IsGrounded)
+            if(_playerSensors.IsGrounded)
                 targetMoveVector = _playerMovementInputController.InputMoveVector * groundSpeed;
             else
                 targetMoveVector = _playerMovementInputController.InputMoveVector * airSpeed;
@@ -302,7 +307,7 @@ public class MovementController : MonoBehaviour
         Vector3 currentVelocity = rb.linearVelocity;
         Vector3 currentHorizontalVelocity = new Vector3(currentVelocity.x, 0f, currentVelocity.z);
 
-        if (playerSensors.IsGrounded)
+        if (_playerSensors.IsGrounded)
         {
             currentHorizontalVelocity = Vector3.MoveTowards(
                 currentHorizontalVelocity,
@@ -382,9 +387,9 @@ public class MovementController : MonoBehaviour
     
         Vector3 targetLookDir = Vector3.zero;
     
-        if (playerSensors.IsLocked)
+        if (_playerSensors.IsLocked)
         {
-            targetLookDir = playerSensors.LockedTarget - rb.position;
+            targetLookDir = _playerSensors.LockedTarget - rb.position;
         }
         else if (currentHorizontalVelocity.magnitude > 0.2f)
         {

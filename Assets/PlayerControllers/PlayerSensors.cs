@@ -153,6 +153,10 @@ public class PlayerSensors : MonoBehaviour
         Gizmos.color = IsGrounded ? Color.green : Color.red;
         var spherePosition = transform.position + Vector3.down * (groundCheckDistance - groundCheckRadius);
         Gizmos.DrawWireSphere(spherePosition, groundCheckRadius);
+        
+        Gizmos.color = IsFarGrounded ? Color.green : Color.red;
+        spherePosition = transform.position + Vector3.down * (farGroundCheckDistance - farGroundCheckRadius);
+        Gizmos.DrawWireSphere(spherePosition, farGroundCheckRadius);
 
         Gizmos.color = IsNearRightWall ? Color.green : Color.red;
         Gizmos.DrawLine(transform.position, transform.position + transform.right * wallCheckDistance);
