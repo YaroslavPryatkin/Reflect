@@ -17,12 +17,11 @@ public class CameraTransformController : MonoBehaviour
 
 
     private float externalTargetCameraMode = 0;
-
-    private bool isDashing = false;
-    
     private float targetSideShiftMultiplier = 0; 
     private float cameraDistance = 0;
     private float sideShiftMultiplier = 0;
+
+    public bool ShouldKeepCameraClose { get; set; } = false;
     
     private CameraFoWController _cameraFoWController;
     
@@ -36,7 +35,7 @@ public class CameraTransformController : MonoBehaviour
 
     private void MakeCameraSettings()
     {
-        if (isDashing)
+        if (ShouldKeepCameraClose)
         {
             cameraDistance = closeCameraDistance;
             
@@ -62,28 +61,6 @@ public class CameraTransformController : MonoBehaviour
     private void Start()
     {
         _cameraFoWController = GetComponent<CameraFoWController>();
-    }
-    
-    private void OnEnable()
-    {
-        PlayerMapInputManager.Instance.OnDashPressEvent += HandleDashPress;
-        PlayerMapInputManager.Instance.OnDashReleaseEvent += HandleDashRelease;
-    }
-
-    private void OnDisable()
-    {
-        PlayerMapInputManager.Instance.OnDashPressEvent -= HandleDashPress;
-        PlayerMapInputManager.Instance.OnDashReleaseEvent -= HandleDashRelease;
-    }
-
-    private void HandleDashPress()
-    {
-        isDashing = true;
-    }
-
-    private void HandleDashRelease()
-    {
-        isDashing = false;
     }
     
     Vector3 camVelocity = Vector3.zero;

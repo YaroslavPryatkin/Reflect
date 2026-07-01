@@ -140,14 +140,22 @@ public static class Utility
         
         return cameraGroundedRotation * localVector;
     }
-    
-    
-    public struct Timer
-    {
-        private float targetTime;
 
-        public void Start(float duration) => targetTime = Time.time + duration;
-        public bool IsReady => Time.time >= targetTime;
+    public static float ChangeMeasurementScale(float valueA, float minA, float maxA, float minB, float maxB)
+    {
+        return Math.Clamp((valueA - minA) *
+            (maxB-minB)/(maxA-minA) + minB,
+            minB, maxB);
+    }
+    
+    ///<summary>
+    /// Fraction = (maxB-minB)/(maxA-minA)
+    ///</summary>
+    public static float ChangeMeasurementScaleFraction(float valueA, float minA, float fraction, float minB, float maxB)
+    {
+        return Math.Clamp((valueA - minA) *
+            fraction + minB,
+            minB, maxB);
     }
     
     ///<summary>
@@ -186,6 +194,51 @@ public static class Utility
         }
         
         public static implicit operator T(ValueTimer<T> timer)
+        {
+            return timer.Value;
+        }
+    }
+    
+    ///<summary>
+    /// Blocks changing the value for the specified duration with interface for getting the time fraction
+    ///</summary>
+    public struct FractionValueTimer<T>
+    {
+        private float targetTime;
+        private float startingTime;
+        public T Value { get; private set; }
+
+        public FractionValueTimer(T initialVal)
+        {
+            Value = initialVal;
+            targetTime = 0f;
+            startingTime = 0f;
+        }
+        
+        public bool Set(T value, float duration = 0)
+        {
+            if (Time.time < targetTime) return false;
+            
+            SetForce(value, duration);
+            return true;
+        }
+
+        public void SetForce(T value, float duration = 0)
+        {
+            startingTime = Time.time;
+            targetTime = Time.time + duration;
+            Value = value;
+        }
+
+        public bool CanBeChanged => Time.time >= targetTime;
+        public float TimeFraction => Mathf.Abs(targetTime - startingTime) <= 0.0001f ? 1 : (Time.time-startingTime)/(targetTime - startingTime);
+        
+        public static implicit operator FractionValueTimer<T>(T value)
+        {
+            return new FractionValueTimer<T>(value);
+        }
+        
+        public static implicit operator T(FractionValueTimer<T> timer)
         {
             return timer.Value;
         }

@@ -14,8 +14,8 @@ TagManager:
   - Ground
   - Wall
   - PlayerModel
-  - 
-  - 
+  - ForwardJumpBarrier
+  - Running Wall
   - 
   - 
   - 

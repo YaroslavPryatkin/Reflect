@@ -11,6 +11,8 @@ public class PlayerMapInputManager : MonoBehaviour
     public event System.Action OnJumpEvent;
     public event System.Action OnDashPressEvent;
     public event System.Action OnDashReleaseEvent;
+    public event System.Action OnSlidePressEvent;
+    public event System.Action OnSlideReleaseEvent;
 
     private void Awake()
     {
@@ -41,5 +43,20 @@ public class PlayerMapInputManager : MonoBehaviour
             OnDashPressEvent?.Invoke();
         else if(context.canceled)
             OnDashReleaseEvent?.Invoke();
+    }
+
+    public void OnSlide(InputAction.CallbackContext context)
+    {
+        
+        if (context.started)
+        {
+            //Debug.Log("On slide pressed");
+            OnSlidePressEvent?.Invoke();
+        }
+        else if (context.canceled)
+        {
+            //Debug.Log("On slide released");
+            OnSlideReleaseEvent?.Invoke();
+        }
     }
 }

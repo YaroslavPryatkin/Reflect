@@ -1,24 +1,60 @@
+using System;
 using UnityEngine;
 
 
-
+[DefaultExecutionOrder(-50)]
 public class PlayerSensors : MonoBehaviour
 {
-    [SerializeField] private float groundCheckDistance = 1.1f;
+    [Header("Ground sensors")]
+    [SerializeField] private float groundCheckPoint1 = 0.9f;
+    [SerializeField] private float groundCheckPoint2 = 1.2f;
     [SerializeField] private float groundCheckRadius = 0.4f;
-    [SerializeField] private float farGroundCheckDistance = 1.5f;
+    [SerializeField] private float farGroundCheckPoint1 = 1.2f;
+    [SerializeField] private float farGroundCheckPoint2 = 1.7f;
     [SerializeField] private float farGroundCheckRadius = 0.4f;
     [SerializeField] private LayerMask groundLayer;
+    
+    [Header("Wall sensors for camera")]
     [SerializeField]private float wallCheckDistance = 1.5f;
     [SerializeField] private float wallMinimalAngle = 75f;
     [SerializeField] private LayerMask wallLayer;
 
-    [SerializeField, Range(2, 10)] private int wallRunRayCount = 4;
-    [SerializeField] private float wallRunCheckAngle = 30f;
+    
+    [Header("Wall sensors for wall run")]
+    [SerializeField, Range(2, 10)] private int wallRunRayCount = 5;
+    [SerializeField] private float wallRunCheckAngleAhead = 30f;
+    [SerializeField] private float wallRunCheckAngleBackward = 30f;
     [SerializeField] private float wallRunCheckDistance = 0.7f;
     [SerializeField] private float wallRunMinimalWallAngle = 80f;
     [SerializeField] private LayerMask wallRunLayer;
+    [SerializeField] private LayerMask blockingWallRunLayer;
     
+    [Header("Ground sensors for front jumps")]
+    [SerializeField, Range(2, 10)] private int frontGroundRayCount = 3;
+    [SerializeField] private float frontGroundCheckAngle = 10f;
+    [SerializeField] private float frontGroundMinimalCheckDistance = 0.7f;
+    [SerializeField] private float speedAtMinimalCheckDistance = 2f;
+    [SerializeField] private float frontGroundMaximalCheckDistance = 3f;
+    [SerializeField] private float speedAtMaximalCheckDistance = 10f;
+    [SerializeField] private float frontGroundMinimalHeight = -0.9f;
+    [SerializeField] private float frontGroundMaximalHeight = 0.9f;
+    [SerializeField] private float frontGroundHeightPrecision = 0.05f;
+    [SerializeField] private LayerMask frontGroundLayer;
+    [SerializeField] private float forceFrontGroundCheckHeight = -0.9f;
+    [SerializeField] private float forceFrontGroundMinimalCheckDistance = 0.7f;
+    [SerializeField] private float forceFrontGroundMaximalCheckDistance = 10f;
+    [SerializeField] private LayerMask forceFrontGroundLayer;
+
+    
+    /// <summary>
+    /// 0 - nothing found, 1 - should jump, 2 - full wall, 3 - canopy
+    /// </summary>
+    public int FrontGroundState { get; private set; } = 0; 
+    public float FrontGroundHeight { get; private set; } = 0f;
+    public Vector3 FrontGroundNormal { get; private set; } = Vector3.zero;
+    public Vector3 FrontGroundPoint  { get; private set; } = Vector3.zero;
+
+    public bool isForceFrontGround { get; private set; } = false;
 
     public bool IsGrounded { get; private set; }
     public bool IsFarGrounded { get; private set; }
@@ -41,31 +77,73 @@ public class PlayerSensors : MonoBehaviour
     
     public bool IsLocked { get; private set; } = false;
     public Vector3 LockedTarget { get; private set; } =  Vector3.zero;
+    
+    public Vector3 Velocity { get; private set; } = Vector3.zero;
+    public float Speed { get; private set; } = 0f;
+    public Vector3 HorizontalVelocity { get; private set; } =  Vector3.zero;
+    public Vector3 NormalizedHorizontalVelocity { get; private set; } =  Vector3.zero;
+    public float HorizontalSpeed { get; private set; } = 0f;
 
-    private PlayerMovementInputController _playerMovementInputController;
+    private Rigidbody rb;
+    
+    private float speedToDistanceFraction = 0f;
+    private float forceSpeedToDistanceFraction;
+    private float currentFrontGroundCheckDistance = 0f;
+    private float forceCurrentFrontGroundCheckDistance = 0f;
 
+    private int realAmountOfWallRunRays = 0;
+    
     private void Awake()
     {
-        _playerMovementInputController = GetComponent<PlayerMovementInputController>();
+        speedToDistanceFraction = (frontGroundMaximalCheckDistance - frontGroundMinimalCheckDistance) /
+                                  (speedAtMaximalCheckDistance - speedAtMinimalCheckDistance);
+        forceSpeedToDistanceFraction = (forceFrontGroundMaximalCheckDistance - forceFrontGroundMinimalCheckDistance) /
+                                       (speedAtMaximalCheckDistance - speedAtMinimalCheckDistance);
+        rb = GetComponent<Rigidbody>();
+
+        realAmountOfWallRunRays = Math.Max(wallRunRayCount, 1);
+        realAmountOfWallRunRays +=(1 - realAmountOfWallRunRays % 2);
     }
+    
     
     private void Update()
     {
-        GatherSensors();
+        UpdateVelocity();
+        GatherGroundSensors();
+        GatherWallSensors();
+        GatherWallRunSensors();
+        GatherFrontGroundSensor();
     }
 
-    private void GatherSensors()
+    private void FixedUpdate()
     {
-        var spherePosition = transform.position + Vector3.down * (groundCheckDistance - groundCheckRadius);
-        IsGrounded = Physics.CheckSphere(spherePosition, groundCheckRadius, groundLayer);
-        spherePosition = transform.position + Vector3.down * (farGroundCheckDistance - farGroundCheckRadius);
-        IsFarGrounded = Physics.CheckSphere(spherePosition, farGroundCheckRadius, groundLayer) || IsGrounded;
-        
-        RaycastHit hitInfo;
+        UpdateVelocity();
+    }
 
+    public void UpdateVelocity()
+    {
+        Velocity = rb.linearVelocity;
+        Speed = Velocity.magnitude;
+        HorizontalVelocity = new Vector3(Velocity.x, 0f, Velocity.z);
+        NormalizedHorizontalVelocity = HorizontalVelocity.normalized;
+        HorizontalSpeed = HorizontalVelocity.magnitude;
+    }
+
+    private void GatherGroundSensors()
+    {
+        var point1 = transform.position + Vector3.down * groundCheckPoint1;
+        var point2 = transform.position + Vector3.down * groundCheckPoint2;
+        IsGrounded = Physics.CheckCapsule(point1, point2, groundCheckRadius, groundLayer);
+        point1 = transform.position + Vector3.down * farGroundCheckPoint1;
+        point2 = transform.position + Vector3.down * farGroundCheckPoint2;
+        IsFarGrounded = Physics.CheckCapsule(point1, point2, farGroundCheckRadius, groundLayer) || IsGrounded;
+    }
+
+    private void GatherWallSensors()
+    {
         var cameraRight = GlobalLookDirectionManager.FromCameraLocalToGlobalByZX(Vector3.right);
         
-        if (Physics.Raycast(transform.position, cameraRight, out hitInfo, wallCheckDistance, wallLayer)
+        if (Physics.Raycast(transform.position, cameraRight, out RaycastHit hitInfo, wallCheckDistance, wallLayer)
             && Vector3.Angle(transform.up, hitInfo.normal) > wallMinimalAngle)
         {
             IsNearRightWall = true;
@@ -88,7 +166,9 @@ public class PlayerSensors : MonoBehaviour
             IsNearLeftWall = false;
             LeftWallDistance = 0;
         }
-        
+    }
+    private void GatherWallRunSensors()
+    {
         IsRightWallRun = false;
         IsLeftWallRun = false;
         if (!IsGrounded)
@@ -127,36 +207,160 @@ public class PlayerSensors : MonoBehaviour
     private bool TryFindWallRunSector(Vector3 baseDirection, float angleSign, out RaycastHit bestHit)
     {
         bestHit = new RaycastHit();
-        int rays = Mathf.Max(1, wallRunRayCount);
-        
-        for (int i = 0; i < rays; i++)
+        bool didHit = false;
+        for (var i = 0; i < realAmountOfWallRunRays; i++)
         {
-            float fraction = rays > 1 ? (float)i / (rays - 1) : 0;
-            float currentAngle = Mathf.Lerp(0, wallRunCheckAngle, fraction);
+            var fraction = realAmountOfWallRunRays > 1 ? (float)i / (realAmountOfWallRunRays - 1) : 0;
+            var currentAngle = Mathf.Lerp(-wallRunCheckAngleBackward, wallRunCheckAngleAhead, fraction);
             
-            Vector3 rayDirection = Quaternion.AngleAxis(currentAngle * angleSign, transform.up) * baseDirection;
+            var rayDirection = Quaternion.AngleAxis(currentAngle * angleSign, transform.up) * baseDirection;
             
-            if (Physics.Raycast(transform.position, rayDirection, out RaycastHit hit, wallRunCheckDistance, wallRunLayer))
+            if (Physics.Raycast(transform.position, rayDirection, out RaycastHit hit, wallRunCheckDistance, wallRunLayer | blockingWallRunLayer, QueryTriggerInteraction.Collide))
             {
-                if (Vector3.Angle(transform.up, hit.normal) > wallRunMinimalWallAngle)
+                if ( ((1 << hit.collider.gameObject.layer) & blockingWallRunLayer) == 0 && Vector3.Angle(transform.up, hit.normal) > wallRunMinimalWallAngle)
                 {
+                    didHit = true;
                     bestHit = hit;
-                    return true;
+                    if(currentAngle>=0)
+                        return true;
                 }
             }
         }
-        return false;
+        return didHit;
     }
+    
+    private void GatherFrontGroundSensor()
+    {
+        currentFrontGroundCheckDistance = Utility.ChangeMeasurementScaleFraction(HorizontalSpeed,
+            speedAtMinimalCheckDistance, speedToDistanceFraction, frontGroundMinimalCheckDistance,
+            frontGroundMaximalCheckDistance);
+
+        
+        bool hitMin = TryCheckHeight(frontGroundMinimalHeight, currentFrontGroundCheckDistance, frontGroundLayer, QueryTriggerInteraction.Ignore,out var normalMin, out var pointMin);
+        bool hitMax = TryCheckHeight(frontGroundMaximalHeight, currentFrontGroundCheckDistance, frontGroundLayer, QueryTriggerInteraction.Ignore, out var normalMax, out var pointMax);
+
+        if (!hitMin && !hitMax)
+        {
+            FrontGroundState = 0;
+            FrontGroundHeight = 0f;
+            FrontGroundNormal = Vector3.zero;
+            FrontGroundPoint = Vector3.zero;
+        }
+        else if (hitMin && hitMax)
+        {
+            FrontGroundState = 2;
+            FrontGroundHeight = frontGroundMaximalHeight;
+            FrontGroundNormal = normalMax;
+            FrontGroundPoint = pointMax;
+        }
+        else if (!hitMin && hitMax)
+        {
+            FrontGroundState = 3;
+            FrontGroundHeight = 0f;
+            FrontGroundNormal = Vector3.zero;
+            FrontGroundPoint = Vector3.zero;
+        }
+        else
+        {
+            FrontGroundState = 1;
+            
+            float low = frontGroundMinimalHeight;
+            float high = frontGroundMaximalHeight;
+            var bestNormal = normalMin;
+            var bestPoint = pointMin;
+
+            while ((high - low) > frontGroundHeightPrecision)
+            {
+                float mid = low + (high - low) / 2f;
+                
+                if (TryCheckHeight(mid, currentFrontGroundCheckDistance,frontGroundLayer, QueryTriggerInteraction.Ignore, out var midNormal, out var midPoint))
+                {
+                    low = mid;
+                    bestNormal = midNormal; 
+                    bestPoint = midPoint;
+                }
+                else
+                {
+                    high = mid;
+                }
+            }
+
+            FrontGroundHeight = high;
+            FrontGroundNormal = bestNormal;
+            FrontGroundPoint = bestPoint;
+        }
+        
+        forceCurrentFrontGroundCheckDistance = Utility.ChangeMeasurementScaleFraction(HorizontalSpeed,
+            speedAtMinimalCheckDistance, forceSpeedToDistanceFraction, forceFrontGroundMinimalCheckDistance,
+            forceFrontGroundMaximalCheckDistance);
+
+        if (TryCheckHeight(forceFrontGroundCheckHeight,forceCurrentFrontGroundCheckDistance,forceFrontGroundLayer, QueryTriggerInteraction.Collide,out var forceNormal, out var forcePoint))
+        {
+            if (FrontGroundState == 0)
+            {
+                FrontGroundState = 1;
+                FrontGroundHeight = frontGroundMinimalHeight;
+                FrontGroundNormal = forceNormal;
+                FrontGroundPoint = forcePoint;
+            }
+
+            isForceFrontGround = true;
+        }
+        else
+        {
+            isForceFrontGround = false;
+        }
+    }
+
+    private bool TryCheckHeight(float localHeight, float checkDistance, int layerMask, QueryTriggerInteraction triggerInteraction, out Vector3 closestNormal, out Vector3 closestPoint)
+    {
+        bool hasHit = false;
+        closestNormal = Vector3.zero;
+        closestPoint = Vector3.zero;
+        
+        float minAngleAbs = float.MaxValue;
+        
+        Vector3 origin = transform.position + Vector3.up * localHeight;
+
+        for (int i = 0; i < frontGroundRayCount; i++)
+        {
+            float t = (float)i / (frontGroundRayCount - 1);
+            
+            float currentAngle = Mathf.Lerp(-frontGroundCheckAngle, frontGroundCheckAngle, t);
+            
+            Vector3 direction = Quaternion.AngleAxis(currentAngle, transform.up) * transform.forward;
+
+            if (Physics.Raycast(origin, direction, out RaycastHit hit, checkDistance, layerMask, triggerInteraction))
+            {
+                float absAngle = Mathf.Abs(currentAngle);
+                
+                if (absAngle < minAngleAbs)
+                {
+                    minAngleAbs = absAngle;
+                    closestNormal = hit.normal;
+                    closestPoint = hit.point;
+                    hasHit = true;
+                }
+            }
+        }
+
+        return hasHit;
+    }
+    
     
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = IsGrounded ? Color.green : Color.red;
-        var spherePosition = transform.position + Vector3.down * (groundCheckDistance - groundCheckRadius);
-        Gizmos.DrawWireSphere(spherePosition, groundCheckRadius);
+        Gizmos.color = IsGrounded ? Color.green : Color.deepPink;
+        var point1 = transform.position + Vector3.down * groundCheckPoint1;
+        var point2 = transform.position + Vector3.down * groundCheckPoint2;
+        Gizmos.DrawWireSphere(point1, groundCheckRadius);
+        Gizmos.DrawWireSphere(point2, groundCheckRadius);
         
-        Gizmos.color = IsFarGrounded ? Color.green : Color.red;
-        spherePosition = transform.position + Vector3.down * (farGroundCheckDistance - farGroundCheckRadius);
-        Gizmos.DrawWireSphere(spherePosition, farGroundCheckRadius);
+        Gizmos.color = IsFarGrounded ? Color.aquamarine : Color.red;
+        point1 = transform.position + Vector3.down * farGroundCheckPoint1;
+        point2 = transform.position + Vector3.down * farGroundCheckPoint2;
+        Gizmos.DrawWireSphere(point1, farGroundCheckRadius);
+        Gizmos.DrawWireSphere(point2, farGroundCheckRadius);
 
         Gizmos.color = IsNearRightWall ? Color.green : Color.red;
         Gizmos.DrawLine(transform.position, transform.position + transform.right * wallCheckDistance);
@@ -165,22 +369,47 @@ public class PlayerSensors : MonoBehaviour
         Gizmos.DrawLine(transform.position, transform.position - transform.right * wallCheckDistance);
         
         Gizmos.color = IsRightWallRun ? Color.yellow : Color.purple;
-        DrawSectorGizmo(transform.right, -1f);
+        DrawWallRunRaysGizmo(transform.right, -1f);
 
         Gizmos.color = IsLeftWallRun ? Color.yellow : Color.purple;
-        DrawSectorGizmo(-transform.right, 1f);
+        DrawWallRunRaysGizmo(-transform.right, 1f);
+        
+        Gizmos.color = FrontGroundState == 1 ? Color.cornflowerBlue : Color.coral;
+        DrawSectorRaysGizmo(transform.position + transform.up*frontGroundMinimalHeight, transform.forward, transform.up, frontGroundRayCount, frontGroundCheckAngle, frontGroundMinimalCheckDistance);
+        
+        DrawSectorRaysGizmo(transform.position + transform.up*frontGroundMaximalHeight, transform.forward, transform.up, frontGroundRayCount, frontGroundCheckAngle, frontGroundMaximalCheckDistance);
+        
+        DrawSectorRaysGizmo(transform.position, transform.forward, transform.up, frontGroundRayCount, frontGroundCheckAngle, currentFrontGroundCheckDistance);
+        
+        Gizmos.color = isForceFrontGround ? Color.cornflowerBlue : Color.coral;
+        DrawSectorRaysGizmo(transform.position + transform.up * forceFrontGroundCheckHeight, transform.forward, transform.up, frontGroundRayCount, frontGroundCheckAngle, forceCurrentFrontGroundCheckDistance);
     }
 
-    private void DrawSectorGizmo(Vector3 baseDirection, float angleSign)
+    private void DrawWallRunRaysGizmo(Vector3 baseDirection, float angleSign)
     {
-        int rays = Mathf.Max(1, wallRunRayCount);
+        var rays = Math.Max(wallRunRayCount, 1);
+        rays += (1 - rays % 2);
         for (int i = 0; i < rays; i++)
         {
             float fraction = rays > 1 ? (float)i / (rays - 1) : 0;
-            float currentAngle = Mathf.Lerp(0, wallRunCheckAngle, fraction);
+            float currentAngle = Mathf.Lerp(-wallRunCheckAngleBackward, wallRunCheckAngleAhead, fraction);
             Vector3 rayDirection = Quaternion.AngleAxis(currentAngle * angleSign, transform.up) * baseDirection;
             
             Gizmos.DrawLine(transform.position, transform.position + rayDirection * wallRunCheckDistance);
+        }
+    }
+
+    private void DrawSectorRaysGizmo(in Vector3 origin, in Vector3 baseDirection, in Vector3 upDirection, int amountOfRays, float angle, float distance)
+    {
+        for (int i = 0; i < amountOfRays; i++)
+        {
+            float t = (float)i / (amountOfRays - 1);
+        
+            float currentAngle = Mathf.Lerp(-angle, angle, t);
+        
+            Vector3 direction = (Quaternion.AngleAxis(currentAngle, upDirection) * baseDirection).normalized * distance;
+
+            Gizmos.DrawLine(origin, origin + direction);
         }
     }
 }

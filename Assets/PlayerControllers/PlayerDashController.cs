@@ -17,26 +17,30 @@ public class PlayerDashController : MonoBehaviour
 
     private Vector3 capsuleCenterToTop;
     private float capsuleRadius;
-    private AnimationController animationController;
-    private MovementController movementController;
+    private PlayerSensors  _playerSensors;
+    private PlayerMovementInputController _playerMovementInputController;
     private Rigidbody rb;
-    private Utility.ValueTimer<bool> isDashing = new(false);
+    private PlayerForwardJumpingController  _playerForwardJumpingController;
+    private Utility.FractionValueTimer<bool> isDashing = new(false);
 
     
-    public bool Dashing => isDashing.Value;
+    public bool IsDashing => isDashing.Value;
+    public float DashRechargeFraction => isDashing.Value ? 0 : isDashing.TimeFraction;
     
-    private Vector3 newVelocity = Vector3.zero;
+    private float newSpeed;
+    private Vector3 newVelocityDirection = Vector3.zero;
     private Quaternion newRotation = Quaternion.identity;
     private bool firstUpdateAfterPressedDash = false;
     
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
-        animationController = GetComponent<AnimationController>();
-        CapsuleCollider capsule = GetComponent<CapsuleCollider>();
-        movementController = GetComponent<MovementController>();
+        var capsule = GetComponent<CapsuleCollider>();
+        _playerSensors = GetComponent<PlayerSensors>();
         capsuleRadius = capsule.radius;
         capsuleCenterToTop = Vector3.up * (capsule.height / 2 - capsule.radius);
+        _playerForwardJumpingController = GetComponent<PlayerForwardJumpingController>();
+        _playerMovementInputController = GetComponent<PlayerMovementInputController>();
         //Debug.Log(capsuleCenterToTop.magnitude + ", " + capsuleRadius);
     }
 
@@ -44,49 +48,38 @@ public class PlayerDashController : MonoBehaviour
     {
         ghost.SetActive(false);
     }
-    
-    private void OnEnable()
-    {
-        PlayerMapInputManager.Instance.OnDashPressEvent += HandleDashPress;
-        PlayerMapInputManager.Instance.OnDashReleaseEvent += HandleDashRelease;
-    }
 
-    private void OnDisable()
-    {
-        PlayerMapInputManager.Instance.OnDashPressEvent -= HandleDashPress;
-        PlayerMapInputManager.Instance.OnDashReleaseEvent -= HandleDashRelease;
-    }
-
-    private void HandleDashPress()
-    {
-        //Debug.Log("Dash Press");
-        if (!isDashing && isDashing.CanBeChanged)
-        {
-            firstUpdateAfterPressedDash = true;
-            animationController.HandleDashPressed();
-            ChangeTimePace(slowMotionCoefficient);
-            isDashing.SetForce(true, 0);
-            ghost.SetActive(true);
-        }
-    }
-
-
-    private void HandleDashRelease()
-    {
-        //Debug.Log("Dash Release");
-        if (isDashing)
-        {
-            firstUpdateAfterPressedDash = false;
-            animationController.HandleDashReleased();
-            ChangeTimePace(1);
-            isDashing.SetForce(false, dashRechargeTime);
-            ghost.SetActive(false);
-            finishDash();
-        }
-    }
 
     void Update()
     {
+        if (_playerMovementInputController.IsDashPressed)
+        {
+            if (!isDashing && isDashing.CanBeChanged)
+            {
+                if(_playerForwardJumpingController.IsForwardJumping)
+                    _playerForwardJumpingController.Interrupt();
+            
+                firstUpdateAfterPressedDash = true;
+                ChangeTimePace(slowMotionCoefficient);
+                isDashing.SetForce(true, 0);
+                ghost.SetActive(true);
+                var currentSpeed = _playerSensors.Speed;
+                var speedChange = Math.Clamp(dashSpeedGainMaxSpeed - currentSpeed,0, dashSpeedGain);
+                newSpeed = currentSpeed + speedChange;
+            }
+        }
+        else
+        {
+            if (isDashing)
+            {
+                firstUpdateAfterPressedDash = false;
+                ChangeTimePace(1);
+                isDashing.SetForce(false, dashRechargeTime);
+                ghost.SetActive(false);
+                finishDash();
+            }
+        }
+        
         if (isDashing)
         {
             MoveGhost();
@@ -113,10 +106,7 @@ public class PlayerDashController : MonoBehaviour
             transform.position, capsuleCenterToTop, capsuleRadius,
             lookDir, dashMaxDistance, ignoreLayers);
 
-        var currentSpeed = rb.linearVelocity.magnitude;
-        var speedChange = Math.Min(dashSpeedGainMaxSpeed - currentSpeed, dashSpeedGain);
 
-        var newSpeed = currentSpeed + speedChange;
         //Debug.Log("Moving ghost to position " + targetPosition);
         if (firstUpdateAfterPressedDash)
             ghost.transform.position = targetPosition;
@@ -136,11 +126,11 @@ public class PlayerDashController : MonoBehaviour
         if (xzRotation.sqrMagnitude < 0.0001f)
         {
             newRotation =  Quaternion.identity;
-            newVelocity = Vector3.zero;
+            newVelocityDirection = Vector3.zero;
         }
         else
         {
-            newVelocity = xzRotation.normalized * newSpeed;
+            newVelocityDirection = xzRotation.normalized;
             newRotation = Quaternion.LookRotation(xzRotation.normalized, Vector3.up);
         }
 
@@ -152,7 +142,8 @@ public class PlayerDashController : MonoBehaviour
         //Debug.Log("dashing");
         transform.position = ghost.transform.position;
         transform.rotation = newRotation;
-        rb.linearVelocity = newVelocity;
+        rb.linearVelocity = newVelocityDirection * newSpeed;
         rb.angularVelocity = Vector3.zero;
+        _playerSensors.UpdateVelocity();
     }
 }

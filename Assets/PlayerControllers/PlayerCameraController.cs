@@ -9,6 +9,7 @@ public class PlayerCameraController : MonoBehaviour
     
     
     private PlayerSensors playerSensors;
+    private PlayerDashController playerDashController;
     private Rigidbody rb;
     private CameraFoWController cameraFowController;
     private CameraTransformController cameraTransformController;
@@ -19,12 +20,14 @@ public class PlayerCameraController : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         cameraFowController = playerCamera.GetComponent<CameraFoWController>();
         cameraTransformController = playerCamera.GetComponent<CameraTransformController>();
+        playerDashController = GetComponent<PlayerDashController>();
     }
     
     void Update()
     {
         ChangeFoWFromSpeed();
         UpdateCameraMode();
+        cameraTransformController.ShouldKeepCameraClose = playerDashController.IsDashing;
     }
     
     private void UpdateCameraMode()
