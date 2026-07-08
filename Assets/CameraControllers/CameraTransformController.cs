@@ -5,58 +5,18 @@ using UnityEngine;
 public class CameraTransformController : MonoBehaviour
 {
     [SerializeField] private Transform target;
-
-    [SerializeField] private float farCameraDistance = 3f;
-    [SerializeField] private float farSideShiftMultiplier = 0.5f;
-    [SerializeField] private float closeCameraDistance = 1.5f;
-    [SerializeField] private float closeSideShiftMultiplier = 0.7f;
-    [SerializeField] private float sideShiftSpeed = 15f;
     [SerializeField] private float smoothTime = 0.05f;
     [SerializeField] private float rotationSmoothTime = 0.05f;
+    [SerializeField] private float maxDistanceToSnap = 20f;
     [SerializeField] private LayerMask ignoreLayers;
-
-
-    private float externalTargetCameraMode = 0;
-    private float targetSideShiftMultiplier = 0; 
-    private float cameraDistance = 0;
-    private float sideShiftMultiplier = 0;
-
-    public bool ShouldKeepCameraClose { get; set; } = false;
+    
+    public float TargetSideShift { get; set; } = 0; 
+    public float TargetUpShift { get; set; }= 0;
+    public float TargetCameraDistance { get; set; }= 0;
+    
+    public Vector3 TargetDirection { get; set; } = Vector3.zero;
     
     private CameraFoWController _cameraFoWController;
-    
-    public float CameraMode
-    {
-        get => externalTargetCameraMode;
-        set => externalTargetCameraMode = value;
-    }
-    
-    public void ResetCameraMode(){externalTargetCameraMode = 0f;}
-
-    private void MakeCameraSettings()
-    {
-        if (ShouldKeepCameraClose)
-        {
-            cameraDistance = closeCameraDistance;
-            
-            var externalSideShiftMultiplier = farSideShiftMultiplier * externalTargetCameraMode;
-            
-            if(externalSideShiftMultiplier <= 0.01f)
-                targetSideShiftMultiplier = Math.Min(externalTargetCameraMode, -closeSideShiftMultiplier);
-            else if (externalSideShiftMultiplier >= 0.01f)
-                targetSideShiftMultiplier = Math.Max(externalTargetCameraMode, closeSideShiftMultiplier);
-            else
-                targetSideShiftMultiplier = closeSideShiftMultiplier;
-        }
-        else
-        {
-            cameraDistance = farCameraDistance;
-            targetSideShiftMultiplier = farSideShiftMultiplier * externalTargetCameraMode;
-        }
-    }
-    
-
-    
 
     private void Start()
     {
@@ -70,13 +30,9 @@ public class CameraTransformController : MonoBehaviour
     
     private void LateUpdate()
     {
-        MakeCameraSettings();
+        if (!GlobalUIManager.Instance.IsGameActive) return;
         
-        sideShiftMultiplier = Mathf.Lerp(sideShiftMultiplier, targetSideShiftMultiplier, sideShiftSpeed * Time.unscaledDeltaTime);
-        if (Mathf.Abs(sideShiftMultiplier - targetSideShiftMultiplier) < 0.001f) sideShiftMultiplier = targetSideShiftMultiplier;
-        
-        
-        var lookDir = GlobalLookDirectionManager.CurrentLookDirection;
+        var lookDir = TargetDirection;
         if (lookDir == Vector3.zero) lookDir = target.forward;
         
         smoothedLookDir = Vector3.SmoothDamp(smoothedLookDir, lookDir, ref lookDirVelocity, rotationSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
@@ -90,19 +46,35 @@ public class CameraTransformController : MonoBehaviour
         {
             horizontalDir = new Vector3(target.forward.x, 0f, target.forward.z).normalized;
         }
-        
-        var sideShift = Vector3.Cross(horizontalDir,Vector3.up) * sideShiftMultiplier;
-        var realDirection = directionToCamera + sideShift;
+        var sideShiftVector = Vector3.Cross(horizontalDir,Vector3.up) * TargetSideShift;
+        var upShiftVector = Vector3.up * TargetUpShift;
+        var realDirection = directionToCamera + sideShiftVector + upShiftVector;
 
-        var finalPosition = Utility.GetSphereRayCastPoint(target.position, realDirection, cameraDistance, 
+        var finalPosition = Utility.GetSphereRayCastPoint(target.position, realDirection, TargetCameraDistance, 
             _cameraFoWController.CurrentSphereCastRadius, ignoreLayers);
-        
-        transform.position = Vector3.SmoothDamp(transform.position, finalPosition, ref camVelocity,  smoothTime, Mathf.Infinity , Time.unscaledDeltaTime);
+        if (Vector3.Distance(transform.position, finalPosition) > maxDistanceToSnap)
+        {
+            transform.position = finalPosition;
+            camVelocity = Vector3.zero;
+        }
+        else
+        {
+            transform.position = Vector3.SmoothDamp(transform.position, finalPosition, ref camVelocity, smoothTime,
+                Mathf.Infinity, Time.unscaledDeltaTime);
+        }
 
         transform.rotation = Quaternion.LookRotation(smoothedLookDir);
         
     }
-    
+
+    // private void ChangeShifts()
+    // {
+    //     sideShift = Mathf.Lerp(sideShift, TargetSideShift, sideShiftSpeed * Time.unscaledDeltaTime);
+    //     if (Mathf.Abs(sideShift - TargetSideShift) < 0.001f) sideShift = TargetSideShift;
+    //     
+    //     upShift = Mathf.Lerp(upShift, TargetUpShift, upShiftSpeed * Time.unscaledDeltaTime);
+    //     if (Mathf.Abs(upShift - TargetUpShift) < 0.001f) upShift = TargetUpShift;
+    // }
     
 }
 

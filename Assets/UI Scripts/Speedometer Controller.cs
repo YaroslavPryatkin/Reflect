@@ -4,7 +4,7 @@ using TMPro;
 
 public class SpeedometerController : MonoBehaviour
 {
-    [SerializeField] private PlayerSensors playerSensors;
+     private PlayerSensors playerSensors;
     [SerializeField] private TextMeshProUGUI speedText;
     [SerializeField] private Image speedBar;
 
@@ -12,6 +12,11 @@ public class SpeedometerController : MonoBehaviour
     [SerializeField] private float maxSpeedForUI = 20f;
     [SerializeField] private float speedMultiplier = 3.6f;
 
+    private void Awake()
+    {
+        playerSensors = GlobalGameManager.Player.GetComponent<PlayerSensors>();
+    }
+    
     private void Update()
     {
         var rawSpeed = playerSensors.HorizontalSpeed;

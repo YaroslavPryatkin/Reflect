@@ -9,38 +9,40 @@ public class PlayerDashController : MonoBehaviour
     [SerializeField] private float dashMaxDistance = 5;
     [SerializeField] private float dashSpeedGain = 5;
     [SerializeField] private float dashSpeedGainMaxSpeed = 15;
+    [SerializeField] private float dashMaxVerticalVelocityChange = 3f;
     [SerializeField] private float dashRechargeTime = 1f;
     [SerializeField] private float angleUp = 15f;
-    [SerializeField] private LayerMask ignoreLayers;
     [SerializeField] private float slowMotionCoefficient = 0.2f;
     [SerializeField] private float ghostSmoothSpeed = 30f;
 
     private Vector3 capsuleCenterToTop;
     private float capsuleRadius;
     private PlayerSensors  _playerSensors;
-    private PlayerMovementInputController _playerMovementInputController;
+    private PlayerInputController _playerInputController;
     private Rigidbody rb;
     private PlayerForwardJumpingController  _playerForwardJumpingController;
-    private Utility.FractionValueTimer<bool> isDashing = new(false);
+    private Utility.FractionBlockingValueTimer<bool> isDashing = new(false);
 
     
     public bool IsDashing => isDashing.Value;
     public float DashRechargeFraction => isDashing.Value ? 0 : isDashing.TimeFraction;
     
-    private float newSpeed;
+    private Vector3 newHorizontalVelocityDirection = Vector3.zero;
     private Vector3 newVelocityDirection = Vector3.zero;
+    private bool newHorizontalVelocityIsZero = true;
     private Quaternion newRotation = Quaternion.identity;
     private bool firstUpdateAfterPressedDash = false;
+    private int layerMask;
     
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
-        var capsule = GetComponent<CapsuleCollider>();
         _playerSensors = GetComponent<PlayerSensors>();
-        capsuleRadius = capsule.radius;
-        capsuleCenterToTop = Vector3.up * (capsule.height / 2 - capsule.radius);
+        capsuleRadius = _playerSensors.ColliderRadius;
+        capsuleCenterToTop = _playerSensors.ColliderCenterToTop;
         _playerForwardJumpingController = GetComponent<PlayerForwardJumpingController>();
-        _playerMovementInputController = GetComponent<PlayerMovementInputController>();
+        _playerInputController = GetComponent<PlayerInputController>();
+        layerMask = _playerSensors.IgnoreMyLayerMask;
         //Debug.Log(capsuleCenterToTop.magnitude + ", " + capsuleRadius);
     }
 
@@ -52,7 +54,7 @@ public class PlayerDashController : MonoBehaviour
 
     void Update()
     {
-        if (_playerMovementInputController.IsDashPressed)
+        if (_playerInputController.IsDashPressed)
         {
             if (!isDashing && isDashing.CanBeChanged)
             {
@@ -60,12 +62,9 @@ public class PlayerDashController : MonoBehaviour
                     _playerForwardJumpingController.Interrupt();
             
                 firstUpdateAfterPressedDash = true;
-                ChangeTimePace(slowMotionCoefficient);
+                GlobalTimeScaleController.ChangeTimePace(this, slowMotionCoefficient);
                 isDashing.SetForce(true, 0);
                 ghost.SetActive(true);
-                var currentSpeed = _playerSensors.Speed;
-                var speedChange = Math.Clamp(dashSpeedGainMaxSpeed - currentSpeed,0, dashSpeedGain);
-                newSpeed = currentSpeed + speedChange;
             }
         }
         else
@@ -73,10 +72,10 @@ public class PlayerDashController : MonoBehaviour
             if (isDashing)
             {
                 firstUpdateAfterPressedDash = false;
-                ChangeTimePace(1);
+                GlobalTimeScaleController.ReturnTimePace(this);
                 isDashing.SetForce(false, dashRechargeTime);
                 ghost.SetActive(false);
-                finishDash();
+                FinishDash();
             }
         }
         
@@ -88,12 +87,7 @@ public class PlayerDashController : MonoBehaviour
         
     }
 
-    private void ChangeTimePace(float time)
-    {
-        //Debug.Log("Before: timescale = " + Time.timeScale + ", fixed delta time = " + Time.fixedDeltaTime);
-        Time.timeScale = time;
-        Time.fixedDeltaTime = 0.02f * time;
-    }
+
 
     private void MoveGhost()
     {
@@ -104,7 +98,7 @@ public class PlayerDashController : MonoBehaviour
 
         var targetPosition = Utility.GetCapsuleRayCastPoint(
             transform.position, capsuleCenterToTop, capsuleRadius,
-            lookDir, dashMaxDistance, ignoreLayers);
+            lookDir, dashMaxDistance, layerMask);
 
 
         //Debug.Log("Moving ghost to position " + targetPosition);
@@ -126,24 +120,56 @@ public class PlayerDashController : MonoBehaviour
         if (xzRotation.sqrMagnitude < 0.0001f)
         {
             newRotation =  Quaternion.identity;
-            newVelocityDirection = Vector3.zero;
+            newHorizontalVelocityDirection = Vector3.zero;
+            newHorizontalVelocityIsZero = true;
         }
         else
         {
-            newVelocityDirection = xzRotation.normalized;
+            newHorizontalVelocityDirection = xzRotation;
             newRotation = Quaternion.LookRotation(xzRotation.normalized, Vector3.up);
+            newHorizontalVelocityIsZero = false;
         }
+
+        newVelocityDirection = targetRotation;
 
         //HandleDashRelease();
     }
 
-    private void finishDash()
+    private void FinishDash()
     {
         //Debug.Log("dashing");
         transform.position = ghost.transform.position;
         transform.rotation = newRotation;
-        rb.linearVelocity = newVelocityDirection * newSpeed;
+        
+        var currentHorizontalSpeed = _playerSensors.HorizontalSpeed; 
+        var horizontalSpeedChange = Mathf.Clamp(dashSpeedGainMaxSpeed - currentHorizontalSpeed, 0f, dashSpeedGain);
+        var newHorizontalSpeed = currentHorizontalSpeed + horizontalSpeedChange;
+
+        var currentVerticalSpeed = _playerSensors.Velocity.y;
+        
+        
+        if (newHorizontalVelocityIsZero)
+        {
+            var currentHorizontalVelocity = _playerSensors.HorizontalVelocity;
+            if(newVelocityDirection.y < 0)
+                rb.linearVelocity = new Vector3(currentHorizontalVelocity.x, currentVerticalSpeed - dashMaxVerticalVelocityChange,
+                    currentHorizontalVelocity.z);
+            else
+                rb.linearVelocity = new Vector3(currentHorizontalVelocity.x, currentVerticalSpeed + dashMaxVerticalVelocityChange,
+                currentHorizontalVelocity.z);
+        }
+        else
+        {
+            var newPotentialVerticalSpeed = newVelocityDirection.y/newHorizontalVelocityDirection.magnitude * newHorizontalSpeed;
+            var newVerticalSpeed = Mathf.Clamp(newPotentialVerticalSpeed,
+                currentVerticalSpeed - dashMaxVerticalVelocityChange,
+                currentVerticalSpeed + dashMaxVerticalVelocityChange);
+            var normalized = newHorizontalVelocityDirection.normalized;
+            rb.linearVelocity = new Vector3(normalized.x * newHorizontalSpeed, newVerticalSpeed,
+                normalized.z * newHorizontalSpeed);
+        }
         rb.angularVelocity = Vector3.zero;
         _playerSensors.UpdateVelocity();
+        _playerInputController.ChangeLastNonZeroInputToCurrentHorizontalVelocity();
     }
 }

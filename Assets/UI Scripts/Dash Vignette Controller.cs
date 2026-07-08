@@ -5,23 +5,17 @@ using UnityEngine.UI;
 public class DashVignetteController : MonoBehaviour
 {
     
-    [SerializeField] private PlayerDashController playerDashController;
+    private PlayerDashController playerDashController;
     [SerializeField] private float fadeInTime = 0.1f;
     [SerializeField] private float fadeOutTime = 0.1f;
-    [SerializeField] private GameObject imageObject;
-
+    [SerializeField] private Image image;
     
-    private Image image;
-    private Utility.FractionValueTimer<bool> isShowing = false;
+    private Utility.FractionBlockingValueTimer<bool> isShowing = false;
 
 
     private void Awake()
     {
-        image = imageObject.GetComponent<Image>();
-    }
-    private void Start()
-    {
-        imageObject.SetActive(true);
+        playerDashController = GlobalGameManager.Player.GetComponent<PlayerDashController>();
     }
     
     void Update()

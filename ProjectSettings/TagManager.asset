@@ -16,8 +16,8 @@ TagManager:
   - PlayerModel
   - ForwardJumpBarrier
   - Running Wall
-  - 
-  - 
+  - EnemyModel
+  - Square prop
   - 
   - 
   - 

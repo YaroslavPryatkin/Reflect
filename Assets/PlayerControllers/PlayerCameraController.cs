@@ -2,52 +2,117 @@ using UnityEngine;
 
 public class PlayerCameraController : MonoBehaviour
 {
-
-    [SerializeField] private Camera playerCamera;
     [SerializeField] private float minSpeedToChangeFow = 10;
     [SerializeField] private float maxSpeedToChangeFow = 20;
+    [Header("Left - plus, right - minus")]
+    [Header("Normal Settings")]
+    [SerializeField] private float normalCameraDistance = 3f;
+    [SerializeField] private float normalSideShift = 0f;
+    [SerializeField] private float normalUpShift = 0f;
+    [Header("Target lock Settings")]
+    [SerializeField] private float targetLockCameraDistance = 2.5f;
+    [SerializeField] private float targetLockSideShift = 0.5f;
+    [SerializeField] private float targetLockUpShift = 0.3f;
+    [Header("Wall Settings")]
+    [SerializeField] private float wallSideShift = 0.5f;
+    [Header("Dash Settings")]
+    [SerializeField] private float dashCameraDistance = 1.5f;
+    [SerializeField] private float dashSideShift = 0.7f;
+    [SerializeField] private float dashUpShift = 0.1f;
+    [Header("Aiming Settings")]
+    [SerializeField] private float aimingCameraDistance = 1f;
+    [SerializeField] private float aimingSideShift = 1f;
+    [SerializeField] private float aimingUpShift = 1f;
     
-    
-    private PlayerSensors playerSensors;
-    private PlayerDashController playerDashController;
-    private Rigidbody rb;
-    private CameraFoWController cameraFowController;
-    private CameraTransformController cameraTransformController;
+    private PlayerSensors _playerSensors;
+    private PlayerDashController _playerDashController;
+    private PlayerGunController _playerGunController;
+    private PlayerTargetLockController _playerTargetLockController;
 
     private void Awake()
     {
-        playerSensors = GetComponent<PlayerSensors>();
-        rb = GetComponent<Rigidbody>();
-        cameraFowController = playerCamera.GetComponent<CameraFoWController>();
-        cameraTransformController = playerCamera.GetComponent<CameraTransformController>();
-        playerDashController = GetComponent<PlayerDashController>();
+        _playerSensors = GetComponent<PlayerSensors>();
+        _playerDashController = GetComponent<PlayerDashController>();
+        _playerGunController = GetComponent<PlayerGunController>();
+        _playerTargetLockController = GetComponent<PlayerTargetLockController>();
     }
     
     void Update()
     {
         ChangeFoWFromSpeed();
-        UpdateCameraMode();
-        cameraTransformController.ShouldKeepCameraClose = playerDashController.IsDashing;
+        MakeCameraSettings();
     }
-    
-    private void UpdateCameraMode()
+
+    private void MakeCameraSettings()
     {
-        float cameraMode = 0f;
-        if (playerSensors.IsNearLeftWall)
+        var cameraTransformController = GlobalCameraManager.TransformController;
+        
+        var wallSideShiftBase = 0f;
+        if (_playerSensors.IsNearLeftWall)
         {
-            cameraMode += playerSensors.LeftWallDistanceNormalized;
+            wallSideShiftBase += _playerSensors.LeftWallDistanceNormalized;
         }
-        if (playerSensors.IsNearRightWall)
+        if (_playerSensors.IsNearRightWall)
         {
-            cameraMode -= playerSensors.RightWallDistanceNormalized;
+            wallSideShiftBase -= _playerSensors.RightWallDistanceNormalized;
         }
-        cameraTransformController.CameraMode = cameraMode;
+        var scaledWallSideShift = wallSideShift * wallSideShiftBase;
+        
+        
+        var wantedSideShift = 0f;
+        if (_playerDashController.IsDashing)
+        {
+            cameraTransformController.TargetCameraDistance = dashCameraDistance;
+            wantedSideShift = dashSideShift;
+            cameraTransformController.TargetUpShift = dashUpShift;
+        }
+        else if (_playerGunController.GunState!=GunController.GunStateEnum.Non)
+        {
+            cameraTransformController.TargetCameraDistance = aimingCameraDistance;
+            wantedSideShift = aimingSideShift;
+            cameraTransformController.TargetUpShift = aimingUpShift;
+        }
+        else if (_playerTargetLockController.IsLocked)
+        {
+            cameraTransformController.TargetCameraDistance = targetLockCameraDistance;
+            wantedSideShift = targetLockSideShift;
+            cameraTransformController.TargetUpShift = targetLockUpShift;
+        }
+        else
+        {
+            cameraTransformController.TargetCameraDistance = normalCameraDistance;
+            wantedSideShift = normalSideShift;
+            cameraTransformController.TargetUpShift = normalUpShift;
+        }
+
+        if (wallSideShiftBase <= 0.01f)
+        {
+            cameraTransformController.TargetSideShift = Mathf.Min(scaledWallSideShift, -Mathf.Abs(wantedSideShift));
+        }
+        else if (wallSideShiftBase >= 0.01f)
+            cameraTransformController.TargetSideShift = Mathf.Max(scaledWallSideShift, Mathf.Abs(wantedSideShift));
+        else
+            cameraTransformController.TargetSideShift = wantedSideShift;
+        
+        cameraTransformController.TargetDirection = GlobalLookDirectionManager.CurrentLookDirection;
     }
+
 
     private void ChangeFoWFromSpeed()
     {
-        float currentSpeed = rb.linearVelocity.magnitude;
-        float speedFraction = (currentSpeed-minSpeedToChangeFow) / (maxSpeedToChangeFow - minSpeedToChangeFow);
-        cameraFowController.SetSpeedFactor(speedFraction);
+        if (_playerGunController.GunState!=GunController.GunStateEnum.Non)
+        {
+            GlobalCameraManager.FoWController.SetSpeedFactor(0f);
+        }
+        else if (_playerDashController.IsDashing)
+        {
+            GlobalCameraManager.FoWController.SetSpeedFactor(1f);
+        }
+        else
+        {
+            var speedFraction = (_playerSensors.Speed - minSpeedToChangeFow) /
+                                (maxSpeedToChangeFow - minSpeedToChangeFow);
+            GlobalCameraManager.FoWController.SetSpeedFactor(speedFraction);
+        }
     }
 }

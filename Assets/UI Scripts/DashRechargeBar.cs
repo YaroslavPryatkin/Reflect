@@ -4,20 +4,17 @@ using UnityEngine.UI;
 public class DashRechargeBar : MonoBehaviour
 {
     
-    [SerializeField] private PlayerDashController playerDashController;
-    
-    
-    private Slider slider;
+    private PlayerDashController playerDashController;
+    [SerializeField] private Image bar;
+
 
     private void Awake()
     {
-        slider = GetComponent<Slider>();
+        playerDashController = GlobalGameManager.Player.GetComponent<PlayerDashController>();
     }
-    
     void Update()
     {
         var value = playerDashController.DashRechargeFraction;
-        slider.value = value >= 1 ? 0 : value;
-
+        bar.fillAmount = value;
     }
 }

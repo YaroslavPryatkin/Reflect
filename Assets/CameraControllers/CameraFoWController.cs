@@ -22,6 +22,8 @@ public class CameraFoWController : MonoBehaviour
 
     private void Update()
     {
+        if (!GlobalUIManager.Instance.IsGameActive) return;
+        
         if (Mathf.Abs(cam.fieldOfView - targetFOV) > 0.01f)
         {
             cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, targetFOV, fovTransitionSpeed * Time.deltaTime);
