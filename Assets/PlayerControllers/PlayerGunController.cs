@@ -54,7 +54,7 @@ public class PlayerGunController : GunController
     {
         CanAim = _playerMovementController.WallRunningState == 0 && _playerMovementController.SlidingPhase == 0 &&
                  !_playerDashController.IsDashing && !_playerForwardJumpingController.IsForwardJumping &&
-                 _playerLandingController.CanBeInterrupted && _playerSwordController.CanBeInterruptedByGun;
+                 _playerLandingController.CanBeInterrupted && _playerSwordController.CanBeSafelyInterrupted;
         isAiming = _playerInputController.IsAimPressed;
     }
 

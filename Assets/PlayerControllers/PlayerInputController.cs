@@ -6,6 +6,8 @@ public class PlayerInputController : MonoBehaviour
     [SerializeField] private float jumpBufferTime = 0.2f;
     [SerializeField] private float attackBufferTime = 0.4f;
     [SerializeField] private int attackBufferSize = 2;
+    [SerializeField] private float parryBufferTime = 0.4f;
+    [SerializeField] private int parryBufferSize = 2;
     
     
     private Utility.TemporaryValue<bool> jumpBuffer = new (false,true);
@@ -20,6 +22,15 @@ public class PlayerInputController : MonoBehaviour
     public void ConsumeAttack(){attackBuffer.Deactivate();}
     
     private Utility.MultipleTemporaryValue<bool> attackBuffer;
+
+    
+    public bool IsParryBufferActive => parryBuffer.Value;
+    
+    public void ConsumeParry(){parryBuffer.Deactivate();}
+    
+    private Utility.MultipleTemporaryValue<bool> parryBuffer;
+    
+    
 
     public enum SwordInputEnum {Non, Attack, Parry}
     public SwordInputEnum SwordInputState { get; private set; }  = SwordInputEnum.Non;
@@ -57,6 +68,7 @@ public class PlayerInputController : MonoBehaviour
         _playerSensors = GetComponentInChildren<PlayerSensors>();
         _playerTargetLockController = GetComponent<PlayerTargetLockController>();
         attackBuffer = new(false, true, attackBufferTime, attackBufferSize);
+        parryBuffer = new (false, true, parryBufferTime, parryBufferSize);
     }
     
     private void OnEnable()
@@ -150,6 +162,7 @@ public class PlayerInputController : MonoBehaviour
 
     private void HandleParryPress()
     {
+        parryBuffer.Activate();
         IsParryPressed = true;
     }
     
@@ -172,7 +185,7 @@ public class PlayerInputController : MonoBehaviour
     { 
         if (_playerGunController.GunState == GunController.GunStateEnum.Non)
         {
-            if (IsParryPressed)
+            if (IsParryBufferActive)
             {
                 SwordInputState = SwordInputEnum.Parry;
                 LastActiveSwordInputState = SwordInputEnum.Parry;

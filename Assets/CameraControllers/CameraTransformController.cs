@@ -32,6 +32,7 @@ public class CameraTransformController : MonoBehaviour
     {
         if (!GlobalUIManager.Instance.IsGameActive) return;
         
+        
         var lookDir = TargetDirection;
         if (lookDir == Vector3.zero) lookDir = target.forward;
         

@@ -7317,8 +7317,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerInputController
   jumpBufferTime: 0.3
-  attackBufferTime: 0.6
+  attackBufferTime: 10
   attackBufferSize: 2
+  parryBufferTime: 10
+  parryBufferSize: 2
 --- !u!114 &1173944234
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7339,6 +7341,7 @@ MonoBehaviour:
   targetLockCameraDistance: 2.5
   targetLockSideShift: 0.5
   targetLockUpShift: 0.3
+  targetLockSmoothTime: 0.1
   wallSideShift: 0.5
   dashCameraDistance: 1.5
   dashSideShift: 0.7
@@ -7384,10 +7387,23 @@ MonoBehaviour:
   idleClip: {fileID: 7400000, guid: 572c7e68158d79d47afd59d59f2f4d6b, type: 2}
   walkClip: {fileID: 7400000, guid: bd4591e5a6a6d054d987cfc1ad864d66, type: 2}
   runClip: {fileID: 7400000, guid: 74a991a6d0001c04c864ed79a5f99f8c, type: 2}
-  runForwardClip: {fileID: 7400000, guid: 74a991a6d0001c04c864ed79a5f99f8c, type: 2}
-  runBackwardClip: {fileID: 7400000, guid: 5d318074bf1dd334e80a6348bd8fa934, type: 2}
-  runLeftClip: {fileID: 7400000, guid: 1cc5af29f5873794ea72be3b6466475d, type: 2}
-  runRightClip: {fileID: 7400000, guid: b07d80c7e0f53d24e82a805604bf14db, type: 2}
+  multidirectionalMovement:
+  - animationClip: {fileID: 7400000, guid: 74a991a6d0001c04c864ed79a5f99f8c, type: 2}
+    angle: 0
+  - animationClip: {fileID: 7400000, guid: b07d80c7e0f53d24e82a805604bf14db, type: 2}
+    angle: 45
+  - animationClip: {fileID: 7400000, guid: d903ae4063b250e4b816235f0730280d, type: 2}
+    angle: 90
+  - animationClip: {fileID: 7400000, guid: 5d318074bf1dd334e80a6348bd8fa934, type: 2}
+    angle: 180
+  - animationClip: {fileID: 7400000, guid: 61a3a538799d2e2409449e37aad4362c, type: 2}
+    angle: 270
+  - animationClip: {fileID: 7400000, guid: 1cc5af29f5873794ea72be3b6466475d, type: 2}
+    angle: 315
+  - animationClip: {fileID: 7400000, guid: e5b85c69f3f3f70418bf5d1e1fe4aa32, type: 2}
+    angle: 135
+  - animationClip: {fileID: 7400000, guid: e9f145d6ccaf3aa41830ba56a83a6fb0, type: 2}
+    angle: 225
   dashClip: {fileID: 7400000, guid: 888afb16ee52a4a4ba7e77b323c75903, type: 2}
   fallingIdleClip: {fileID: 7400000, guid: 39107b74b3263bb44946ef1de2d8808f, type: 2}
   standLandingClip: {fileID: 7400000, guid: 977047254b187744c8bef5f8013edee9, type: 2}
@@ -7406,24 +7422,6 @@ MonoBehaviour:
   startingSlideClip: {fileID: 7400000, guid: 9295c816626782648816a8f8fca8b154, type: 2}
   slidingClip: {fileID: 7400000, guid: 929d6bf48b5091c4dbf8fc931347ec1c, type: 2}
   endingSlideClip: {fileID: 7400000, guid: 601ef43dee66efa4dafe51c4be0602bb, type: 2}
-  unsheatheClip: {fileID: 7400000, guid: b39ec028b32211a428ac665323435a53, type: 2}
-  sheatheClip: {fileID: 7400000, guid: 8f8191b3552b5d64e8b84a8779b18929, type: 2}
-  closeTurnClip: {fileID: 7400000, guid: f7e4f0ea299fa4c4ca7369e87fcddcbd, type: 2}
-  farTurnClip: {fileID: 7400000, guid: a8bb740c22eb4884396dc90bb0c20454, type: 2}
-  unsheatheToCloseClip: {fileID: 7400000, guid: 288ed00077f5f2d468ad456a2e398cb9, type: 2}
-  closeToSheatheClip: {fileID: 7400000, guid: 20fe6b4f365ac1f40b3ccaf0cdbfd36d, type: 2}
-  farToSheatheClip: {fileID: 7400000, guid: d85b2023d5c00bc4292f66f629073cbe, type: 2}
-  farTurnToSheatheClip: {fileID: 7400000, guid: 0ecce5f5c8702ab409f1571c4047a84d, type: 2}
-  unsheatheToParryClip: {fileID: 7400000, guid: f78b7276548a66542afae857df0cf8a3, type: 2}
-  parryClip: {fileID: 7400000, guid: a92f66aa042f02c429e33cb8dd15e142, type: 2}
-  blockExitToSheatheClip: {fileID: 7400000, guid: 58a0d12e9e7156545ae788fc690b210f, type: 2}
-  blockExitToCloseClip: {fileID: 7400000, guid: affb7628f3d9c914f91af2fb55c992d0, type: 2}
-  frontAttackClip: {fileID: 7400000, guid: addc0423a2325bf45baa915cb75558d9, type: 2}
-  backAttackClip: {fileID: 7400000, guid: 8cdb8200a38d99a4dacbff2b786828bd, type: 2}
-  backSword: {fileID: 314383008}
-  handSword: {fileID: 1038343254}
-  swordBodyMask: {fileID: 31900000, guid: 2c025c4a881de444193db1c1c749f139, type: 2}
-  rightHandRig: {fileID: 1882526001}
   pocketGun: {fileID: 127670138}
   handGun: {fileID: 1506879971}
   leftHandGunFingersClip: {fileID: 7400000, guid: b295e011c4c54da44981fa0845a6a5e4, type: 2}
@@ -7548,26 +7546,60 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bbf307bd1b475924ba1846e46246248c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAttackController
-  unsheatheTime: 0.1
-  sheatheTime: 0.2
-  closeTurnTime: 0.4
-  farTurnTime: 0.4
-  unsheatheToCloseTime: 0.1
-  farToSheatheTime: 0.5
-  farTurnToSheatheTime: 0.5
-  closeToSheatheTime: 0.1
-  swordBlendInTime: 0.1
-  swordBlendOutTime: 0.1
-  frontAttackTime: 0.1
-  backAttackTime: 0.1
-  unsheatheToParryTime: 0.1
-  anyToParryTime: 0.05
-  parryTime: 0.3
-  blockEnterTime: 0.05
-  blockExitTime: 0.1
-  blockExitToSheatheTime: 0.1
-  blockExitToCloseTime: 0.1
-  rechargeTime: 0.2
+  unSheath:
+    positionTime: 0.5
+    actionTime: 0.5
+    actionClip: {fileID: 7400000, guid: b39ec028b32211a428ac665323435a53, type: 2}
+  sheath:
+    positionTime: 0.5
+    actionTime: 0.5
+    actionClip: {fileID: 7400000, guid: 8f8191b3552b5d64e8b84a8779b18929, type: 2}
+  positionAfterSheath:
+    duration: 0.5
+  hold:
+    positionTime: 0.1
+    actionTime: 0.1
+    actionClip: {fileID: 7400000, guid: 89fda6148392ebd4299699be97fe9f7c, type: 2}
+  combos:
+  - parts:
+    - positionTime: 0.5
+      hasPreparation: 0
+      prepareTime: 0
+      prepareClip: {fileID: 0}
+      actionTime: 0.5
+      actionClip: {fileID: 7400000, guid: addc0423a2325bf45baa915cb75558d9, type: 2}
+      recoveryTime: 0.5
+      recoveryClip: {fileID: 7400000, guid: a8bb740c22eb4884396dc90bb0c20454, type: 2}
+    - positionTime: 0.5
+      hasPreparation: 0
+      prepareTime: 0
+      prepareClip: {fileID: 0}
+      actionTime: 0.5
+      actionClip: {fileID: 7400000, guid: 8cdb8200a38d99a4dacbff2b786828bd, type: 2}
+      recoveryTime: 1
+      recoveryClip: {fileID: 7400000, guid: f7e4f0ea299fa4c4ca7369e87fcddcbd, type: 2}
+  parry:
+    positionTime: 0.5
+    hasPreparation: 0
+    prepareTime: 0.1
+    prepareClip: {fileID: 0}
+    actionTime: 0.5
+    actionClip: {fileID: 7400000, guid: a92f66aa042f02c429e33cb8dd15e142, type: 2}
+    recoveryTime: 0.5
+    recoveryClip: {fileID: 7400000, guid: affb7628f3d9c914f91af2fb55c992d0, type: 2}
+  afterSuccessfulParry:
+    positionTime: 0.5
+    hasPreparation: 0
+    prepareTime: 0.1
+    prepareClip: {fileID: 0}
+    actionTime: 0.5
+    actionClip: {fileID: 7400000, guid: 58a0d12e9e7156545ae788fc690b210f, type: 2}
+    recoveryTime: 0.5
+    recoveryClip: {fileID: 7400000, guid: affb7628f3d9c914f91af2fb55c992d0, type: 2}
+  sheathedWeapon: {fileID: 314383008}
+  handWeapon: {fileID: 1038343254}
+  meleAvatarMask: {fileID: 31900000, guid: 2c025c4a881de444193db1c1c749f139, type: 2}
+  swordHitboxController: {fileID: 1094511364}
 --- !u!114 &1173944242
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12235,6 +12267,71 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1847734096}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 90}
+--- !u!1001 &1870162008
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 1048788629584855452, guid: 92645ee1f21db0b4eb42019c5a9614bc, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 3.6577733
+      objectReference: {fileID: 0}
+    - target: {fileID: 1048788629584855452, guid: 92645ee1f21db0b4eb42019c5a9614bc, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1048788629584855452, guid: 92645ee1f21db0b4eb42019c5a9614bc, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -5.463426
+      objectReference: {fileID: 0}
+    - target: {fileID: 1048788629584855452, guid: 92645ee1f21db0b4eb42019c5a9614bc, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1048788629584855452, guid: 92645ee1f21db0b4eb42019c5a9614bc, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1048788629584855452, guid: 92645ee1f21db0b4eb42019c5a9614bc, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1048788629584855452, guid: 92645ee1f21db0b4eb42019c5a9614bc, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1048788629584855452, guid: 92645ee1f21db0b4eb42019c5a9614bc, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1048788629584855452, guid: 92645ee1f21db0b4eb42019c5a9614bc, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1048788629584855452, guid: 92645ee1f21db0b4eb42019c5a9614bc, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3682343126892056893, guid: 92645ee1f21db0b4eb42019c5a9614bc, type: 3}
+      propertyPath: m_Name
+      value: Common Enemy
+      objectReference: {fileID: 0}
+    - target: {fileID: 5025022784655829450, guid: 92645ee1f21db0b4eb42019c5a9614bc, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8387681399725775385, guid: 92645ee1f21db0b4eb42019c5a9614bc, type: 3}
+      propertyPath: seeDistance
+      value: 2
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 92645ee1f21db0b4eb42019c5a9614bc, type: 3}
 --- !u!4 &1874185864 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2921220190069234359, guid: 3f8059d0013e19d4682e53d5aa88f2c1, type: 3}
@@ -14082,3 +14179,4 @@ SceneRoots:
   - {fileID: 1523208760}
   - {fileID: 1847734096}
   - {fileID: 870135142}
+  - {fileID: 1870162008}

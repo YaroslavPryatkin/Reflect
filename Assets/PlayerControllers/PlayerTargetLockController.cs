@@ -20,12 +20,14 @@ public class PlayerTargetLockController : MonoBehaviour
     private PlayerDamageController _playerDamageController;
     private PlayerSensors _playerSensors;
     private PlayerMovementController _playerMovementController;
+    private PlayerGunController _playerGunController;
 
     private void Awake()
     {
         _playerDamageController = GetComponent<PlayerDamageController>();
         _playerSensors = GetComponent<PlayerSensors>();
         _playerMovementController = GetComponent<PlayerMovementController>();
+        _playerGunController = GetComponent<PlayerGunController>();
         layerMask = _playerSensors.IgnoreMyLayerMask;
     }
 
@@ -39,7 +41,7 @@ public class PlayerTargetLockController : MonoBehaviour
 
     public bool IsLocked { get; private set; } = false;
 
-    public void TryLock()
+    public void TryLock(bool lockOnlyInScreen = true)
     {
         
         var candidates = Physics.OverlapSphere(transform.position, maximalLockDistance,  _playerDamageController.EnemyLayer);
@@ -54,7 +56,7 @@ public class PlayerTargetLockController : MonoBehaviour
         {
             var viewportPos = GlobalCameraManager.PlayerCamera.WorldToViewportPoint(collider.transform.position);
 
-            if (viewportPos.z <= 0 || viewportPos.x < -0.5 || viewportPos.x > 1.5 || viewportPos.y < 0 || viewportPos.y > 1)
+            if (lockOnlyInScreen && (viewportPos.z <= 0 || viewportPos.x < -0.5 || viewportPos.x > 1.5 || viewportPos.y < 0 || viewportPos.y > 1))
             {
                 continue;
             }
@@ -123,7 +125,7 @@ public class PlayerTargetLockController : MonoBehaviour
         {
             if (!targetTransform.gameObject.activeSelf || (foundHealthController && targetHealthController.IsDead))
             {
-                TryLock();
+                TryLock(false);
                 if(!IsLocked)
                     return;
             }
@@ -138,6 +140,10 @@ public class PlayerTargetLockController : MonoBehaviour
             TargetPosition = targetTransform.position;
             var tmpDir = TargetPosition - transform.position;
             TargetDirection = new Vector3(tmpDir.x, 0, tmpDir.z).normalized;
+
+            if (_playerGunController.GunState != GunController.GunStateEnum.Non)
+                return;
+            
             var lookDir = GlobalLookDirectionManager.CurrentLookDirection;
             var horizontalLookDir = new Vector3(lookDir.x, 0, lookDir.z);
             

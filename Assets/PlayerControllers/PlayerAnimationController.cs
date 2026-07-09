@@ -1,4 +1,5 @@
-using System.Diagnostics;
+using System.Collections.Generic;
+using System;
 using UnityEngine;
 using UnityEngine.Playables;
 using UnityEngine.Animations;
@@ -19,11 +20,8 @@ public class PlayerAnimationController : MonoBehaviour
     [SerializeField] private AnimationClip walkClip;
     [SerializeField] private AnimationClip runClip;
 
-    [Header("Directional Run Clips")]
-    [SerializeField] private AnimationClip runForwardClip;
-    [SerializeField] private AnimationClip runBackwardClip;
-    [SerializeField] private AnimationClip runLeftClip;
-    [SerializeField] private AnimationClip runRightClip;
+    [Header("Directional Run Clips")] 
+    [SerializeField] private List<MultidirectionalMovement> multidirectionalMovement;
     
     [Header("Action Clips")]
     [SerializeField] private AnimationClip dashClip;
@@ -54,38 +52,7 @@ public class PlayerAnimationController : MonoBehaviour
     [SerializeField] private AnimationClip startingSlideClip;
     [SerializeField] private AnimationClip slidingClip;
     [SerializeField] private AnimationClip endingSlideClip;
-    
-    [Header("Sword Sheathe Clips")]
-    [SerializeField] private AnimationClip unsheatheClip;
-    [SerializeField] private AnimationClip sheatheClip;
 
-    [Header("Sword Basic Movement Clips")]
-    [SerializeField] private AnimationClip closeTurnClip;
-    [SerializeField] private AnimationClip farTurnClip;
-    [SerializeField] private AnimationClip unsheatheToCloseClip;
-    [SerializeField] private AnimationClip closeToSheatheClip;
-    [SerializeField] private AnimationClip farToSheatheClip;
-    [SerializeField] private AnimationClip farTurnToSheatheClip;
-    
-    [Header("Sword Defence Clips")]
-    [SerializeField] private AnimationClip unsheatheToParryClip;
-    [SerializeField] private AnimationClip parryClip;
-    [SerializeField] private AnimationClip blockExitToSheatheClip;
-    [SerializeField] private AnimationClip blockExitToCloseClip;
-
-    [Header("Sword Attack Clips")]
-    [SerializeField] private AnimationClip frontAttackClip;
-    [SerializeField] private AnimationClip backAttackClip;
-    
-    [Header("Sword Game objects")]
-    [SerializeField] private GameObject backSword;
-    [SerializeField] private GameObject handSword;
-    
-    [Header("Sword Layer Settings")]
-    [SerializeField] private AvatarMask swordBodyMask;
-
-    [Header("Sword Block Rigging Settings")]
-    [SerializeField] private Rig rightHandRig;
     
     [Header("Gun Game Objects")]
     [SerializeField] private GameObject pocketGun;
@@ -131,6 +98,7 @@ public class PlayerAnimationController : MonoBehaviour
     private PlayerLandingController _playerLandingController;
     private PlayerSwordController _playerSwordController;
     private PlayerGunController _playerGunController;
+    private MeleeController _meleeController;
 
     // --- Caches ---
     private Quaternion _defaultBodyLocalRot;
@@ -156,78 +124,52 @@ public class PlayerAnimationController : MonoBehaviour
     private float _cachedStandLandingSpeed;
     private float _cachedRunLandingSpeed;
     private float _cachedRollLandingSpeed;
-
-    private float _cachedUnsheatheSpeed;
-    private float _cachedSheatheSpeed;
-    
-    private float _cachedUnsheatheToCloseSpeed;
-    private float _cachedFarToSheatheSpeed;
-    private float _cachedCloseTurnSpeed;
-    private float _cachedFarTurnSpeed;
-    private float _cachedFarTurnToSheatheSpeed;
-    private float _cachedCloseToSheatheSpeed;
-
-    private float _cachedFrontAttackSpeed;
-    private float _cachedBackAttackSpeed;
-
-    private float _cachedSheatheToParrySpeed;
-    private float _cachedAnyToParryTime;
-    private float _cachedParrySpeed;
-    private float _cachedBlockEnterTime;
-    private float _cachedBlockExitTime;
-    private float _cachedParryToCloseSpeed;
-    private float _cachedParryToSheatheSpeed;
-
     
     private PlayableGraph _graph;
     private AnimationLayerMixerPlayable _layerMixer;
     private AnimationMixerPlayable _baseMixer;
-    private AnimationMixerPlayable _swordMixer;
     private AnimationMixerPlayable _gunMixer;
     private PlayerTargetLockController _playerTargetLockController;
 
-    private const int BaseMixerSize = 6;
-    private float[] baseMixerWeights = new float[BaseMixerSize];
+    [Serializable]
+    private struct MultidirectionalMovement
+    {
+        public AnimationClip animationClip;
+        public float angle;
+    }
+
+    private int baseMixerSize;
+    private float[] baseMixerWeights;
     
     private AnimationClip baseTargetClip;
     private float baseTargetSpeed;
     private float baseTargetCrossfadeDuration;
     
-    private bool baseShouldUseMultiDirectionalInput;
+    private bool shouldUseMultiDirectionalInput;
     private Utility.FractionBlockingValueTimer<BaseActionTransitionsEnum> multiDirectionalTransitionBase =
         BaseActionTransitionsEnum.Base;
-    private float[] baseMultiDirectionalSpeeds = new float[4];
-    private float baseMultidirRotation = 0f;
+    
+    
 
-    private float baseLeftRightCurrent = 0f;
-    private float baseLeftRightSmoothVelocity = 0f;    
+    private float targetMultidirectionalSpeed;
+    private float[] multiDirectionalSpeedMultipliers;
+    private float[] multidirectionalAngles;
     
-    private const int ActionMixerSize = 2;
-    private float[] actionMixerWeights = new float[ActionMixerSize];
+    private float multidirectionalLeftRightCurrent = 0f;
+    private float multidirectionalLeftRightSmoothVelocity = 0f;    
     
-    private AnimationClip actionTargetClip;
-    private float actionTargetSpeed;
-    private float actionTargetCrossfadeDuration;
+    
+    
+    
+
 
     private int _currentBasePort = 0;
     private AnimationClip _currentBaseClip = null;
     
-    private int _currentActionPort = 0;
-    private AnimationClip _currentActionClip = null;
-
-    
     
     private Utility.FractionBlockingValueTimer<TransitionStateEnum> isAnimationTransitionBase =
         TransitionStateEnum.Current;
-
-    private Utility.FractionBlockingValueTimer<TransitionStateEnum> isAnimationTransitionAction =
-        TransitionStateEnum.Current;
-
-    private BaseActionTransitionsEnum swordLayerState = BaseActionTransitionsEnum.Base;
-    private float swordLayerFraction = 0f;
     
-    private Utility.FractionBlockingValueTimer<BaseActionTransitionsEnum> swordBlockRigState =  BaseActionTransitionsEnum.Base;
-
     
     private BaseActionTransitionsEnum gunTransitionState = BaseActionTransitionsEnum.Base;
     private float gunTransitionFraction = 0f;
@@ -246,9 +188,15 @@ public class PlayerAnimationController : MonoBehaviour
         _playerSwordController = GetComponent<PlayerSwordController>();
         _playerGunController = GetComponent<PlayerGunController>();
         _playerTargetLockController = GetComponent<PlayerTargetLockController>(); 
+        _meleeController = GetComponent<MeleeController>();
         
         _defaultBodyLocalRot = bodyTransform.localRotation;
 
+        baseMixerSize = multidirectionalMovement.Count + 2;
+        baseMixerWeights = new float[baseMixerSize];
+        multiDirectionalSpeedMultipliers = new float[baseMixerSize-2];
+        multidirectionalAngles = new float[baseMixerSize-2];
+        
         InitPlayableGraph();
     }
 
@@ -262,27 +210,17 @@ public class PlayerAnimationController : MonoBehaviour
         
         _layerMixer = AnimationLayerMixerPlayable.Create(_graph, 3);
         
-        _baseMixer = AnimationMixerPlayable.Create(_graph, BaseMixerSize);
-        _swordMixer = AnimationMixerPlayable.Create(_graph, ActionMixerSize);
+        _baseMixer = AnimationMixerPlayable.Create(_graph, baseMixerSize);
         _gunMixer = AnimationMixerPlayable.Create(_graph, 1);
 
         _graph.Connect(_baseMixer, 0, _layerMixer, 0);
-        _graph.Connect(_swordMixer, 0, _layerMixer, 1);
         _graph.Connect(_gunMixer, 0, _layerMixer, 2);
 
         _layerMixer.SetInputWeight(0, 1f);
-        _layerMixer.SetInputWeight(1, 0f);
         _layerMixer.SetInputWeight(2, 0f);
-
-
-        if (swordBodyMask != null)
-        {
-            _layerMixer.SetLayerMaskFromAvatarMask(1, swordBodyMask);
-        }
-        else
-        {
-            Debug.LogError("Sword Body Mask is NULL in AnimationController!");
-        }
+        
+        _meleeController.InitializePlayableGraph(_graph, _layerMixer, 1);
+        
         if (gunBodyMask != null)
         {
             _layerMixer.SetLayerMaskFromAvatarMask(2, gunBodyMask);
@@ -329,95 +267,62 @@ public class PlayerAnimationController : MonoBehaviour
         _cachedStartingWallJumpSpeed = AnimationUtility.GetAnimationSpeed(startingWallJumpClip, _playerJumpController.StartingWallJumpTime);
         _cachedContinuingWallJumpSpeed = AnimationUtility.GetAnimationSpeed(continuingWallJumpClip, _playerJumpController.ContinuingWallJumpTime);
         
-        _cachedUnsheatheSpeed = AnimationUtility.GetAnimationSpeed(unsheatheClip, _playerSwordController.UnsheatheTime);
-        _cachedSheatheSpeed = AnimationUtility.GetAnimationSpeed(sheatheClip, _playerSwordController.SheatheTime);
-        
-        _cachedUnsheatheToCloseSpeed = AnimationUtility.GetAnimationSpeed(unsheatheToCloseClip, _playerSwordController.UnsheatheToCloseTime);
-        _cachedFarToSheatheSpeed = AnimationUtility.GetAnimationSpeed(farToSheatheClip, _playerSwordController.FarToSheatheTime);
-        
-        _cachedFarTurnToSheatheSpeed = AnimationUtility.GetAnimationSpeed(farTurnToSheatheClip, _playerSwordController.FarTurnToSheatheTime);
-        
-        _cachedCloseTurnSpeed = AnimationUtility.GetAnimationSpeed(closeTurnClip, _playerSwordController.CloseTurnTime);
-        _cachedFarTurnSpeed = AnimationUtility.GetAnimationSpeed(farTurnClip, _playerSwordController.FarTurnTime);
-        _cachedCloseToSheatheSpeed = AnimationUtility.GetAnimationSpeed(closeToSheatheClip, _playerSwordController.CloseToSheatheTime);
-
-        _cachedFrontAttackSpeed = AnimationUtility.GetAnimationSpeed(frontAttackClip, _playerSwordController.FrontAttackTime);
-        _cachedBackAttackSpeed = AnimationUtility.GetAnimationSpeed(backAttackClip, _playerSwordController.BackAttackTime);
-        
-        _cachedSheatheToParrySpeed = AnimationUtility.GetAnimationSpeed(unsheatheToParryClip,  _playerSwordController.UnsheatheToParryTime);
-        _cachedParrySpeed=AnimationUtility.GetAnimationSpeed(parryClip, _playerSwordController.ParryTime);
-        _cachedParryToCloseSpeed=AnimationUtility.GetAnimationSpeed(blockExitToCloseClip, _playerSwordController.BlockExitToCloseTime);
-        _cachedParryToSheatheSpeed=AnimationUtility.GetAnimationSpeed(blockExitToSheatheClip, _playerSwordController.BlockExitToSheatheTime);
-        _cachedAnyToParryTime = _playerSwordController.AnyToParryTime;
-        _cachedBlockEnterTime = _playerSwordController.BlockEnterTime;
-        _cachedBlockExitTime = _playerSwordController.BlockExitTime;
-        //_cachedBlockSpeed = AnimationHandler.GetAnimationSpeed(blockClip,_playerSwordController.BlockSpeed);
-        
         _cachedRotationChangeSpeedForSlideStarting = 90.0f / Mathf.Max(0.001f, _playerMovementController.StartingSlideTime);
         _cachedRotationChangeSpeedForSlideEnding = 90.0f / Mathf.Max(0.001f, _playerMovementController.EndingSlideTime);
         
         
-        SetPersistentClipSettings();
+        SetMultidirectionalArrays();
         
         AnimationUtility.ConnectPersistentClip(ref _graph, _gunMixer, 0, leftHandGunFingersClip, 1f);
         
         _gunLocalPosOffset = leftHandBone.InverseTransformPoint(gunBarrelPoint.position);
         _gunLocalRotOffset = Quaternion.Inverse(leftHandBone.rotation) * gunBarrelPoint.rotation;
         
-        handSword.SetActive(false);
-        backSword.SetActive(true);
         
         handGun.SetActive(false);
         pocketGun.SetActive(true);
     }
 
-    private void SetPersistentClipSettings()
+    private void SetMultidirectionalArrays()
     {
-        AnimationUtility.ConnectPersistentClip(ref _graph, _baseMixer, 2, runForwardClip);
-        AnimationUtility.ConnectPersistentClip(ref _graph, _baseMixer, 3, runBackwardClip);
-        AnimationUtility.ConnectPersistentClip(ref _graph, _baseMixer, 4, runLeftClip);
-        AnimationUtility.ConnectPersistentClip(ref _graph, _baseMixer, 5, runRightClip);
+        for (int i = 2; i < baseMixerSize; ++i)
+        {
+            AnimationUtility.ConnectPersistentClip(ref _graph, _baseMixer, i, multidirectionalMovement[i-2].animationClip);
+        }
 
-        baseMultiDirectionalSpeeds[0] = 1f;
-        baseMultiDirectionalSpeeds[1] = AnimationUtility.GetSpeedFraction(runBackwardClip, runForwardClip);
-        baseMultiDirectionalSpeeds[2] = AnimationUtility.GetSpeedFraction(runLeftClip, runForwardClip);
-        baseMultiDirectionalSpeeds[3] = AnimationUtility.GetSpeedFraction(runRightClip, runForwardClip);
+        multiDirectionalSpeedMultipliers[0] = 1f;
+        for (int i = 3; i < baseMixerSize; ++i)
+        {
+            multiDirectionalSpeedMultipliers[i-2] = AnimationUtility.GetSpeedFraction(multidirectionalMovement[i-2].animationClip, multidirectionalMovement[0].animationClip);
+        }
+        
+        for (int i = 2; i < baseMixerSize; ++i)
+        {
+            multidirectionalAngles[i-2] = multidirectionalMovement[i-2].angle;
+        }
     }
     
     private void Update()
     {
         //dummy.position = hint.position;
         CalculateBaseLayerLogic();
-        CalculateActionLayerLogic();
         CalculateGunLayerLogic();
         
         
-        UpdateLayerTransitions(1, swordLayerFraction, ref swordLayerState);
         UpdateLayerTransitions(2, gunTransitionFraction, ref gunTransitionState);
         UpdateRig(ref leftHandRig, gunTransitionFraction, ref gunTransitionState);
         UpdateRig(ref headRig, gunTransitionFraction, ref gunTransitionState);
-        UpdateRig(ref rightHandRig, ref swordBlockRigState);
-        UpdateProp(ref handSword, ref backSword, ref swordLayerState, false, swordBlockRigState!=BaseActionTransitionsEnum.Base);
         UpdateProp(ref handGun, ref pocketGun, ref gunTransitionState, true);
         
 
         AnimationUtility.UpdateLayerAnimation(ref _graph,_baseMixer, ref baseMixerWeights, ref _currentBasePort, ref _currentBaseClip, 
             baseTargetClip, baseTargetSpeed, baseTargetCrossfadeDuration, ref isAnimationTransitionBase);
-        AnimationUtility.UpdateMultiDirectionalAnimation(_playerSensors, transform,_baseMixer, ref baseMixerWeights, ref baseMultiDirectionalSpeeds, baseShouldUseMultiDirectionalInput,
-            baseTargetSpeed, baseTargetCrossfadeDuration, ref baseLeftRightCurrent, ref baseLeftRightSmoothVelocity, ref multiDirectionalTransitionBase, out baseMultidirRotation);
-        AnimationUtility.UseWeights(_baseMixer, ref baseMixerWeights, BaseMixerSize);
+        AnimationUtility.UpdateMultiDirectionalAnimation(_playerSensors, transform,_baseMixer, ref baseMixerWeights, ref multiDirectionalSpeedMultipliers, ref multidirectionalAngles, shouldUseMultiDirectionalInput,
+            targetMultidirectionalSpeed, crossfadeDuration, 
+           // ref multidirectionalLeftRightCurrent, ref multidirectionalLeftRightSmoothVelocity, 
+            ref multiDirectionalTransitionBase);
+        AnimationUtility.UseWeights(_baseMixer, ref baseMixerWeights, baseMixerSize);
         
-        
-
-        if (swordLayerState != BaseActionTransitionsEnum.Base) 
-        {
-            AnimationUtility.UpdateLayerAnimation(ref _graph, _swordMixer, ref actionMixerWeights, ref _currentActionPort, ref _currentActionClip, 
-                actionTargetClip, actionTargetSpeed, actionTargetCrossfadeDuration, ref isAnimationTransitionAction);
-            AnimationUtility.UseWeights(_swordMixer, ref actionMixerWeights, ActionMixerSize);
-        }
-        
-        
-
         UpdateBodyRotation();
     }
     
@@ -447,8 +352,9 @@ public class PlayerAnimationController : MonoBehaviour
     {
         baseTargetClip = fallingIdleClip;
         baseTargetSpeed = 1f;
+        targetMultidirectionalSpeed = 1f;
         baseTargetCrossfadeDuration = crossfadeDuration; 
-        baseShouldUseMultiDirectionalInput = false;
+        shouldUseMultiDirectionalInput = false;
         
         var currentSpeed = _playerSensors.SpeedAlignedWithGround;
 
@@ -541,27 +447,21 @@ public class PlayerAnimationController : MonoBehaviour
         }
         else if (_playerSensors.IsGrounded)
         {
-            if (currentSpeed > walkThreshold)
+            if (_playerTargetLockController.IsLocked)
             {
-                if (_playerTargetLockController.IsLocked)
-                {
-                    baseShouldUseMultiDirectionalInput = true;
-                    baseTargetSpeed = currentSpeed / normalSpeedForForwardRunAnimationSpeed;
-                }
-                else
-                {
-                    if (currentSpeed > runThreshold)
-                    {
-                        baseTargetClip = runClip;
-                        baseTargetSpeed = currentSpeed / normalSpeedForRunAnimationSpeed;
-                    }
-                    else
-                    {
-                        baseTargetClip = walkClip;
-                        baseTargetSpeed = currentSpeed / normalSpeedForWalkAnimationSpeed;
-                    }
-                        
-                }
+                baseTargetClip = idleClip;
+                shouldUseMultiDirectionalInput = currentSpeed > walkThreshold;
+                targetMultidirectionalSpeed = currentSpeed / normalSpeedForForwardRunAnimationSpeed;
+            }
+            else if (currentSpeed > runThreshold)
+            {
+                baseTargetClip = runClip;
+                baseTargetSpeed = currentSpeed / normalSpeedForRunAnimationSpeed;
+            }
+            else if (currentSpeed > walkThreshold)
+            {
+                baseTargetClip = walkClip;
+                baseTargetSpeed = currentSpeed / normalSpeedForWalkAnimationSpeed;
             }
             else
             {
@@ -571,135 +471,6 @@ public class PlayerAnimationController : MonoBehaviour
         else
         {
             baseTargetClip = fallingIdleClip; 
-        }
-    }
-
-    private void CalculateActionLayerLogic()
-    {
-        actionTargetCrossfadeDuration = 0f;
-        swordLayerFraction = 1f;
-        swordLayerState = BaseActionTransitionsEnum.Action;
-        
-        var currentAttackState = _playerSwordController.SwordState;
-        switch (currentAttackState)
-        {
-            case PlayerSwordController.SwordStateEnum.Non:
-                swordLayerState = BaseActionTransitionsEnum.Base;
-                swordLayerFraction = 0f;
-                break;
-            case PlayerSwordController.SwordStateEnum.BlendIn:
-                actionTargetClip = unsheatheClip;
-                actionTargetSpeed = 0f;
-                swordLayerState = BaseActionTransitionsEnum.BaseToAction;
-                swordLayerFraction = _playerSwordController.SwordStateFraction;
-                break;
-            case PlayerSwordController.SwordStateEnum.BlendOut:
-                actionTargetClip = unsheatheClip;
-                actionTargetSpeed = 0f;
-                swordLayerState = BaseActionTransitionsEnum.ActionToBase;
-                swordLayerFraction = _playerSwordController.SwordStateFraction;
-                break;
-            case PlayerSwordController.SwordStateEnum.Unsheathe:
-                actionTargetClip = unsheatheClip;
-                actionTargetSpeed =  _cachedUnsheatheSpeed;
-                break;
-            case PlayerSwordController.SwordStateEnum.UnsheatheToClose:
-                actionTargetClip = unsheatheToCloseClip;
-                actionTargetSpeed = _cachedUnsheatheToCloseSpeed;
-                break;
-            case PlayerSwordController.SwordStateEnum.FrontAttack:
-                actionTargetClip = frontAttackClip;
-                actionTargetSpeed = _cachedFrontAttackSpeed;
-                break;
-            case PlayerSwordController.SwordStateEnum.FarTurn:
-                actionTargetClip = farTurnClip;
-                actionTargetSpeed = _cachedFarTurnSpeed;
-                break;
-            case PlayerSwordController.SwordStateEnum.BackAttack:
-                actionTargetClip = backAttackClip;
-                actionTargetSpeed = _cachedBackAttackSpeed;
-                break;
-            case PlayerSwordController.SwordStateEnum.CloseTurn:
-                actionTargetClip = closeTurnClip;
-                actionTargetSpeed = _cachedCloseTurnSpeed;
-                break;
-            case PlayerSwordController.SwordStateEnum.CloseToSheathe:
-                actionTargetClip = closeToSheatheClip;
-                actionTargetSpeed = _cachedCloseToSheatheSpeed;
-                break;
-            case PlayerSwordController.SwordStateEnum.FarToSheathe:
-                actionTargetClip =  farToSheatheClip;
-                actionTargetSpeed =  _cachedFarToSheatheSpeed;
-                break;
-            case PlayerSwordController.SwordStateEnum.FarTurnToSheathe:
-                actionTargetClip =  farTurnToSheatheClip;
-                actionTargetSpeed =  _cachedFarTurnToSheatheSpeed;
-                break;
-            case PlayerSwordController.SwordStateEnum.Sheathe:
-                actionTargetClip =  sheatheClip;
-                actionTargetSpeed = _cachedSheatheSpeed;
-                break;
-            case PlayerSwordController.SwordStateEnum.SheatheToParry:
-                actionTargetClip =  unsheatheToParryClip;
-                actionTargetSpeed =  _cachedSheatheToParrySpeed;
-                break;
-            case PlayerSwordController.SwordStateEnum.AnyToParry:
-                actionTargetClip =  parryClip;
-                actionTargetSpeed =  0;
-                actionTargetCrossfadeDuration = _cachedAnyToParryTime;
-                break;
-            case PlayerSwordController.SwordStateEnum.Parry:
-                actionTargetClip =  parryClip;
-                actionTargetSpeed =  _cachedParrySpeed;
-                break;
-            case PlayerSwordController.SwordStateEnum.Block:
-                actionTargetClip =  blockExitToCloseClip;
-                actionTargetSpeed =  0;
-                actionTargetCrossfadeDuration = _cachedBlockExitTime;
-                break;
-            case PlayerSwordController.SwordStateEnum.BlockExit:
-                actionTargetClip =  blockExitToCloseClip;
-                actionTargetSpeed =  0;
-                actionTargetCrossfadeDuration = _cachedBlockExitTime;
-                break;
-            case PlayerSwordController.SwordStateEnum.BlockExitToClose:
-                actionTargetClip =  blockExitToCloseClip;
-                actionTargetSpeed =  _cachedParryToCloseSpeed;
-                break;
-            case PlayerSwordController.SwordStateEnum.BlockExitToSheathe:
-                actionTargetClip =  blockExitToSheatheClip;
-                actionTargetSpeed =  _cachedParryToSheatheSpeed;
-                break;
-        }
-
-        switch (currentAttackState)
-        {
-            case PlayerSwordController.SwordStateEnum.Block:
-                if(swordBlockRigState!=BaseActionTransitionsEnum.Action && swordBlockRigState != BaseActionTransitionsEnum.BaseToAction)
-                    swordBlockRigState.SetForce(BaseActionTransitionsEnum.BaseToAction, _cachedBlockEnterTime);
-                if (swordBlockRigState == BaseActionTransitionsEnum.BaseToAction)
-                {
-                    swordLayerFraction = 1-swordBlockRigState.TimeFraction;
-                    swordLayerState = BaseActionTransitionsEnum.ActionToBase;
-                }
-                else if (swordBlockRigState == BaseActionTransitionsEnum.Action)
-                {
-                    swordLayerState = BaseActionTransitionsEnum.Base;
-                }
-                break; 
-            case PlayerSwordController.SwordStateEnum.Non:
-                swordBlockRigState.SetForce(BaseActionTransitionsEnum.Base, 0);
-                break;
-            default:
-                if(swordBlockRigState!=BaseActionTransitionsEnum.ActionToBase && swordBlockRigState != BaseActionTransitionsEnum.Base)
-                    swordBlockRigState.SetForce(BaseActionTransitionsEnum.ActionToBase, _cachedBlockExitTime);
-                
-                if (swordBlockRigState == BaseActionTransitionsEnum.ActionToBase)
-                {
-                    swordLayerFraction = 1-swordBlockRigState.TimeFraction;
-                    swordLayerState = BaseActionTransitionsEnum.BaseToAction;
-                }
-                break;
         }
     }
 
@@ -884,12 +655,6 @@ public class PlayerAnimationController : MonoBehaviour
                 targetYAngle = 90f * (1-_playerMovementController.SlidingPhaseFraction);
                 rotationSpeed = _cachedRotationChangeSpeedForSlideEnding * Time.deltaTime;
                 break;
-        }
-
-        if (multiDirectionalTransitionBase.Value != BaseActionTransitionsEnum.Base && _playerMovementController.CanLookToLockedTarget)
-        {
-            targetYAngle = baseMultidirRotation;
-            rotationSpeed = 90f;
         }
         
         if (_playerSensors.IsGrounded && _playerSensors.FoundGroundNormal && _playerMovementController.IsActiveSlidingPhase)

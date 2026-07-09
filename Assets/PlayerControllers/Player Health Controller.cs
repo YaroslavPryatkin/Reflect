@@ -36,14 +36,13 @@ public class PlayerHealthController : HealthController
     
     public override bool ShouldBeDeflected(Vector3 bulletForward)
     {
-        return GetAngleToBullet(bulletForward) <= deflectBulletAngle && _playerSwordController.SwordState == PlayerSwordController.SwordStateEnum.Parry;
+        return GetAngleToBullet(bulletForward) <= deflectBulletAngle && _playerSwordController.Parrying;
     }
 
     public override bool ShouldBeBlocked(Vector3 bulletForward)
     {
         
-        return GetAngleToBullet(bulletForward) <= blockBulletAngle && (_playerSwordController.SwordState == PlayerSwordController.SwordStateEnum.Parry ||
-                                                                         _playerSwordController.SwordState == PlayerSwordController.SwordStateEnum.Block);
+        return GetAngleToBullet(bulletForward) <= blockBulletAngle && _playerSwordController.Parrying;
     }
 
     private float GetAngleToBullet(Vector3 bulletForward)

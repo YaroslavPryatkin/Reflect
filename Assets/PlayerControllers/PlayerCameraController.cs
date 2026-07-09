@@ -13,6 +13,7 @@ public class PlayerCameraController : MonoBehaviour
     [SerializeField] private float targetLockCameraDistance = 2.5f;
     [SerializeField] private float targetLockSideShift = 0.5f;
     [SerializeField] private float targetLockUpShift = 0.3f;
+    [SerializeField] private float targetLockSmoothTime = 0.1f;
     [Header("Wall Settings")]
     [SerializeField] private float wallSideShift = 0.5f;
     [Header("Dash Settings")]
@@ -29,6 +30,10 @@ public class PlayerCameraController : MonoBehaviour
     private PlayerGunController _playerGunController;
     private PlayerTargetLockController _playerTargetLockController;
 
+    private float lastTargetLockSideShiftSign = 1f;
+    private float targetLockSideShiftBase = 1f;
+    private float targetLockSideShiftVelocity = 0f;
+
     private void Awake()
     {
         _playerSensors = GetComponent<PlayerSensors>();
@@ -43,6 +48,7 @@ public class PlayerCameraController : MonoBehaviour
         MakeCameraSettings();
     }
 
+    
     private void MakeCameraSettings()
     {
         var cameraTransformController = GlobalCameraManager.TransformController;
@@ -75,25 +81,38 @@ public class PlayerCameraController : MonoBehaviour
         else if (_playerTargetLockController.IsLocked)
         {
             cameraTransformController.TargetCameraDistance = targetLockCameraDistance;
-            wantedSideShift = targetLockSideShift;
             cameraTransformController.TargetUpShift = targetLockUpShift;
+            var velocity = _playerSensors.NormalizedHorizontalVelocity;
+            var dir = _playerTargetLockController.TargetDirection;
+            var dot = Vector3.Dot(velocity, Vector3.Cross(dir, Vector3.up));
+            if (Mathf.Abs(dot) > 0.1f)
+                lastTargetLockSideShiftSign = Mathf.Sign(dot);
+                
+            targetLockSideShiftBase = Mathf.SmoothDamp(targetLockSideShiftBase,lastTargetLockSideShiftSign , ref targetLockSideShiftVelocity,targetLockSmoothTime);
+            wantedSideShift = targetLockSideShiftBase * targetLockSideShift;
         }
         else
         {
+            targetLockSideShiftVelocity = 0f;
+            lastTargetLockSideShiftSign = 1f;
             cameraTransformController.TargetCameraDistance = normalCameraDistance;
             wantedSideShift = normalSideShift;
             cameraTransformController.TargetUpShift = normalUpShift;
         }
 
-        if (wallSideShiftBase <= 0.01f)
+        if (wallSideShiftBase <= -0.01f)
         {
             cameraTransformController.TargetSideShift = Mathf.Min(scaledWallSideShift, -Mathf.Abs(wantedSideShift));
         }
         else if (wallSideShiftBase >= 0.01f)
+        {
             cameraTransformController.TargetSideShift = Mathf.Max(scaledWallSideShift, Mathf.Abs(wantedSideShift));
+        }
         else
-            cameraTransformController.TargetSideShift = wantedSideShift;
-        
+        {
+            cameraTransformController.TargetSideShift = -wantedSideShift;
+        }
+
         cameraTransformController.TargetDirection = GlobalLookDirectionManager.CurrentLookDirection;
     }
 

@@ -56,14 +56,15 @@ public static class AnimationUtility
         switch (transitionState.Value)
         {
             case TransitionStateEnum.Current:
+                weights[currentPort] = 1f;
+                weights[1 - currentPort] = 0f;
                 var currentPlayable = mixer.GetInput(currentPort);
                 if (currentPlayable.IsValid()) currentPlayable.SetSpeed(targetSpeed);
                 break;
             case TransitionStateEnum.Switching:
-                var newPort = 1 - currentPort;
                 var weight = Mathf.Clamp01(transitionState.TimeFraction);
             
-                weights[newPort] = weight;
+                weights[1 - currentPort] = weight;
                 weights[currentPort] = 1f - weight;
                 if(transitionState.CanBeChanged)
                     transitionState.SetForce(TransitionStateEnum.Finished);
@@ -74,9 +75,14 @@ public static class AnimationUtility
                 
                 currentPort = 1 - currentPort;
                 transitionState.SetForce(TransitionStateEnum.Current);
+                
+                weights[currentPort] = 1f;
+                weights[1 - currentPort] = 0f;
                 break;
         }
     }
+    
+    
     
     public static void UpdateMultiDirectionalAnimation(
         Sensors sensors,
@@ -84,70 +90,40 @@ public static class AnimationUtility
         AnimationMixerPlayable mixer,
         ref float[] weights,
         ref float[] baseSpeeds,
+        ref float[] angles,
         bool shouldUseMultiDirectionalAnimation,
         float targetSpeed,
         float crossfadeDur,
-        ref float leftRightCurrent,
-        ref float leftRightSmoothVelocity,
-        ref Utility.FractionBlockingValueTimer<BaseActionTransitionsEnum> transitionState, 
-        out float rotation)
+        // ref float leftRightCurrent,
+        // ref float leftRightSmoothVelocity,
+        ref Utility.FractionBlockingValueTimer<BaseActionTransitionsEnum> transitionState)
     {
-        rotation = 0f;
         if (transitionState.Value != BaseActionTransitionsEnum.Base)
         {
+            for (var i = 0; i < angles.Length; i++)
+            {
+                var p = mixer.GetInput(i + 2);
+                if (p.IsValid()) p.SetSpeed(targetSpeed * baseSpeeds[i]);
+            }
+            
+            
             var velocity = sensors.NormalizedHorizontalVelocity;
             velocity = Vector3.ProjectOnPlane(velocity, Vector3.up);
             velocity = transform.InverseTransformDirection(velocity);
 
-            leftRightCurrent = Mathf.SmoothDamp(leftRightCurrent, velocity.x, ref leftRightSmoothVelocity, crossfadeDur);
+            //leftRightCurrent = Mathf.SmoothDamp(leftRightCurrent, velocity.x, ref leftRightSmoothVelocity, crossfadeDur);
             
-            var wForward = Mathf.Max(0f, velocity.z);
-            var wBackward = Mathf.Max(0f, -velocity.z);
-            var wLeft = Mathf.Max(0f, -leftRightCurrent);
-            var wRight = Mathf.Max(0f, leftRightCurrent);
-            
-            rotation = Mathf.Atan2(leftRightCurrent, velocity.z) * Mathf.Rad2Deg;
-            if (Mathf.Abs(rotation) > 90f)
-            {
-                rotation = (rotation - Mathf.Sign(rotation) * 90f)/3f;
-            }
-            else
-            {
-                rotation /= 2f;
-            }
-            
-           
-            var totalWeight = wForward + wBackward + wLeft + wRight;
-            if (totalWeight > 0.001f)
-            {
-                weights[2] = wForward / totalWeight; 
-                weights[3] = wBackward / totalWeight; 
-                weights[4] = wLeft / totalWeight; 
-                weights[5] = wRight / totalWeight;
-            }
-            else
-            {
-                weights[2] = 1f;
-                weights[3] = 0f;
-                weights[4] = 0f;
-                weights[5] = 0f;
-            }
-            
-            
-            for (var i = 2; i <= 5; i++)
-            {
-                var p = mixer.GetInput(i);
-                if (p.IsValid()) p.SetSpeed(targetSpeed * baseSpeeds[i-2]);
-            }
+            SetWeightsDirectional(ref weights, ref angles, velocity.z, velocity.x, 2);
         }
+        // else
+        // {
+        //     leftRightCurrent = 0f;
+        // }
         
         switch (transitionState.Value)
         {
             case BaseActionTransitionsEnum.Base:
-                weights[2] *= 0f;
-                weights[3] *= 0f;
-                weights[4] *= 0f;
-                weights[5] *= 0f;
+                MultiplyWeights(ref weights, 2, angles.Length + 2, 0);
                 if(shouldUseMultiDirectionalAnimation)
                     transitionState.SetForce(BaseActionTransitionsEnum.BaseToAction, crossfadeDur);
                 break;
@@ -155,10 +131,7 @@ public static class AnimationUtility
                 var timeFraction = Mathf.Clamp01(transitionState.TimeFraction);
                 weights[0] *= 1 - timeFraction;
                 weights[1] *= 1 - timeFraction;
-                weights[2] *= timeFraction;
-                weights[3] *= timeFraction;
-                weights[4] *= timeFraction;
-                weights[5] *= timeFraction;
+                MultiplyWeights(ref weights, 2, angles.Length + 2, timeFraction);
                 if(!shouldUseMultiDirectionalAnimation)
                     transitionState.SetForce(BaseActionTransitionsEnum.ActionToBase, crossfadeDur, 1-timeFraction);
                 if(transitionState.CanBeChanged)
@@ -167,10 +140,6 @@ public static class AnimationUtility
             case BaseActionTransitionsEnum.Action:
                 weights[0] *= 0f;
                 weights[1] *= 0f;
-                weights[2] *= 1f;
-                weights[3] *= 1f;
-                weights[4] *= 1f;
-                weights[5] *= 1f;
                 if(!shouldUseMultiDirectionalAnimation)
                     transitionState.SetForce(BaseActionTransitionsEnum.ActionToBase, crossfadeDur);
                 break;
@@ -178,10 +147,7 @@ public static class AnimationUtility
                 timeFraction = Mathf.Clamp01(transitionState.TimeFraction);
                 weights[0] *= timeFraction;
                 weights[1] *= timeFraction;
-                weights[2] *= 1 - timeFraction;
-                weights[3] *= 1 - timeFraction;
-                weights[4] *= 1 - timeFraction;
-                weights[5] *= 1 - timeFraction;
+                MultiplyWeights(ref weights, 2, angles.Length + 2, 1 - timeFraction);
                 if(shouldUseMultiDirectionalAnimation)
                     transitionState.SetForce(BaseActionTransitionsEnum.BaseToAction, crossfadeDur, 1-timeFraction);
                 if(transitionState.CanBeChanged)
@@ -190,25 +156,92 @@ public static class AnimationUtility
         }
     }
 
+    private static void SetWeightsDirectional(ref float[] weights, ref float[] angles, float forwardBackwardSpeed, float leftRightSpeed, int start = 0)
+{
+    int numAngles = angles.Length;
+
+    for (var i = 0; i < numAngles; i++)
+    {
+        weights[start + i] = 0f;
+    }
+
+    if ((forwardBackwardSpeed * forwardBackwardSpeed + leftRightSpeed * leftRightSpeed) < 0.0001f)
+    {
+        if (numAngles > 0)
+        {
+            weights[start] = 1f;
+        }
+        //Debug.Log("null speed");
+        return;
+    }
+
+    float theta = (float)(Mathf.Atan2(leftRightSpeed, forwardBackwardSpeed) * (180.0 / Mathf.PI));
+
+    
+    var idxPos = -1;
+    var idxNeg = -1;
+    var minPosDiff = 360f;
+    var minNegDiff = -360f;
+
+    for (int i = 0; i < numAngles; i++)
+    {
+        float diff = (theta - angles[i]) % 360f;
+        if (diff > 180f) diff -= 360f;
+        else if (diff <= -180f) diff += 360f;
+
+        if (Mathf.Abs(diff) < 0.001f)
+        {
+            weights[start + i] = 1f;
+            //Debug.Log("Theta = " + theta + ", exit couse found = " + start + i);
+            return;
+        }
+
+        if (diff > 0 && diff < minPosDiff)
+        {
+            minPosDiff = diff;
+            idxPos = i;
+        }
+        else if (diff < 0 && diff > minNegDiff)
+        {
+            minNegDiff = diff;
+            idxNeg = i;
+        }
+    }
+    
+    //Debug.Log("Theta = " + theta + ", idx neg = " + idxNeg + ", idx pos = " + idxPos);
+
+    if (idxPos != -1 && idxNeg != -1)
+    {
+        float span = minPosDiff - minNegDiff;
+        weights[start + idxPos] = -minNegDiff / span;
+        weights[start + idxNeg] = minPosDiff / span;
+    }
+    else if (idxPos != -1)
+    {
+        weights[start + idxPos] = 1f;
+    }
+    else if (idxNeg != -1)
+    {
+        weights[start + idxNeg] = 1f;
+    }
+}
+    
+    private static void MultiplyWeights(ref float[] weights, int start, int finish, float factor)
+    {
+        for(var i = start;i<finish; ++i)
+            weights[i] *= factor;
+    }
+
     public static void UseWeights(
         AnimationMixerPlayable mixer,
         ref float[] weights,
         int mixerSize)
     {
-       // string res = "";
         for (int i = 0; i < mixerSize; i++)
         {
             mixer.SetInputWeight(i, weights[i]);
-            //res += "[ " + i + ", weight = " + weights[i];
-            var p = mixer.GetInput(i);
-            // if (p.IsValid()) 
-            // {
-            //     res += ", speed = " + p.GetSpeed();
-            // }
-            //
-            // res += " ] ";
+
         }
-        //Debug.Log(res);
     }
     
     public static void ConnectPersistentClip(ref PlayableGraph graph, AnimationMixerPlayable mixer, int port, AnimationClip clip, float startWeight = 0f)
