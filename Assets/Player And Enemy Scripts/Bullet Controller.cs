@@ -34,7 +34,7 @@ public class BulletController : MonoBehaviour
             {
                 if (obj.TryGetComponent<HealthController>(out var healthController))
                 {
-                    if (healthController.ShouldBeDeflected(transform.forward))
+                    if (healthController.TryDeflecting(transform.forward))
                     {
                         healthController.DoDeflectDamage(_damage);
                         healthController.GetNewEnemyLayerMask(out _destructionLayerMask, out _enemyLayerMask);
@@ -43,7 +43,7 @@ public class BulletController : MonoBehaviour
                         transform.LookAt(_backTarget);
                         return;
                     }
-                    if (healthController.ShouldBeBlocked(transform.forward))
+                    if (healthController.TryBlocking(transform.forward))
                     {
                         healthController.DoBlockDamage(_damage);
                     }

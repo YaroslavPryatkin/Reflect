@@ -3,7 +3,16 @@ using UnityEngine;
 public class HealthController : MonoBehaviour
 {
     [SerializeField] private float maxHealth = 120f;
+    
+    
+    
+    [Header("Block bullet")] 
+    [SerializeField] private float blockBulletAngle = 120f;
     [SerializeField] private float blockDamageReduction = 2f;
+    
+    [Header("Deflect bullet")] 
+    [SerializeField] private float deflectBulletAngle = 80f;
+    [SerializeField] private float deflectBulletDamageReduction = 2f;
     
     public float CurrentHealth{get; private set;}
     public bool IsDead{get; private set;}
@@ -12,6 +21,8 @@ public class HealthController : MonoBehaviour
     public float HealthFraction => CurrentHealth / maxHealth;
 
     protected DamageController _damageController;
+    protected MeleeController _meleeController;
+    protected bool haveMelee;
     protected Sensors _sensors;
     
     protected virtual void Awake()
@@ -19,6 +30,7 @@ public class HealthController : MonoBehaviour
         CurrentHealth = maxHealth;
         _damageController =  GetComponent<DamageController>();
         _sensors =  GetComponent<Sensors>();
+        haveMelee = TryGetComponent(out _meleeController);
     }
 
     public void ResetHealth()
@@ -74,13 +86,20 @@ public class HealthController : MonoBehaviour
         
     }
 
-    public virtual bool ShouldBeDeflected(Vector3 bulletForward)
+    public bool TryDeflecting(Vector3 bulletForward)
     {
+        if (haveMelee && GetAngleToBullet(bulletForward) <= deflectBulletAngle && _meleeController.Parrying)
+        {
+            _meleeController.OnSuccessfulParry();
+            return true;
+        }
+
         return false;
     }
 
-    public virtual bool ShouldBeBlocked(Vector3 bulletForward)
+    public bool TryBlocking(Vector3 bulletForward)
     {
+
         return false;
     }
 
@@ -90,8 +109,16 @@ public class HealthController : MonoBehaviour
         destructiveLayer = _sensors.IgnoreMyLayerMask;
     }
 
-    public virtual void GetNewBulletDamage(ref float damage)
+    private float GetAngleToBullet(Vector3 bulletForward)
     {
-        damage /= 2f;
+        var forwardHorizontal = new Vector3(transform.forward.x, 0f, transform.forward.z);
+        var bulletHorizontal = new Vector3(-bulletForward.x, 0f, -bulletForward.z);
+
+        return Vector3.Angle(forwardHorizontal, bulletHorizontal);
+    }
+
+    public void GetNewBulletDamage(ref float damage)
+    {
+        damage /= deflectBulletDamageReduction;
     }
 }

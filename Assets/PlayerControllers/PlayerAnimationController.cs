@@ -96,7 +96,7 @@ public class PlayerAnimationController : MonoBehaviour
     private PlayerDashController _playerDashController;
     private PlayerJumpController _playerJumpController;
     private PlayerLandingController _playerLandingController;
-    private PlayerSwordController _playerSwordController;
+    private PlayerMeleeController _playerMeleeController;
     private PlayerGunController _playerGunController;
     private MeleeController _meleeController;
 
@@ -155,12 +155,6 @@ public class PlayerAnimationController : MonoBehaviour
     private float[] multiDirectionalSpeedMultipliers;
     private float[] multidirectionalAngles;
     
-    private float multidirectionalLeftRightCurrent = 0f;
-    private float multidirectionalLeftRightSmoothVelocity = 0f;    
-    
-    
-    
-    
 
 
     private int _currentBasePort = 0;
@@ -185,7 +179,7 @@ public class PlayerAnimationController : MonoBehaviour
         _playerDashController = GetComponent<PlayerDashController>();
         _playerJumpController = GetComponent<PlayerJumpController>();
         _playerLandingController = GetComponent<PlayerLandingController>();
-        _playerSwordController = GetComponent<PlayerSwordController>();
+        _playerMeleeController = GetComponent<PlayerMeleeController>();
         _playerGunController = GetComponent<PlayerGunController>();
         _playerTargetLockController = GetComponent<PlayerTargetLockController>(); 
         _meleeController = GetComponent<MeleeController>();

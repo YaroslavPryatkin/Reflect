@@ -2,11 +2,8 @@ using UnityEngine;
 
 public class EnemyHealthController : HealthController
 {
-
-    private void Update()
+    protected override void OnDeath()
     {
-        if(IsDead)
-            gameObject.SetActive(false);
+        gameObject.SetActive(false);
     }
-    
 }

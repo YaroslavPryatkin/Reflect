@@ -19,14 +19,11 @@ public class PlayerInputController : MonoBehaviour
 
     public bool IsAttackBufferActive => attackBuffer.Value;
     
-    public void ConsumeAttack(){attackBuffer.Deactivate();}
-    
     private Utility.MultipleTemporaryValue<bool> attackBuffer;
 
     
     public bool IsParryBufferActive => parryBuffer.Value;
     
-    public void ConsumeParry(){parryBuffer.Deactivate();}
     
     private Utility.MultipleTemporaryValue<bool> parryBuffer;
     
@@ -165,6 +162,10 @@ public class PlayerInputController : MonoBehaviour
         parryBuffer.Activate();
         IsParryPressed = true;
     }
+    
+    
+    public void ConsumeAttack(){attackBuffer.Deactivate();parryBuffer.DeactivateAll();}
+    public void ConsumeParry(){parryBuffer.Deactivate(); attackBuffer.DeactivateAll();}
     
     private void HandleParryRelease()
     {

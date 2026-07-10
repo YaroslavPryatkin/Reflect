@@ -428,14 +428,17 @@ public static class Utility
             _targetTimes[_endIndex] = 0f;
         }
 
-        public int GetAmountOfActive()
+        public int AmountOfActive
         {
-            MoveEndIndex();
-            if(_endIndex == LastActive)
-                return IsIndexActive(_endIndex) ? 1 : 0;
-            if(_endIndex >= _index)
-                return _slots - _endIndex + _index; 
-            return _index-_endIndex;
+            get
+            {
+                MoveEndIndex();
+                if (_endIndex == LastActive)
+                    return IsIndexActive(_endIndex) ? 1 : 0;
+                if (_endIndex >= _index)
+                    return _slots - _endIndex + _index;
+                return _index - _endIndex;
+            }
         }
         
         public static implicit operator T(MultipleTemporaryValue<T> tmpValue)

@@ -17,14 +17,14 @@ public class PlayerTargetLockController : MonoBehaviour
     [SerializeField] private float cameraMaxRotationSpeed = 80f;
     [SerializeField] private float speedCurvePower = 2f;
 
-    private PlayerDamageController _playerDamageController;
+    private DamageController _damageController;
     private PlayerSensors _playerSensors;
     private PlayerMovementController _playerMovementController;
     private PlayerGunController _playerGunController;
 
     private void Awake()
     {
-        _playerDamageController = GetComponent<PlayerDamageController>();
+        _damageController = GetComponent<DamageController>();
         _playerSensors = GetComponent<PlayerSensors>();
         _playerMovementController = GetComponent<PlayerMovementController>();
         _playerGunController = GetComponent<PlayerGunController>();
@@ -44,7 +44,7 @@ public class PlayerTargetLockController : MonoBehaviour
     public void TryLock(bool lockOnlyInScreen = true)
     {
         
-        var candidates = Physics.OverlapSphere(transform.position, maximalLockDistance,  _playerDamageController.EnemyLayer);
+        var candidates = Physics.OverlapSphere(transform.position, maximalLockDistance,  _damageController.EnemyLayer);
         
         Transform bestTarget = null;
         var foundTarget = false;

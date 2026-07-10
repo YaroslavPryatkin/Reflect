@@ -4,520 +4,91 @@ using System;
 using UnityEngine.Playables;
 using UnityEngine.Animations;
 using UnityEngine.Animations.Rigging;
+using MeleeComponents;
+using MeleeComponents.Presets;
+using SubclassSelector;
 
 public abstract class MeleeController : MonoBehaviour
 {
     [Header("Sheathe")] 
-    [SerializeField] private TwoPartAction unSheath;
-    [SerializeField] private TwoPartAction sheath;
-    [SerializeField] private RemainLastPosition positionAfterSheath;
+    [SerializeReference] private MeleeMultiComponent unSheath = new StandardUnSheath();
+    [SerializeReference] private MeleeMultiComponent sheath = new StandardSheath();
 
     [Header("Holding")]
-    [SerializeField] private TwoPartAction hold;
-    
-    [Header("Combos")]
-    [SerializeField] private List<Combo> combos;
-    
-    [Header("Parry")] 
-    [SerializeField] private FourPartAction parry;
-    [SerializeField] private FourPartAction afterSuccessfulParry;
+    [SerializeReference] private MeleeMultiComponent hold = new StandardTransitionLoop();
 
+    [Header("Combos")] 
+    [SerializeReference, SelectSubclass] private List<MeleeMultiComponent> combos = new (2);
+    
     [Header("Weapon objects")] 
     [SerializeField] private GameObject sheathedWeapon;
     [SerializeField] private GameObject handWeapon;
     
     [Header("Settings")]
-    [SerializeField] private AvatarMask meleAvatarMask;
+    [SerializeField] private AvatarMask meleeAvatarMask;
+    [SerializeField] private MeleeWeaponHitboxController meleeWeaponHitboxController;
+    [SerializeField] private float holdAnimationOverrideFraction = 0.5f;
 
     
-    private interface IMeleeEvent
-    {
-        public event Action OnActionStarted;
-        public event Action OnActionEnded;
-    }
-    private interface IMeleePlayable
-    {
-        float CurrentStateFraction { get; }
-        AnimationClip Clip { get; }
-        bool IsClipNull { get; }
-        float ClipSpeed { get; }
-        
-        bool IsActive { get; }
-        
-        bool CanBeSafelyInterrupted { get; }
-        
-        bool IsPositioning { get; }
-
-        void Awake(int stateMask);
-        
-        /// <returns>
-        /// Time fraction of current phase
-        /// </returns>
-        float Interrupt();
-        void Update();
-        void Start(float startingFraction, bool skipPositioning);
-
-        void AddClipsToSet(HashSet<AnimationClip> uniqueClips);
-    }
+    protected DamageController _damageController;
     
-    [Serializable]
-    public class Combo : IMeleePlayable, IMeleeEvent
+    private Utility.TemporaryValue<bool> _parrying = new(false, true);
+    private MeleeMultiComponent _onSuccessfulParry;
+    public bool Parrying => _parrying.Value;
+
+    public void ActivateParrying(float duration, MeleeMultiComponent onSuccessfulParry)
     {
-        [SerializeField] private List<FourPartAction> parts;
-
-        public event Action OnActionStarted;
-        public event Action OnActionEnded;
-        
-        
-        private void HandleActionStarted() => OnActionStarted?.Invoke();
-        private void HandleActionEnded() => OnActionEnded?.Invoke();
-        
-        private int _currentPart = -1;
-        
-        public bool IsActive => _currentPart != -1;
-        
-        public void Awake(int stateMask)
-        {
-            if (parts == null) return;
-
-            foreach (var part in parts)
-            {
-                part.OnActionStarted -= HandleActionStarted;
-                part.OnActionEnded -= HandleActionEnded;
-                part.OnActionStarted += HandleActionStarted;
-                part.OnActionEnded += HandleActionEnded;
-                part.Awake(stateMask);
-            }
-        }
-        
-        public void AddClipsToSet(HashSet<AnimationClip> uniqueClips)
-        {
-            foreach (var part in parts)
-            {
-                part.AddClipsToSet(uniqueClips);
-            }
-        }
-        public bool CanBeSafelyInterrupted => _currentPart == -1 || parts[_currentPart].CanBeSafelyInterrupted;
-
-        public bool IsPositioning => _currentPart != -1 && parts[_currentPart].IsPositioning;
-
-        public float Interrupt()
-        {
-            float res = 1f;
-            if (_currentPart != -1)
-            {
-                res = parts[_currentPart].Interrupt();
-                _currentPart = -1;
-            }
-
-            return res;
-        }
-
-        public void Update()
-        {
-            if (_currentPart != -1)
-            {
-                parts[_currentPart].Update();
-                if (!parts[_currentPart].IsActive)
-                {
-                    if (_currentPart >= parts.Count - 1)
-                    {
-                        _currentPart = -1;
-                    }
-                    else
-                    {
-                        _currentPart++;
-                        parts[_currentPart].Start(0f, false);
-                    }
-                }
-            }
-        }
-
-        public void Start(float fraction, bool skipPositioning)
-        {
-            if (parts.Count == 0) return;
-            
-            if(_currentPart != -1)
-                parts[_currentPart].Interrupt();
-            _currentPart = 0;
-            parts[_currentPart].Start(fraction, skipPositioning);
-        }
-        
-        public float CurrentStateFraction => _currentPart == -1 ? 0f : parts[_currentPart].CurrentStateFraction;
-        
-        public AnimationClip Clip => _currentPart == -1 ? null : parts[_currentPart].Clip;
-        
-        
-        public bool IsClipNull => _currentPart == -1 || parts[_currentPart].IsClipNull;
-        
-        public float ClipSpeed => _currentPart == -1 ? 0f : parts[_currentPart].ClipSpeed;
-    }
+        _parrying.Activate(duration);
+        _onSuccessfulParry = onSuccessfulParry;
+        OnParry();
+    } 
+    public void DeactivateParrying(float parryStateAfterSuccessfulParryTime) => _parrying.Activate(parryStateAfterSuccessfulParryTime);
     
-    [Serializable]
-    public class FourPartAction : IMeleePlayable, IMeleeEvent
+    public void OnSuccessfulParry()
     {
-        [SerializeField] private float positionTime = 0.1f;
-        [SerializeField] private bool hasPreparation = false;
-        [SerializeField] private float prepareTime = 0.1f;
-        [SerializeField] private AnimationClip prepareClip;
-        [SerializeField] private float actionTime = 0.1f;
-        [SerializeField] private AnimationClip actionClip;
-        [SerializeField] private float recoveryTime = 0.1f;
-        [SerializeField] private AnimationClip recoveryClip;
-        
-        public event Action OnActionStarted;
-        public event Action OnActionEnded;
-        
-        private float _prepareSpeed;
-        private float _actionSpeed;
-        private float _recoverySpeed;
-        
-        
-        [Flags]
-        public enum ActionStateEnum{
-            Non = 0,
-            Position = 1, 
-            Prepare = 1<<1, 
-            Action = 1<<2, 
-            Recovery = 1<<3
-            
-        }
-        
-        private Utility.FractionBlockingValueTimer<ActionStateEnum> _actionState = ActionStateEnum.Non;
-
-        public bool IsActive => _actionState.Value != ActionStateEnum.Non;
-
-        private ActionStateEnum _canBeSafelyInterruptedMask;
-
-        public void Awake(int stateMask)
+        if (Parrying)
         {
-            _canBeSafelyInterruptedMask = (ActionStateEnum)~stateMask;
-            _prepareSpeed = prepareClip != null ? AnimationUtility.GetAnimationSpeed(prepareClip, prepareTime) : 1f;
-            _actionSpeed = actionClip != null ? AnimationUtility.GetAnimationSpeed(actionClip, actionTime) : 1f;
-            _recoverySpeed = recoveryClip != null ? AnimationUtility.GetAnimationSpeed(recoveryClip, recoveryTime) : 1f;
-        }
-        
-        public void AddClipsToSet(HashSet<AnimationClip> uniqueClips)
-        {
-            if(prepareClip != null)
-                uniqueClips.Add(prepareClip);
-            if(actionClip != null)
-                uniqueClips.Add(actionClip);
-            if(recoveryClip != null)
-                uniqueClips.Add(recoveryClip);
-        }
-        
-        public bool CanBeSafelyInterrupted => (_actionState.Value & _canBeSafelyInterruptedMask)==0;
-        
-        public bool IsPositioning =>  _actionState.Value == ActionStateEnum.Position;
-        
-        public void Update()
-        {
-            if (_actionState.CanBeChanged)
-            {
-                switch (_actionState.Value)
-                {
-                    case ActionStateEnum.Position:
-                        if(hasPreparation)
-                        {
-                            _actionState.SetForce(ActionStateEnum.Prepare, prepareTime);
-                        }
-                        else
-                        {
-                            _actionState.SetForce(ActionStateEnum.Action, actionTime);
-                            OnActionStarted?.Invoke();
-                        }
-                        break;
-                    case ActionStateEnum.Prepare:
-                        _actionState.SetForce(ActionStateEnum.Action, actionTime);
-                        OnActionStarted?.Invoke();
-                        break;
-                    case ActionStateEnum.Action:
-                        _actionState.SetForce(ActionStateEnum.Recovery, recoveryTime);
-                        OnActionEnded?.Invoke();
-                        break;
-                    case ActionStateEnum.Recovery:
-                        _actionState.SetForce(ActionStateEnum.Non);
-                        break;
-                }
-            }
-        }
-
-        public float Interrupt()
-        {
-            var res = _actionState.TimeFraction;
-            _actionState.SetForce(ActionStateEnum.Non);
-            return res;
-        }
-
-        public void Start(float fraction, bool skipPositioning)
-        {
-            if(_actionState.Value == ActionStateEnum.Non)
-            {
-                if (skipPositioning)
-                {
-                    if(hasPreparation)
-                        _actionState.SetForce(ActionStateEnum.Prepare, prepareTime, fraction);
-                    else
-                        _actionState.SetForce(ActionStateEnum.Action, actionTime, fraction);
-                }
-                else 
-                    _actionState.SetForce(ActionStateEnum.Position, positionTime, fraction);
-            }
-        }
-
-        
-        public float CurrentStateFraction => _actionState.Value == ActionStateEnum.Position ? Mathf.Clamp01(_actionState.TimeFraction) : 0f;
-
-        public AnimationClip Clip 
-        {
-            get
-            {
-                switch (_actionState.Value)
-                {
-                    case ActionStateEnum.Prepare:
-                        return prepareClip;
-                    case ActionStateEnum.Action:
-                        return actionClip;
-                    case ActionStateEnum.Recovery:
-                        return recoveryClip;
-                    case ActionStateEnum.Position:
-                        return hasPreparation ? prepareClip : actionClip; 
-                    default:
-                        return null;
-                }
-            }
-        }
-        
-        public bool IsClipNull => _actionState.Value == ActionStateEnum.Non;
-
-        public float ClipSpeed 
-        {
-            get
-            {
-                float res = 0;
-                switch (_actionState.Value)
-                {
-                    case ActionStateEnum.Prepare:
-                        res = _prepareSpeed;
-                        break;
-                    case ActionStateEnum.Action:
-                        res = _actionSpeed;
-                        break;
-                    case ActionStateEnum.Recovery:
-                        res = _recoverySpeed;
-                        break;
-                }
-                return res;
-            }
+            ChangeCurrentMeleePlayable(_onSuccessfulParry);
         }
     }
 
-    [Serializable]
-    public class TwoPartAction : IMeleePlayable
+    public void ActivateAttack(float damage)
     {
-        [SerializeField] private float positionTime = 0.1f;
-        [SerializeField] private float actionTime = 0.1f;
-        [SerializeField] private AnimationClip actionClip;
-
-        
-        private float _actionSpeed;
-        
-        
-        [Flags]
-        public enum ActionStateEnum{
-            Non = 0, 
-            Position = 1, 
-            Action = 1<<1
-        }
-        
-        private Utility.FractionBlockingValueTimer<ActionStateEnum> _actionState = ActionStateEnum.Non;
-        
-        public float CurrentStateFraction => _actionState.Value == ActionStateEnum.Position ? Mathf.Clamp01(_actionState.TimeFraction) : 0f;
-
-        public AnimationClip Clip => _actionState.Value == ActionStateEnum.Non ? null :  actionClip;
-        public bool IsClipNull => _actionState.Value == ActionStateEnum.Non;
-
-        public float ClipSpeed => _actionState.Value == ActionStateEnum.Action ? _actionSpeed : 0f;
-        
-        public bool IsActive => _actionState.Value != ActionStateEnum.Non;
-
-        private ActionStateEnum _canBeSafelyInterruptedMask;
-
-        public void Awake(int stateMask)
-        {
-            _canBeSafelyInterruptedMask = (ActionStateEnum)~stateMask;
-            _actionSpeed = actionClip != null ? AnimationUtility.GetAnimationSpeed(actionClip, actionTime) : 1f;
-        }
-        
-        public void AddClipsToSet(HashSet<AnimationClip> uniqueClips)
-        {
-            if(actionClip != null)
-                uniqueClips.Add(actionClip);
-        }
-        
-        public bool CanBeSafelyInterrupted => (_actionState.Value & _canBeSafelyInterruptedMask)==0 ;
-        
-        public bool IsPositioning =>  _actionState.Value == ActionStateEnum.Position;
-        
-        public float Interrupt()
-        {
-            var res = _actionState.TimeFraction;
-            _actionState.SetForce(ActionStateEnum.Non);
-            return res;
-        }
-
-        public void Update()
-        {
-            if (_actionState.CanBeChanged)
-            {
-                switch (_actionState.Value)
-                {
-                    case ActionStateEnum.Position:
-                        _actionState.SetForce(ActionStateEnum.Action, actionTime);
-                        break;
-                    case ActionStateEnum.Action:
-                        _actionState.SetForce(ActionStateEnum.Non);
-                        break;
-                }
-            }
-        }
-
-        public void Start(float fraction, bool skipPositioning)
-        {
-            if (_actionState.Value == ActionStateEnum.Non)
-            {
-                if(skipPositioning)
-                    _actionState.SetForce(ActionStateEnum.Action, actionTime, fraction);
-                else
-                    _actionState.SetForce(ActionStateEnum.Position, positionTime, fraction);
-            }
-        }
-        
-        public ActionStateEnum State =>  _actionState.Value;
+        meleeWeaponHitboxController.StartSwing(damage);
+        OnAttack();
     }
 
-    [Serializable]
-    public class RemainLastPosition : IMeleePlayable
-    {
-        [SerializeField] private float duration = 0.1f;
-
-
-        [Flags]
-        public enum ActionStateEnum
-        {
-            Non = 0,
-            Position = 1
-        }
-
-        private Utility.FractionBlockingValueTimer<ActionStateEnum> _actionState = ActionStateEnum.Non;
-
-        public float CurrentStateFraction => _actionState.Value == ActionStateEnum.Position
-            ? Mathf.Clamp01(_actionState.TimeFraction)
-            : 0f;
-
-        public AnimationClip Clip => null;
-        public bool IsClipNull => true;
-
-        public float ClipSpeed => 0f;
-
-        public bool IsActive => _actionState.Value != ActionStateEnum.Non;
-
-        private ActionStateEnum _canBeSafelyInterruptedMask;
-
-        public void Awake(int stateMask)
-        {
-            _canBeSafelyInterruptedMask = (ActionStateEnum)~stateMask;
-        }
-
-        public void AddClipsToSet(HashSet<AnimationClip> uniqueClips)
-        {
-        }
-
-        public bool CanBeSafelyInterrupted => (_actionState.Value & _canBeSafelyInterruptedMask)==0 ;
-        public bool IsPositioning =>  _actionState.Value == ActionStateEnum.Position;
-        
-        public float Interrupt()
-        {
-            var res = _actionState.TimeFraction;
-            _actionState.SetForce(ActionStateEnum.Non);
-            return res;
-        }
-
-        public void Update()
-        {
-            if (_actionState.CanBeChanged && _actionState.Value ==  ActionStateEnum.Position)
-            {
-                _actionState.SetForce(ActionStateEnum.Non);
-            }
-        }
-
-        public void Start(float fraction, bool skipPositioning)
-        {
-            if (_actionState.Value == ActionStateEnum.Non)
-            {
-                if(!skipPositioning)
-                    _actionState.SetForce(ActionStateEnum.Position, duration, fraction);
-            }
-        }
-    }
+    public void DeactivateAttack() => meleeWeaponHitboxController.FinishSwing();
+   
     
 
     protected virtual void Awake()
     {
-        parry.OnActionStarted -= OnParryStart;
-        parry.OnActionEnded -= OnParryEnd;
-        parry.OnActionStarted += OnParryStart;
-        parry.OnActionEnded += OnParryEnd;
-        var alwaysInterruptableTwoActionMask = 1 | 1 << 1;
-        sheath.Awake(alwaysInterruptableTwoActionMask);
-        unSheath.Awake(alwaysInterruptableTwoActionMask);
-        hold.Awake(alwaysInterruptableTwoActionMask);
-            
-        positionAfterSheath.Awake(1);
-
-        var comboInterruptMask = 1 | 1 << 1;
+        _damageController = GetComponent<DamageController>();
+        meleeWeaponHitboxController.SetTargetLayers(_damageController.EnemyLayer);
+        
+        sheath.Awake(this);
+        unSheath.Awake(this);
+        hold.Awake(this);
         foreach (var combo in combos)
         {
-            combo.OnActionStarted -= OnAttackStart;
-            combo.OnActionEnded -= OnAttackEnd;
-            combo.OnActionStarted += OnAttackStart;
-            combo.OnActionEnded += OnAttackEnd;
-            combo.Awake(comboInterruptMask);
+            combo.Awake(this);
         }
-        
-        afterSuccessfulParry.Awake(0);
-        parry.Awake(0);
     }
-
-
-    protected abstract void OnAttackStart();
-    protected abstract void OnAttackEnd();
-    protected abstract void OnParryStart();
-    protected abstract void OnParryEnd();
-    
-    public void OnSuccessfulParry()
-    {
-        if (State != MeleeStateEnum.Parry) return;
-        
-        State = MeleeStateEnum.AfterSuccessfulParry;
-        ChangeCurrentMeleePlayable(afterSuccessfulParry);
-    }
-    
     /// <returns>
     /// Must return -1 if no combo should be played
     /// </returns>
     protected abstract int WhatComboToPlay();
-    protected abstract bool ShouldParry();
     protected abstract bool ShouldHold();
     protected abstract bool ShouldInterrupt();
-
     protected abstract bool ShouldSwitchStateToNon();
+    
+    protected virtual void OnAttack(){}
+    protected virtual void OnParry(){}
     
     public enum MeleeStateEnum
     {
-        Non, UnSheath, Sheathe, PositioningAfterSheath, Hold,
-        Combo, Parry, AfterSuccessfulParry
+        Non, UnSheath, Sheathe, Hold, Combo
     }
 
     public MeleeStateEnum State { get; private set; } = MeleeStateEnum.Non;
@@ -527,20 +98,31 @@ public abstract class MeleeController : MonoBehaviour
     
     private IMeleePlayable _currentMeleePlayable;
 
-    private void ChangeCurrentMeleePlayable(IMeleePlayable meleePlayable, bool makeNewFractionOneMinus = false, bool skipPositioning = false)
+    private void ChangeCurrentMeleePlayable(IMeleePlayable meleePlayable)
     {
-        if (makeNewFractionOneMinus && _currentMeleePlayable != null)
+        if (_currentMeleePlayable != null)
+            _currentMeleePlayable.Interrupt();
+        meleePlayable.Start(0f);
+        
+        _currentMeleePlayable = meleePlayable;
+    }
+    private void ChangeCurrentMeleePlayableAntiFraction(IMeleePlayable meleePlayable, bool lengthSourceIsNew)
+    {
+        if (_currentMeleePlayable != null)
         {
-            meleePlayable.Start(_currentMeleePlayable.Interrupt(), skipPositioning);
-        }
-        else
-        {
-            if (_currentMeleePlayable != null)
-                _currentMeleePlayable.Interrupt();
-            meleePlayable.Start(0f, skipPositioning);
+            float fraction;
+            
+            if(lengthSourceIsNew)
+                 fraction = meleePlayable.Length - _currentMeleePlayable.LengthFraction;
+            else
+                fraction = _currentMeleePlayable.Length - _currentMeleePlayable.LengthFraction;
+            
+            _currentMeleePlayable.Interrupt();
+            meleePlayable.Start(fraction);
         }
         _currentMeleePlayable = meleePlayable;
     }
+    
 
     private void DoSomethingBasedOnInput()
     {
@@ -567,17 +149,6 @@ public abstract class MeleeController : MonoBehaviour
 
         if (!_currentMeleePlayable.CanBeSafelyInterrupted) return;
         
-        if (ShouldParry())
-        {
-            CurrentCombo = -1;
-            if (State != MeleeStateEnum.Parry || !_currentMeleePlayable.IsActive)
-            {
-                State = MeleeStateEnum.Parry;
-                ChangeCurrentMeleePlayable(parry);
-            }
-            return;
-        }
-                    
         var combo = WhatComboToPlay();
         if (combo != -1)
         {
@@ -615,22 +186,25 @@ public abstract class MeleeController : MonoBehaviour
         
         if (State == MeleeStateEnum.Non)
         {
-            if (ShouldHold() || ShouldParry() || WhatComboToPlay() != -1)
+            if (ShouldHold() || WhatComboToPlay() != -1)
             {
                 State = MeleeStateEnum.UnSheath;
                 ChangeCurrentMeleePlayable(unSheath);
             }
             return;
         }
-        
-        
+
+        // if (_currentMeleePlayable == null)
+        // {
+        //     Debug.Log("Something went wrong " + State + ", " + _currentMeleePlayable);
+        // }
         _currentMeleePlayable.Update();
         
 
         switch (State)
         {
             case MeleeStateEnum.UnSheath:
-                if (ShouldHold() || ShouldParry() || WhatComboToPlay() != -1)
+                if (ShouldHold() || WhatComboToPlay() != -1)
                 {
                     if (!_currentMeleePlayable.IsActive)
                     {
@@ -639,27 +213,18 @@ public abstract class MeleeController : MonoBehaviour
                 }
                 else
                 {
-                    if (_currentMeleePlayable.IsPositioning)
-                    {
-                        State = MeleeStateEnum.PositioningAfterSheath;
-                        ChangeCurrentMeleePlayable(positionAfterSheath, true);
-                    }
-                    else
-                    {
-                        //actively putting sword out of sheath
-                        State = MeleeStateEnum.Sheathe;
-                        ChangeCurrentMeleePlayable(sheath, true, true);
-                    }
+                    State = MeleeStateEnum.Sheathe;
+                    ChangeCurrentMeleePlayableAntiFraction(sheath, true);
                 }
                 break;
-            case MeleeStateEnum.Hold or MeleeStateEnum.Parry or MeleeStateEnum.Combo or MeleeStateEnum.AfterSuccessfulParry:
+            case MeleeStateEnum.Hold or MeleeStateEnum.Combo:
                 DoSomethingBasedOnInput();
 
                 break;
             case MeleeStateEnum.Sheathe:
-                if (ShouldHold() || ShouldParry() || WhatComboToPlay() != -1)
+                if (ShouldHold() || WhatComboToPlay() != -1)
                 {
-                    if (_currentMeleePlayable.IsPositioning)
+                    if (_currentMeleePlayable.LengthFraction < 1f)
                     {
                         DoSomethingBasedOnInput();
                     }
@@ -667,15 +232,8 @@ public abstract class MeleeController : MonoBehaviour
                     {
                         //actively putting sword into sheath
                         State = MeleeStateEnum.UnSheath;
-                        ChangeCurrentMeleePlayable(unSheath, true, true);
+                        ChangeCurrentMeleePlayableAntiFraction(unSheath, false);
                     }
-                }
-                break;
-            case MeleeStateEnum.PositioningAfterSheath:
-                if (ShouldHold() || ShouldParry() || WhatComboToPlay() != -1)
-                {
-                    State = MeleeStateEnum.UnSheath;
-                    ChangeCurrentMeleePlayable(unSheath, true);
                 }
                 break;
         }
@@ -692,8 +250,8 @@ public abstract class MeleeController : MonoBehaviour
     private void UpdateWeaponProp()
     {
         if (State == MeleeStateEnum.Non || 
-            State == MeleeStateEnum.PositioningAfterSheath || 
-            (State == MeleeStateEnum.UnSheath && _currentMeleePlayable.IsPositioning)
+            (State == MeleeStateEnum.Sheathe && _currentMeleePlayable.LengthFraction >= _currentMeleePlayable.Length - 1f) ||
+            (State == MeleeStateEnum.UnSheath && _currentMeleePlayable.LengthFraction < 1f)
             )
         {
             sheathedWeapon.SetActive(true);
@@ -724,8 +282,6 @@ public abstract class MeleeController : MonoBehaviour
         unSheath.AddClipsToSet(uniqueClips);
         sheath.AddClipsToSet(uniqueClips);
         hold.AddClipsToSet(uniqueClips);
-        parry.AddClipsToSet(uniqueClips);
-        afterSuccessfulParry.AddClipsToSet(uniqueClips);
         foreach (var combo in combos)
         {
             combo.AddClipsToSet(uniqueClips);
@@ -747,7 +303,7 @@ public abstract class MeleeController : MonoBehaviour
         _graph.Connect(_animationMixer, 0, _layerMixer, _destinationLayerPort);
         _layerMixer.SetInputWeight(_destinationLayerPort, 0f);
         
-        _layerMixer.SetLayerMaskFromAvatarMask(destinationLayerPort, meleAvatarMask);
+        _layerMixer.SetLayerMaskFromAvatarMask(destinationLayerPort, meleeAvatarMask);
     }
 
     private void UpdateLayerTransition()
@@ -759,31 +315,40 @@ public abstract class MeleeController : MonoBehaviour
                 weight = 0f;
                 break;
             case  MeleeStateEnum.UnSheath:
-                if (_currentMeleePlayable.IsPositioning)
+                if (_currentMeleePlayable.LengthFraction < 1f)
                     weight = _currentMeleePlayable.CurrentStateFraction;
                 else
                     weight = 1f;
                 break;
-            case MeleeStateEnum.PositioningAfterSheath:
-                weight = _currentMeleePlayable.CurrentStateFraction;
+            case MeleeStateEnum.Sheathe:
+                if(_currentMeleePlayable.LengthFraction >= _currentMeleePlayable.Length - 1f)
+                    weight = 1 - _currentMeleePlayable.CurrentStateFraction;
+                else
+                    weight = 1f;
+                break;
+            case MeleeStateEnum.Hold:
+                weight = holdAnimationOverrideFraction;
                 break;
             default:
                 weight = 1f;
                 break;
         }
         
+        
+        
         _layerMixer.SetInputWeight(_destinationLayerPort, weight);
     }
 
     private int currentPort = -1;
     private int previousPort = -1;
-
+    // private float currentWeight;
+    // private float previousWeight;
     
     private void UpdateAnimationMixer()
     {
         if (_currentMeleePlayable == null) return;
         
-        if (!_currentMeleePlayable.IsClipNull)
+        if (_currentMeleePlayable.ClipIsNotNull)
         {
             var newClip = _currentMeleePlayable.Clip;
             if (_clipToPort.TryGetValue(newClip, out var newPort))
@@ -794,31 +359,45 @@ public abstract class MeleeController : MonoBehaviour
                         _animationMixer.SetInputWeight(previousPort, 0f);
                     previousPort = currentPort;
                     currentPort = newPort;
-                    var newPlayable = _animationMixer.GetInput(currentPort);
-                    if (newPlayable.IsValid()) newPlayable.SetTime(0f);
+                    //Debug.Log("Changed clip");
                 }
             }
+
+            
+            var currentPlayable = _animationMixer.GetInput(currentPort);
+            if (currentPlayable.IsValid())
+            {
+                if (_currentMeleePlayable.ShouldResetAnimationTime)
+                {
+                    //Debug.Log("reseted clip " + );
+                    currentPlayable.SetTime(0f);
+                }
+
+                currentPlayable.SetSpeed(_currentMeleePlayable.ClipSpeed);
+            }
+            
         }
         
-        if (_currentMeleePlayable.IsPositioning && State!=MeleeStateEnum.UnSheath)
+        if (_currentMeleePlayable.IsTransitioning && State!=MeleeStateEnum.UnSheath)
         {
             var weight = Mathf.Clamp01(_currentMeleePlayable.CurrentStateFraction);
         
             if(previousPort!=-1)
                 _animationMixer.SetInputWeight(previousPort, 1f - weight);
             _animationMixer.SetInputWeight(currentPort, weight);
+            // currentWeight = weight;
+            // previousWeight = 1 - weight;
         }
         else
         {
             if(previousPort!=-1)
                 _animationMixer.SetInputWeight(previousPort, 0f);
             _animationMixer.SetInputWeight(currentPort, 1f);
+            // currentWeight = 1;
+            // previousWeight = 0;
         }
-
         
-        var currentPlayable = _animationMixer.GetInput(currentPort);
-        if (currentPlayable.IsValid()) currentPlayable.SetSpeed(_currentMeleePlayable.ClipSpeed);
-       
+        //Debug.Log( "cur weight = " + currentWeight + ", prev weight = " + previousWeight +", cur length" +_currentMeleePlayable.Length+ ", cur length fraction = " + _currentMeleePlayable.LengthFraction);
     }
 
     protected virtual void Update()

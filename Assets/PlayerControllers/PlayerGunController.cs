@@ -12,7 +12,7 @@ public class PlayerGunController : GunController
     private PlayerMovementController _playerMovementController;
     private PlayerForwardJumpingController _playerForwardJumpingController;
     private PlayerLandingController  _playerLandingController;
-    private PlayerSwordController _playerSwordController;
+    private PlayerMeleeController _playerMeleeController;
     private PlayerTargetLockController _playerTargetLockController;
 
     protected override void Awake()
@@ -23,7 +23,7 @@ public class PlayerGunController : GunController
         _playerMovementController = GetComponent<PlayerMovementController>();
         _playerForwardJumpingController = GetComponent<PlayerForwardJumpingController>();
         _playerLandingController = GetComponent<PlayerLandingController>();
-        _playerSwordController = GetComponent<PlayerSwordController>();
+        _playerMeleeController = GetComponent<PlayerMeleeController>();
         _playerTargetLockController = GetComponent<PlayerTargetLockController>();
     }
 
@@ -54,7 +54,7 @@ public class PlayerGunController : GunController
     {
         CanAim = _playerMovementController.WallRunningState == 0 && _playerMovementController.SlidingPhase == 0 &&
                  !_playerDashController.IsDashing && !_playerForwardJumpingController.IsForwardJumping &&
-                 _playerLandingController.CanBeInterrupted && _playerSwordController.CanBeSafelyInterrupted;
+                 _playerLandingController.CanBeInterrupted && _playerMeleeController.CanBeSafelyInterrupted;
         isAiming = _playerInputController.IsAimPressed;
     }
 

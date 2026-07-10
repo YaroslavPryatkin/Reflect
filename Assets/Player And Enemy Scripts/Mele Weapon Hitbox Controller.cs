@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-public class MeleWeaponHitboxController : MonoBehaviour
+public class MeleeWeaponHitboxController : MonoBehaviour
 {
     private int _targetLayers; 
     private HashSet<HealthController> _alreadyHitTargets = new ();
