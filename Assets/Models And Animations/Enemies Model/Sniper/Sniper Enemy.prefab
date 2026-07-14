@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8200402511722545847}
   - component: {fileID: 1910796059339605993}
+  - component: {fileID: 7281151254152241996}
   m_Layer: 11
   m_Name: LeftHandIkLayer
   m_TagString: Untagged
@@ -63,6 +64,18 @@ MonoBehaviour:
       position: {x: 0, y: 0, z: 0}
       rotation: {x: 0, y: 0, z: 0}
     m_Visible: 1
+--- !u!114 &7281151254152241996
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1054486028434805825}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b193fbb3dfbb1c24095d0bf3c55267f2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RigController
 --- !u!1 &1228960753129477177
 GameObject:
   m_ObjectHideFlags: 0
@@ -193,6 +206,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1075967104561143507}
   - component: {fileID: 6504088684272213600}
+  - component: {fileID: 1568492769341567166}
   m_Layer: 11
   m_Name: HeadIkLayer
   m_TagString: Untagged
@@ -230,6 +244,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.Animation.Rigging::UnityEngine.Animations.Rigging.Rig
   m_Weight: 1
   m_Effectors: []
+--- !u!114 &1568492769341567166
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1736256306624437631}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b193fbb3dfbb1c24095d0bf3c55267f2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RigController
 --- !u!1 &1975044127051962211
 GameObject:
   m_ObjectHideFlags: 0
@@ -275,10 +301,12 @@ GameObject:
   - component: {fileID: 7300647377371554461}
   - component: {fileID: 961538226641783125}
   - component: {fileID: 6461884901613510966}
-  - component: {fileID: 1276942220837901484}
   - component: {fileID: 2265370902408896412}
   - component: {fileID: 547794309945197806}
   - component: {fileID: 6384912870200035997}
+  - component: {fileID: 3933792737181906036}
+  - component: {fileID: 1919801594901917425}
+  - component: {fileID: 3453592454072299857}
   m_Layer: 11
   m_Name: Sniper Enemy
   m_TagString: Untagged
@@ -302,6 +330,7 @@ Transform:
   - {fileID: 3754745170081935338}
   - {fileID: 839095659810780780}
   - {fileID: 3103255598547499852}
+  - {fileID: 6552915131189479631}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &9222940087475256834
@@ -367,7 +396,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyHealthController
   maxHealth: 60
-  blockDamageReduction: 0
+  damageFractionWhileStunned: 0.7
+  deflectBulletAngle: 80
+  deflectBulletDamageReduction: 2
 --- !u!114 &961538226641783125
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -384,6 +415,8 @@ MonoBehaviour:
   gunFromShoulderDistance: 1.3
   bulletPrefab: {fileID: 2163883931300922148, guid: b309e1382ef57ae44b50d74564fa6f30, type: 3}
   bulletSpeed: 70
+  bulletDamage: 80
+  bulletPoiseDamage: 90
   amountOfBulletsPerShot: 1
   shootingConeAngle: 0
   centerBias: 2
@@ -424,22 +457,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyMovementController
   rotationSpeed: 70
---- !u!114 &1276942220837901484
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2262171483265665488}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 22f7074dba1c6064e8af9d933a98dbe1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DamageController
-  gunDamage: 85
-  enemyLayer:
-    serializedVersion: 2
-    m_Bits: 256
 --- !u!114 &2265370902408896412
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -461,6 +478,9 @@ MonoBehaviour:
   myLayer:
     serializedVersion: 2
     m_Bits: 2048
+  enemyLayer:
+    serializedVersion: 2
+    m_Bits: 256
   seePoint: {fileID: 7051965294182321791}
   seeDistance: 300
 --- !u!114 &547794309945197806
@@ -475,15 +495,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dc015c31f84f0d8449e35a1b65276167, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyGunAnimationController
-  gunBarrelPoint: {fileID: 364880970009066695}
-  activeHandTarget: {fileID: 3103255598547499852}
-  passiveHandTarget: {fileID: 8424441093795472339}
+  handRigIndex: 1
+  headRigIndex: 0
   headPoint: {fileID: 8497731777124674191}
-  activeHeadTarget: {fileID: 6552915131189479631}
-  passiveHeadTarget: {fileID: 3014777779002512175}
-  handMovementSpeed: 1
-  handRotationSpeed: 400
-  headRotationSpeed: 400
+  turnHeadOffWhileNotActive: 0
+  headPassiveTransformSourceRigIndex: 0
+  headPassiveRigTargetIndex: 1
+  turnHandOffWhileNotActive: 0
+  pocketGun: {fileID: 0}
+  handGun: {fileID: 0}
+  handPassiveTransformSourceRigIndex: 0
+  handPassiveRigTargetIndex: 1
+  useBaseClip: 0
+  baseClip: {fileID: 0}
+  baseMask: {fileID: 0}
   telegraphingSphere: {fileID: 5881779704480050058}
   telegraphingParticles: {fileID: 6514620166464549149}
 --- !u!114 &6384912870200035997
@@ -500,6 +525,67 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAnimationController
   body: {fileID: 67203946340920534}
   idleClip: {fileID: 7400000, guid: 572c7e68158d79d47afd59d59f2f4d6b, type: 2}
+--- !u!114 &3933792737181906036
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2262171483265665488}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a0d3c2e5c73d6284fb083cb54696f250, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::IkRigTargetController
+  rigs:
+  - {fileID: 1568492769341567166}
+  ikTarget: {fileID: 6552915131189479631}
+  index: 0
+  positions:
+  - {fileID: 3014777779002512175}
+  offsets: []
+  targetArrayCount: 2
+  movementSpeed: 0
+  rotationSpeed: 0
+--- !u!114 &1919801594901917425
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2262171483265665488}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a0d3c2e5c73d6284fb083cb54696f250, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::IkRigTargetController
+  rigs:
+  - {fileID: 1487373186445237208}
+  - {fileID: 7281151254152241996}
+  ikTarget: {fileID: 3103255598547499852}
+  index: 1
+  positions:
+  - {fileID: 8424441093795472339}
+  offsets:
+  - input: {fileID: 364880970009066695}
+    output: {fileID: 3103255598547499852}
+  targetArrayCount: 2
+  movementSpeed: 300
+  rotationSpeed: 180
+--- !u!114 &3453592454072299857
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2262171483265665488}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 20d50487a5520234c989e628293c6598, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AnimationController
+  body: {fileID: 67203946340920534}
+  inputCount: 4
 --- !u!1 &2363892257036707783
 GameObject:
   m_ObjectHideFlags: 0
@@ -810,6 +896,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1289715252758698202}
   - component: {fileID: 7457647085009502006}
+  - component: {fileID: 1487373186445237208}
   m_Layer: 11
   m_Name: RightHandIkLayer
   m_TagString: Untagged
@@ -863,6 +950,18 @@ MonoBehaviour:
       position: {x: 0, y: 0, z: 0}
       rotation: {x: 0, y: 0, z: 0}
     m_Visible: 1
+--- !u!114 &1487373186445237208
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5514848301586083078}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b193fbb3dfbb1c24095d0bf3c55267f2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RigController
 --- !u!1 &5881779704480050058
 GameObject:
   m_ObjectHideFlags: 0
@@ -6188,11 +6287,11 @@ Transform:
   m_GameObject: {fileID: 8525270937236544582}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.221, z: 1.6400006}
+  m_LocalPosition: {x: 0, y: 0.22099996, z: 1.6400008}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 839095659810780780}
+  m_Father: {fileID: 8656034124834063386}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8589481676214160171
 GameObject:
@@ -7261,9 +7360,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 16d695ae5a2823a4dbb2af7efa364fd9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1075967104561143507}
-    - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 16d695ae5a2823a4dbb2af7efa364fd9, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 6552915131189479631}
     - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 16d695ae5a2823a4dbb2af7efa364fd9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 3014777779002512175}

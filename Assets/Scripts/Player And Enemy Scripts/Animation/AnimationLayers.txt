@@ -1,0 +1,6 @@
+﻿0 - base
+1 - multidirectional movement
+2 - melee
+3 - gun
+4 - moveToTarget
+5 - getting hit

@@ -4105,7 +4105,6 @@ GameObject:
   - component: {fileID: 3579677180098713146}
   - component: {fileID: 8019677061085629840}
   - component: {fileID: 6530310650038084935}
-  - component: {fileID: 6588239011108753801}
   - component: {fileID: 6371780231192385611}
   - component: {fileID: 6436650714311544642}
   - component: {fileID: 8751239386663169278}
@@ -4217,6 +4216,7 @@ MonoBehaviour:
   gunFromShoulderDistance: 0.7
   bulletPrefab: {fileID: 2163883931300922148, guid: 079078d3f29a39a4b8c63df70e46b022, type: 3}
   bulletSpeed: 30
+  bulletDamage: 40
   amountOfBulletsPerShot: 25
   shootingConeAngle: 15
   centerBias: 2
@@ -4257,22 +4257,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyMovementController
   rotationSpeed: 180
---- !u!114 &6588239011108753801
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7240532331950179961}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 22f7074dba1c6064e8af9d933a98dbe1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DamageController
-  gunDamage: 5
-  enemyLayer:
-    serializedVersion: 2
-    m_Bits: 256
 --- !u!114 &6371780231192385611
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4294,6 +4278,9 @@ MonoBehaviour:
   myLayer:
     serializedVersion: 2
     m_Bits: 2048
+  enemyLayer:
+    serializedVersion: 2
+    m_Bits: 256
   seePoint: {fileID: 1954797425769235540}
   seeDistance: 30
 --- !u!114 &6436650714311544642
@@ -4308,15 +4295,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dc015c31f84f0d8449e35a1b65276167, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyGunAnimationController
-  gunBarrelPoint: {fileID: 6003514948889869290}
-  activeHandTarget: {fileID: 5829653056420539084}
-  passiveHandTarget: {fileID: 8680040585050820944}
+  useRightHand: 0
+  useLeftHand: 0
   headPoint: {fileID: 2470975010195567202}
-  activeHeadTarget: {fileID: 6711912941224831524}
-  passiveHeadTarget: {fileID: 1887688623432843045}
-  handMovementSpeed: 1
-  handRotationSpeed: 400
-  headRotationSpeed: 400
+  turnHeadOffWhileNotActive: 1
+  turnHandOffWhileNotActive: 0
+  pocketGun: {fileID: 0}
+  handGun: {fileID: 0}
+  useBaseClip: 0
+  baseClip: {fileID: 0}
+  baseMask: {fileID: 0}
   telegraphingSphere: {fileID: 8152587806874306995}
   telegraphingParticles: {fileID: 2903560613465557647}
 --- !u!114 &8751239386663169278
