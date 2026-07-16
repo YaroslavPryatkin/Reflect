@@ -58,12 +58,14 @@ public class PlayerInputController : MonoBehaviour
     private PlayerGunController _playerGunController;
     private PlayerSensors _playerSensors;
     private PlayerTargetLockController _playerTargetLockController;
+    private MeleeToTargetMoveController _meleeToTargetMoveController;
 
     private void Awake()
     {
         _playerGunController = GetComponent<PlayerGunController>();
         _playerSensors = GetComponentInChildren<PlayerSensors>();
         _playerTargetLockController = GetComponent<PlayerTargetLockController>();
+        _meleeToTargetMoveController = GetComponent<MeleeToTargetMoveController>();
         attackBuffer = new(false, true, attackBufferTime, attackBufferSize);
         parryBuffer = new (false, true, parryBufferTime, parryBufferSize);
     }
@@ -217,17 +219,20 @@ public class PlayerInputController : MonoBehaviour
         }
 
         inputMoveVector.y = 0f;
-        inputMoveVector.Normalize();
 
         if (inputMoveVector.magnitude > 0.001f)
         {
+            inputMoveVector.Normalize();
             LastNonZeroInputMoveVector = inputMoveVector;
             IsPlayerPressingWASD = true;
+            _meleeToTargetMoveController.ShouldMoveToTarget = Vector3.Dot(inputMoveVector, transform.forward) > 0.3f;
         }
         else
         {
             IsPlayerPressingWASD = false;
+            _meleeToTargetMoveController.ShouldMoveToTarget = true;
         }
+        
     }
     
 }

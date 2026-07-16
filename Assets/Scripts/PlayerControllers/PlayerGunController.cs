@@ -50,13 +50,13 @@ public class PlayerGunController : GunController
         }
     }
 
-    protected override void ChangeIsAiming()
+    protected override void ChangeIsAimingAndAimingAngleIncrease()
     {
         CanAim = _playerMovementController.WallRunningState == 0 && _playerMovementController.SlidingPhase == 0 &&
                  !_playerDashController.IsDashing && !_playerForwardJumpingController.IsForwardJumping &&
                  _playerLandingController.CanBeInterrupted && _playerMeleeController.CanBeSafelyInterrupted 
                  && !_playerMeleeController.Parrying;
-        isAiming = _playerInputController.IsAimPressed;
+        IsAiming = _playerInputController.IsAimPressed;
     }
 
     protected override bool ShouldInterruptAiming()

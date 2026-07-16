@@ -10,6 +10,7 @@ public class MeleeToTargetMoveController : MonoBehaviour
     [SerializeField] private AvatarMask avatarMask;
     [SerializeField] private float layerCrossFadeDuration = 0.1f;
     [SerializeField] private float clipCrossFadeDuration = 0.05f;
+    [SerializeField] private float originalVelocityFractionToKeep = 0.6f;
     
     private bool _haveTarget = false;
     private Transform _target;
@@ -22,7 +23,9 @@ public class MeleeToTargetMoveController : MonoBehaviour
     private float _transformSpeed;
     private float _animationSpeed;
     private AnimationClip _animationClip;
-    
+    private Vector3 _originalVelocity;
+
+    public bool ShouldMoveToTarget { get; set; } = true;
     
     public Vector3 MoveDirection { get; private set; } = Vector3.zero;
     public bool IsMoving { get; private set; } = false;
@@ -51,7 +54,7 @@ public class MeleeToTargetMoveController : MonoBehaviour
         int  moveClipIndex,
         Utility.FractionTemporaryValue<bool> moveRequest)
     {
-        if (!_haveTarget)
+        if (!_haveTarget || !ShouldMoveToTarget)
             return;
         
         _targetDistanceToTarget=targetDistance;
@@ -60,6 +63,7 @@ public class MeleeToTargetMoveController : MonoBehaviour
         _transformSpeed = transformSpeed;
         _animationClip = moveClips[moveClipIndex];
         _animationSpeed = Utility.GetAnimationSpeed(_animationClip, duration);
+        _originalVelocity = _sensors.HorizontalVelocity * originalVelocityFractionToKeep;
     }
 
     public void StopMovingAndClearReferences()
@@ -67,14 +71,14 @@ public class MeleeToTargetMoveController : MonoBehaviour
         _haveMoveRequest = false;
         if (IsMoving)
         {
-            rb.linearVelocity = Vector3.zero;
+            rb.linearVelocity = _originalVelocity;
         }
     }
 
     private void UpdateFlags()
     {
         
-        if (!_haveMoveRequest || !_moveRequest.Value)
+        if (!_haveMoveRequest || !_moveRequest.Value || !ShouldMoveToTarget)
         {
             IsMoving = false;
             IsLooking = false;
@@ -100,7 +104,8 @@ public class MeleeToTargetMoveController : MonoBehaviour
                     dir = dir.normalized;
                 }
                 var realTargetPosition = _target.position + dir * _targetDistanceToTarget;
-                MoveDirection = (realTargetPosition - transform.position).normalized;
+                MoveDirection = realTargetPosition - transform.position;
+                MoveDirection = new Vector3(MoveDirection.x, 0f, MoveDirection.z).normalized;
             }
         }
     }
@@ -109,7 +114,7 @@ public class MeleeToTargetMoveController : MonoBehaviour
     {
         if (!IsMoving) return;
         
-        rb.linearVelocity = MoveDirection * _transformSpeed;
+        rb.linearVelocity =_originalVelocity +  MoveDirection * _transformSpeed;
         //rb.MovePosition(transform.position + MoveDirection * (_speed * Time.fixedDeltaTime));
         _sensors.UpdateVelocity();
     }

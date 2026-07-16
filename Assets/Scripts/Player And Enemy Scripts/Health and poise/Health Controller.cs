@@ -92,9 +92,9 @@ public class HealthController : MonoBehaviour
         
     }
 
-    public bool TryDeflecting(Vector3 bulletForward)
+    public bool TryDeflecting(Vector3 attackDirection)
     {
-        return haveMelee && GetAngleToBullet(bulletForward) <= deflectBulletAngle && _meleeController.Parrying;
+        return haveMelee && GetAngleToBullet(attackDirection) <= deflectBulletAngle && _meleeController.Parrying;
     }
 
     public void GetNewEnemyLayerMask(out int destructiveLayer, out int enemyLayer)
@@ -103,10 +103,10 @@ public class HealthController : MonoBehaviour
         destructiveLayer = _sensors.IgnoreMyLayerMask;
     }
 
-    private float GetAngleToBullet(Vector3 bulletForward)
+    private float GetAngleToBullet(Vector3 attackDirection)
     {
         var forwardHorizontal = new Vector3(transform.forward.x, 0f, transform.forward.z);
-        var bulletHorizontal = new Vector3(-bulletForward.x, 0f, -bulletForward.z);
+        var bulletHorizontal = new Vector3(-attackDirection.x, 0f, -attackDirection.z);
 
         return Vector3.Angle(forwardHorizontal, bulletHorizontal);
     }

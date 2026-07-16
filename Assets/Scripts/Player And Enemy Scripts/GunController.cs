@@ -1,6 +1,9 @@
+using System;
 using CustomAttributes;
 using UnityEngine;
 using BaseActionTransitionsEnum = Utility.BaseActionTransitionsEnum;
+using Random = UnityEngine.Random;
+
 public abstract class GunController : MonoBehaviour
 {
     [Header("This")]
@@ -44,8 +47,19 @@ public abstract class GunController : MonoBehaviour
     public int CurrentAmountOfBullets => virtualCurrentAmountOfBullets + (isRechargingBullet ? 0 : 1);
     public float RechargeFraction => isRechargingBullet ? isRechargingBullet.TimeFraction : 0;
     public bool IsRechargingBullet => isRechargingBullet.Value;
-
+    
+    protected bool IsAiming  = false;
+    protected float AimAngleIncrease = 0f;
+    protected Vector3 WantedTargetPoint = Vector3.zero;
+    
+    public  Vector3 TargetPoint { get; private set; } = Vector3.zero;
+    public Vector3 GunPosition { get; private set; } = Vector3.zero;
+    public Vector3 TargetDirection { get; private set; } = Vector3.zero;
+    
+    public Vector3 TargetHeadDirection { get; private set; } = Vector3.zero;
+    
     public float TargetAngle { get; private set; } = 0f;
+    public float RawTargetAngle { get; private set; } = 0f;
 
     public  Utility.FractionBlockingValueTimer<BaseActionTransitionsEnum> GunState { get;  } = BaseActionTransitionsEnum.Base;
     
@@ -61,14 +75,7 @@ public abstract class GunController : MonoBehaviour
     
     protected int layerMask;
     
-    protected bool isAiming  = false;
-    public Vector3 WantedTargetPoint { get; protected set; } = Vector3.zero;
-    
-    public  Vector3 TargetPoint { get; private set; } = Vector3.zero;
-    public Vector3 GunPosition { get; private set; } = Vector3.zero;
-    public Vector3 TargetDirection { get; private set; } = Vector3.zero;
-    
-    public Vector3 TargetHeadDirection { get; private set; } = Vector3.zero;
+
 
     protected virtual void Awake()
     {
@@ -86,8 +93,21 @@ public abstract class GunController : MonoBehaviour
     }
 
     protected abstract void SetWantedTargetPoint();
-    protected abstract void ChangeIsAiming();
+    protected abstract void ChangeIsAimingAndAimingAngleIncrease();
     protected abstract bool ShouldInterruptAiming();
+
+    // private bool _wantedTargetPointWasSetInThisFrame=false;
+    // public bool IsTargetDirectionInBounds()
+    // {
+    //     SetWantedTargetPoint();
+    //     _wantedTargetPointWasSetInThisFrame = true;
+    //     
+    //     var wantedDirection = (WantedTargetPoint - shoulderPoint.position).normalized;
+    //     var localDir = transform.InverseTransformDirection(wantedDirection);
+    //     var angleYRad = Mathf.Atan2(localDir.x, localDir.z);
+    //     return angleYRad >= leftArmHorizontalAngle * Mathf.Deg2Rad &&
+    //            angleYRad <= rightArmHorizontalAngle * Mathf.Deg2Rad;
+    // }
     
     private void CalculateTarget()
     {
@@ -96,9 +116,9 @@ public abstract class GunController : MonoBehaviour
         
         var localDir = transform.InverseTransformDirection(wantedDirection);
         var horizontalDistance = Mathf.Sqrt(localDir.x * localDir.x + localDir.z * localDir.z);
-        var angleYRad = Mathf.Atan2(localDir.x, localDir.z);
+        RawTargetAngle = Mathf.Atan2(localDir.x, localDir.z);
 
-        var armAngle = Mathf.Clamp(angleYRad, leftArmHorizontalAngle * Mathf.Deg2Rad, rightArmHorizontalAngle * Mathf.Deg2Rad);
+        var armAngle = Mathf.Clamp(RawTargetAngle, leftArmHorizontalAngle * Mathf.Deg2Rad, rightArmHorizontalAngle * Mathf.Deg2Rad);
         
         
         
@@ -106,7 +126,7 @@ public abstract class GunController : MonoBehaviour
         localDir.z = horizontalDistance * Mathf.Cos(armAngle);
         GunPosition = shoulderPos + transform.TransformDirection(localDir) * gunFromShoulderDistance;
         
-        TargetAngle = Mathf.Clamp(angleYRad, leftGunHorizontalAngle * Mathf.Deg2Rad, rightGunHorizontalAngle * Mathf.Deg2Rad);
+        TargetAngle = Mathf.Clamp(RawTargetAngle, leftGunHorizontalAngle * Mathf.Deg2Rad, rightGunHorizontalAngle * Mathf.Deg2Rad);
         localDir.x = horizontalDistance * Mathf.Sin(TargetAngle);
         localDir.z = horizontalDistance * Mathf.Cos(TargetAngle);
         TargetDirection = transform.TransformDirection(localDir).normalized;
@@ -156,7 +176,7 @@ public abstract class GunController : MonoBehaviour
         var radius = Mathf.Pow(Random.value, centerBias);
         var localX = Mathf.Cos(randomAngle) * radius;
         var localY = Mathf.Sin(randomAngle) * radius * verticalScale;
-        var maxHalfAngle = shootingConeAngle * 0.5f;
+        var maxHalfAngle = (shootingConeAngle+AimAngleIncrease) * 0.5f;
         var yaw = localX * maxHalfAngle; 
         var pitch = localY * maxHalfAngle;
         var spreadRotation = Quaternion.Euler(-pitch, yaw, 0f);
@@ -198,11 +218,11 @@ public abstract class GunController : MonoBehaviour
         switch (GunState.Value)
         {
             case BaseActionTransitionsEnum.Base:
-                if (isAiming)
+                if (IsAiming)
                     GunState.SetForce(BaseActionTransitionsEnum.BaseToAction, startAimTime);
                 break;
             case BaseActionTransitionsEnum.BaseToAction:
-                if (isAiming)
+                if (IsAiming)
                 {
                     if (!hasChangedTime && useSloMo)
                     {
@@ -219,7 +239,7 @@ public abstract class GunController : MonoBehaviour
 
                 break;
             case BaseActionTransitionsEnum.Action:
-                if(!isAiming)
+                if(!IsAiming)
                 {
                     if (hasChangedTime && useSloMo)
                     {
@@ -231,7 +251,7 @@ public abstract class GunController : MonoBehaviour
                 }
                 break;
             case BaseActionTransitionsEnum.ActionToBase:
-                if (isAiming)
+                if (IsAiming)
                 {
                     GunState.SetForce(BaseActionTransitionsEnum.BaseToAction, startAimTime, 1-GunState.TimeFraction);
                 }
@@ -249,14 +269,15 @@ public abstract class GunController : MonoBehaviour
     
     protected virtual void Update()
     {
-        ChangeIsAiming();
+        ChangeIsAimingAndAimingAngleIncrease();
         
         ChangeState();
         
-        if (GunState.Value != BaseActionTransitionsEnum.Base && isAiming)
+        if (GunState.Value != BaseActionTransitionsEnum.Base && IsAiming)
         {
             if(ShouldInterruptAiming())
                 InterruptAiming();
+            //if(!_wantedTargetPointWasSetInThisFrame)
             SetWantedTargetPoint();
             CalculateTarget();
         }
@@ -264,4 +285,8 @@ public abstract class GunController : MonoBehaviour
         RechargeBullet();
     }
 
+    // private void LateUpdate()
+    // {
+    //     _wantedTargetPointWasSetInThisFrame = false;
+    // }
 }

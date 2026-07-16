@@ -86,7 +86,7 @@ public class PlayerTargetLockController : MonoBehaviour
 
             if (score < minScore)
             {
-                if (Utility.HasLineOfSight(camPos, collider.transform, maximalStartLockDistance, layerMask))
+                if (Utility.HasLineOfSight(camPos, collider.transform, layerMask))
                 {
                     minScore = score;
                     bestTarget = collider.transform;
@@ -167,7 +167,7 @@ public class PlayerTargetLockController : MonoBehaviour
 
             if (score < minScore)
             {
-                if (Utility.HasLineOfSight(camPos, collider.transform, maximalStartLockDistance, layerMask))
+                if (Utility.HasLineOfSight(camPos, collider.transform, layerMask))
                 {
                     minScore = score;
                     bestTarget = collider.transform;

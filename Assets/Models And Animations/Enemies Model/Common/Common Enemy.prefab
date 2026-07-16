@@ -2364,6 +2364,7 @@ GameObject:
   - component: {fileID: 816934515815897348}
   - component: {fileID: 4375845895182714352}
   - component: {fileID: 4659267734270286245}
+  - component: {fileID: 7719299070982703171}
   m_Layer: 11
   m_Name: Common Enemy
   m_TagString: Untagged
@@ -2620,7 +2621,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AnimationController
   body: {fileID: 842782243759295549}
-  inputCount: 4
+  inputCount: 6
 --- !u!114 &4659267734270286245
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2643,6 +2644,32 @@ MonoBehaviour:
   targetArrayCount: 2
   movementSpeed: 300
   rotationSpeed: 180
+--- !u!114 &7719299070982703171
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3682343126892056893}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9813d7a1416ab454a9b8b250b8a55aec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GettingHitController
+  crossFadeDuration: 0.02
+  stunDurationFractionToGetStunnedAgain: 0
+  minimalStunDuration: 0.04
+  minimalPoiseDamageToGetStunned: 10
+  maximalStunDuration: 0.2
+  maximalPoiseDamageToGetStunned: 100
+  minimalStunDamageToGetStunnedDuringParry: 50
+  parryStunDamageFraction: 0.6
+  clips:
+  - {fileID: 7400000, guid: 451647c182ce87a42bb1a435d256197e, type: 2}
+  - {fileID: 7400000, guid: ca04f5216201bba47bd91759b371be55, type: 2}
+  - {fileID: 7400000, guid: 60bd31196a0254541be0f3ba68739cde, type: 2}
+  avatarMask: {fileID: 31900000, guid: 1e67dcd00e3b7114ca3a8b69705383fa, type: 2}
+  weightMultiplier: 0.4
 --- !u!1 &3768707888937867720
 GameObject:
   m_ObjectHideFlags: 0

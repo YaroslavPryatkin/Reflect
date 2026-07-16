@@ -87,6 +87,7 @@ public class PlayerSensors : Sensors
 
     private PlayerInputController _playerInputController;
     private PlayerMovementController _playerMovementController;
+    private Rigidbody rb;
     
     private float speedToDistanceFraction = 0f;
     private float forceSpeedToDistanceFraction;
@@ -102,6 +103,7 @@ public class PlayerSensors : Sensors
     protected override void Awake()
     {
         base.Awake();
+        rb = GetComponent<Rigidbody>();
         
         speedToDistanceFraction = (frontGroundMaximalCheckDistance - frontGroundMinimalCheckDistance) /
                                   (speedAtMaximalCheckDistance - speedAtMinimalCheckDistance);
@@ -136,6 +138,10 @@ public class PlayerSensors : Sensors
     }
 
 
+    protected override Vector3 GetVelocity()
+    {
+        return rb.linearVelocity;
+    }
 
     private void GatherInTheColliderSensors()
     {
@@ -242,7 +248,8 @@ public class PlayerSensors : Sensors
         }
         return didHit;
     }
-    
+
+    private Vector3 _inputForward;
     private void GatherFrontGroundSensor()
     {
         if (!_playerInputController.IsPlayerPressingWASD)
@@ -253,6 +260,8 @@ public class PlayerSensors : Sensors
             frontGroundObstaclePoint = Vector3.zero;
             return;
         }
+
+        _inputForward = _playerInputController.InputMoveVector;
         
         currentFrontGroundCheckDistance = Utility.ChangeMeasurementScaleFraction(HorizontalSpeed,
             speedAtMinimalCheckDistance, speedToDistanceFraction, frontGroundMinimalCheckDistance,
@@ -368,7 +377,7 @@ public class PlayerSensors : Sensors
             
             float currentAngle = Mathf.Lerp(-frontGroundCheckAngle, frontGroundCheckAngle, t);
             
-            Vector3 direction = Quaternion.AngleAxis(currentAngle, transform.up) * transform.forward;
+            Vector3 direction = Quaternion.AngleAxis(currentAngle, transform.up) * _inputForward;
 
             if (Physics.Raycast(origin, direction, out RaycastHit hit, checkDistance, layerMask, triggerInteraction))
             {

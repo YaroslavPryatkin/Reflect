@@ -5,7 +5,6 @@ public class EnemyGunController : GunController
 {
 
     [Header("Conditions to open fire")] 
-    [SerializeField] private float shootingDistance=20f;
     [SerializeField] private int minimalCurrentBulletsToOpenFire = 1;
     [SerializeField] private float angleLeftToOpenFire = -45;
     [SerializeField] private float angleRightToOpenFire = 45;
@@ -26,13 +25,20 @@ public class EnemyGunController : GunController
     
     public bool IsTelegraphingAttack => fireState.Value ==  FireStateEnum.Telegraph;
     public float TelegraphFraction => fireState.TimeFraction;
-    
+
+    private float _openFireLeftRad;
+    private float _openFireRightRad;
+
     private EnemySensors _enemySensors;
+    private EnemyAI _enemyAI;
     
     protected override void Awake()
     {
         base.Awake();
         _enemySensors = (EnemySensors) _sensors;
+        _enemyAI = GetComponent<EnemyAI>();
+        _openFireLeftRad = angleLeftToOpenFire * Mathf.Deg2Rad;
+        _openFireRightRad = angleRightToOpenFire * Mathf.Deg2Rad;
     }
 
     protected override void SetWantedTargetPoint()
@@ -83,9 +89,10 @@ public class EnemyGunController : GunController
         
     }
 
-    protected override void ChangeIsAiming()
+    protected override void ChangeIsAimingAndAimingAngleIncrease()
     {
-        isAiming = _enemySensors.IsSeeingPlayer && Vector3.Distance(transform.position, _enemySensors.PlayerPosition) <= shootingDistance;
+        IsAiming = _enemyAI.IsAiming;
+        AimAngleIncrease = _enemyAI.ShootingConeAngleIncrease;
     }
 
     protected override bool ShouldInterruptAiming()
@@ -100,11 +107,11 @@ public class EnemyGunController : GunController
         switch (fireState.Value)
         {
             case FireStateEnum.Non:
-                if(fireState.CanBeChanged && CanStartBurst() && isAiming)
+                if(fireState.CanBeChanged && CanStartBurst() && IsAiming)
                     fireState.SetForce(FireStateEnum.Telegraph, burstTelegraphTime);
                 break;
             case FireStateEnum.Telegraph:
-                if (!CanStartBurst()  || !isAiming)
+                if (!CanStartBurst()  || !IsAiming)
                     fireState.SetForce(FireStateEnum.Non, 0);
                 
                 
@@ -116,7 +123,7 @@ public class EnemyGunController : GunController
                 break;
             case FireStateEnum.Burst:
                 bulletsShotInThisBurst += Shoot();
-                if(bulletsShotInThisBurst >= bulletsInOneBurst || CurrentAmountOfBullets <=0 || !isAiming)
+                if(bulletsShotInThisBurst >= bulletsInOneBurst || CurrentAmountOfBullets <=0 || !IsAiming)
                     fireState.SetForce(FireStateEnum.Non, timeBetweenBursts);
                 break;
         }
@@ -125,9 +132,11 @@ public class EnemyGunController : GunController
 
     private bool CanStartBurst()
     {
-        return TargetAngle >= angleLeftToOpenFire && 
-               TargetAngle <= angleRightToOpenFire && 
+        var res = RawTargetAngle >= _openFireLeftRad && 
+                   RawTargetAngle <= _openFireRightRad && 
                CurrentAmountOfBullets >= minimalCurrentBulletsToOpenFire;
+        //Debug.Log("Can start burst = " + res + ", target angle = " + TargetAngle);
+        return res;
     }
     
 }

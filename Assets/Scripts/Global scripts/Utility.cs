@@ -63,11 +63,10 @@ public static class Utility
         return origin + direction * distance;
     }
     
-    public static bool HasLineOfSight(Vector3 origin, Transform target, float maxDistance, int layerMask)
+    public static bool HasLineOfSight(Vector3 origin, Transform target, int layerMask)
     {
-        var direction = target.position - origin;
         
-        if (Physics.Raycast(origin, direction, out var hit, maxDistance, layerMask))
+        if (Physics.Linecast(origin, target.position, out var hit, layerMask))
         {
             if (hit.transform.root == target.root)
             {
@@ -76,13 +75,21 @@ public static class Utility
         }
         return false;
     }
-    
-    public static bool HasLineOfSight(Vector3 origin, Vector3 target, float maxDistance, int layerMask, int targetLayerMask)
+
+    private readonly static Collider[] _colliders = new Collider[6];
+    public static bool HasLineOfSight(Vector3 origin, Vector3 target, int layerMask, int targetLayerMask)
     {
-        var direction = target - origin;
-        if (Physics.Raycast(origin, direction, out var hit, maxDistance, layerMask))
+        var count = Physics.OverlapSphereNonAlloc(origin, 0.1f, _colliders, layerMask);
+        for(var i=0;i<count;++i)
         {
-            
+            if (((1<<_colliders[i].gameObject.layer) & targetLayerMask) == 0) 
+            {
+                return false;
+            }
+        }
+        
+        if (Physics.Linecast(origin, target, out var hit, layerMask))
+        {
             if (((1<<hit.collider.gameObject.layer) & targetLayerMask) != 0) 
             {
                 return true;

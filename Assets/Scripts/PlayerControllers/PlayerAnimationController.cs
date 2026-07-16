@@ -54,7 +54,6 @@ public class PlayerAnimationController : MonoBehaviour
     [SerializeField] private float runThreshold = 8f;
     [SerializeField] private float normalSpeedForRunAnimationSpeed = 8f;
     [SerializeField] private float normalSpeedForWallRunAnimationSpeed = 12f;
-    [SerializeField] private float normalSpeedForForwardRunAnimationSpeed = 8f;
     
     [Header("Other Settings")] 
     [SerializeField] private float runLandingExitOffset = 0.2f;

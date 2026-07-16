@@ -307,6 +307,7 @@ GameObject:
   - component: {fileID: 3933792737181906036}
   - component: {fileID: 1919801594901917425}
   - component: {fileID: 3453592454072299857}
+  - component: {fileID: 649368327274821355}
   m_Layer: 11
   m_Name: Sniper Enemy
   m_TagString: Untagged
@@ -585,7 +586,33 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AnimationController
   body: {fileID: 67203946340920534}
-  inputCount: 4
+  inputCount: 6
+--- !u!114 &649368327274821355
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2262171483265665488}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9813d7a1416ab454a9b8b250b8a55aec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GettingHitController
+  crossFadeDuration: 0.02
+  stunDurationFractionToGetStunnedAgain: 0
+  minimalStunDuration: 0.04
+  minimalPoiseDamageToGetStunned: 10
+  maximalStunDuration: 0.2
+  maximalPoiseDamageToGetStunned: 100
+  minimalStunDamageToGetStunnedDuringParry: 50
+  parryStunDamageFraction: 0.6
+  clips:
+  - {fileID: 7400000, guid: 451647c182ce87a42bb1a435d256197e, type: 2}
+  - {fileID: 7400000, guid: ca04f5216201bba47bd91759b371be55, type: 2}
+  - {fileID: 7400000, guid: 60bd31196a0254541be0f3ba68739cde, type: 2}
+  avatarMask: {fileID: 31900000, guid: 1e67dcd00e3b7114ca3a8b69705383fa, type: 2}
+  weightMultiplier: 0.4
 --- !u!1 &2363892257036707783
 GameObject:
   m_ObjectHideFlags: 0

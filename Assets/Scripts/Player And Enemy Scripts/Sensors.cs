@@ -1,7 +1,7 @@
 using UnityEngine;
 
 [DefaultExecutionOrder(-75)]
-public class Sensors : MonoBehaviour
+public abstract class Sensors : MonoBehaviour
 {
     [Header("Ground sensors")]
     [SerializeField] private float groundCheckDistance = 1.2f;
@@ -12,8 +12,8 @@ public class Sensors : MonoBehaviour
     [Header("Layer masks")]
     [SerializeField] private LayerMask myLayer;
     [SerializeField] private LayerMask enemyLayer;
-    
-    protected Rigidbody rb;
+
+    protected abstract Vector3 GetVelocity();
     
     public bool IsGrounded { get; private set; }
     public bool FoundGroundNormal { get; private set; } = true;
@@ -35,7 +35,6 @@ public class Sensors : MonoBehaviour
     protected virtual void Awake()
     {
         IgnoreMyLayerMask = ~myLayer;
-        rb = GetComponent<Rigidbody>();
     }
 
     protected virtual void Update()
@@ -51,7 +50,7 @@ public class Sensors : MonoBehaviour
     
     public void UpdateVelocity()
     {
-        Velocity = rb.linearVelocity;
+        Velocity = GetVelocity();
         //NormalizedVelocity = Velocity.normalized;
         Speed = Velocity.magnitude;
         HorizontalVelocity = new Vector3(Velocity.x, 0f, Velocity.z);

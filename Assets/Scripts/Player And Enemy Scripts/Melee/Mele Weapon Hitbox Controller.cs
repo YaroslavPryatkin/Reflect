@@ -3,9 +3,11 @@ using System.Collections.Generic;
 
 public class MeleeWeaponHitboxController : MonoBehaviour
 {
+    [SerializeField] private Transform myTransform;
     private int _targetLayers; 
     private HashSet<HealthController> _alreadyHitTargets = new ();
-    private float _currentAttackDamage;
+    private float _attackDamage;
+    private float _poiseDamage;
 
     private Collider _collider;
 
@@ -21,11 +23,12 @@ public class MeleeWeaponHitboxController : MonoBehaviour
         _targetLayers = targetLayers;
     }
     
-    public void StartSwing(float damage)
+    public void StartSwing(float damage,float poiseDamage)
     {
-        _currentAttackDamage = damage;
+        _attackDamage = damage;
         _alreadyHitTargets.Clear();
         _collider.enabled = true;
+        _poiseDamage = poiseDamage;
     }
 
     public void FinishSwing()
@@ -42,7 +45,16 @@ public class MeleeWeaponHitboxController : MonoBehaviour
         {
             if (!_alreadyHitTargets.Contains(health))
             {
-                health.ChangeHealth(-_currentAttackDamage);
+                var dir = other.transform.position -  myTransform.position;
+                if (health.TryDeflecting(dir))
+                {
+                    health.DoDeflectDamage(_attackDamage, _poiseDamage);
+                }
+                else
+                {
+                    health.DoNormalDamage(_attackDamage, _poiseDamage);
+                }
+                
                 _alreadyHitTargets.Add(health);
             }
         }

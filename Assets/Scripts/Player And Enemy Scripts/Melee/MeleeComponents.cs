@@ -396,8 +396,10 @@ namespace MeleeComponents
     public class AdditionalStateInformationAttack : MeleeAdditionalStateInformation
     {
         [SerializeField] private float damage;
+        [SerializeField] private float poiseDamage;
 
         public float Damage => damage;
+        public float PoiseDamage => poiseDamage;
     }
     
     [Serializable]
@@ -580,7 +582,7 @@ namespace MeleeComponents
 
         public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
         {
-            MeleeController.MeleeHitboxController.StartSwing(settings.Damage);
+            MeleeController.MeleeHitboxController.StartSwing(settings.Damage, settings.PoiseDamage);
             MeleeController.OnAttack();
         }
         // public override MeleeAdditionalAction Clone()
