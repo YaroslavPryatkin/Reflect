@@ -1,2 +1,2 @@
 # We-have-GhostRunner-at-home
-Mixing titanfall and ghostrunner
+Mixing sekiro and ghostrunner
