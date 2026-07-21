@@ -6,20 +6,20 @@ public class PlayerHitBoxController : MonoBehaviour
     [SerializeField] private float slideHitboxHeight = 1f;
     
     
-    private PlayerMovementController _playerMovementController;
+    private PlayerSlidingController _playerSlidingController;
     private PlayerSensors _playerSensors;
     
     public Vector3 PlayerColliderPosition => transform.position + _playerSensors.ThisCollider.center; 
 
     private void Awake()
     {
-        _playerMovementController = GetComponent<PlayerMovementController>();
+        _playerSlidingController = GetComponent<PlayerSlidingController>();
         _playerSensors = GetComponent<PlayerSensors>();
     }
 
     private void Update()
     {
-        if (_playerMovementController.IsActiveSlidingPhase)
+        if (_playerSlidingController.IsActiveSlidingPhase)
         {
             _playerSensors.ThisCollider.height = slideHitboxHeight;
             _playerSensors.ThisCollider.center =

@@ -1,3 +1,5 @@
+using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -10,6 +12,7 @@ public class GlobalUIManager : MonoBehaviour
     [SerializeField] private GameObject UI;
     [SerializeField] private GameObject escapeMenu;
     [SerializeField] private GameObject inGameUI;
+    [SerializeField] private GameObject debugText;
 
     [SerializeField] private string playerInputMapName = "Player";
     [SerializeField] private string uiInputMapName = "UI";
@@ -21,6 +24,24 @@ public class GlobalUIManager : MonoBehaviour
     private PlayerInput _playerInput;
     private GlobalGameInputManager _globalGameInputManager;
 
+    private bool _debugTextIsTaken = false;
+    
+    private TextMeshProUGUI _debugText;
+    
+    public static TextMeshProUGUI DebugText
+    {
+        get
+        {
+            if (Instance._debugTextIsTaken)
+            {
+                throw new InvalidOperationException("DebugText has already been taken");
+            }
+            
+            Instance.debugText.gameObject.SetActive(true);
+            Instance._debugTextIsTaken = true;
+            return Instance._debugText;
+        }
+    }
     
     private void Awake()
     {
@@ -40,6 +61,12 @@ public class GlobalUIManager : MonoBehaviour
         
         _playerInput = GetComponent<PlayerInput>();
         _globalGameInputManager = GetComponent<GlobalGameInputManager>();
+        
+        if (!debugText.TryGetComponent(out _debugText))
+        {
+            Debug.LogError("No debug text component found on " + gameObject.name);
+        }
+        debugText.gameObject.SetActive(false);
     }
 
     private void OnEnable()

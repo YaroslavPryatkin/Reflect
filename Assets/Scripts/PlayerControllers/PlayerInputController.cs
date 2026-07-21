@@ -3,49 +3,66 @@ using UnityEngine;
 [DefaultExecutionOrder(-25)]
 public class PlayerInputController : MonoBehaviour
 {
+    [Header("Jump")]
     [SerializeField] private float jumpBufferTime = 0.2f;
+    [Header("Melee attack")]
     [SerializeField] private float attackBufferTime = 0.4f;
+    [SerializeField] private float heavyChargeAntiTime = 0.1f;
     [SerializeField] private int attackBufferSize = 2;
+    [Header("Parry")]
     [SerializeField] private float parryBufferTime = 0.4f;
     [SerializeField] private int parryBufferSize = 2;
     
     
-    private Utility.TemporaryValue<bool> jumpBuffer = new (false,true);
-    public void ResetJumpBuffer(){jumpBuffer.Deactivate();}
-    public bool IsJumpPressed => jumpBuffer.Value;
+    private readonly Utility.TemporaryValue<bool> _jumpBuffer = new (false,true);
+    public void ConsumeJump(){_jumpBuffer.Deactivate();}
+    public void ConsumeAttack(){
+        _attackBuffer.Deactivate();
+        _parryBuffer.DeactivateAll();
+        _shouldAttackReleaseTriggerAttack = false;
+    }
 
-    public bool IsAttackPressed { get; private set; } = false;
-    public bool IsParryPressed { get; private set; } = false;
+    public void ConsumeParry()
+    {
+        _parryBuffer.Deactivate(); 
+        _attackBuffer.DeactivateAll();
+        _heavyAttackChargeAntiBuffer.Deactivate();
+    }
 
-    public bool IsAttackBufferActive => attackBuffer.Value;
-    
-    private Utility.MultipleTemporaryValue<bool> attackBuffer;
-
-    
-    public bool IsParryBufferActive => parryBuffer.Value;
-    
-    
-    private Utility.MultipleTemporaryValue<bool> parryBuffer;
-    
-    
-
-    public enum SwordInputEnum {Non, Attack, Parry}
-    public SwordInputEnum SwordInputState { get; private set; }  = SwordInputEnum.Non;
-    public SwordInputEnum LastActiveSwordInputState { get; private set; } =  SwordInputEnum.Non;
-    
-    
-    
+    public void ClearAllBuffers()
+    {
+        _attackBuffer.DeactivateAll(); 
+        _parryBuffer.DeactivateAll(); 
+        _jumpBuffer.Deactivate();
+        _heavyAttackChargeAntiBuffer.Deactivate();
+    }
+    public bool IsJumpBufferActive => _jumpBuffer.Value;
     public bool IsDashPressed { get; private set; } = false;
     public bool IsSlidePressed { get; private set; } = false;
     public bool IsAimPressed { get; private set; } = false;
     
+    private bool _isAttackPressed = false;
+    private bool _shouldAttackReleaseTriggerAttack = false;
+
+    public bool IsAttackBufferActive => _attackBuffer.Value;
+    
+    private Utility.MultipleTemporaryValue<bool> _attackBuffer;
+
+    private readonly Utility.TemporaryValue<bool> _heavyAttackChargeAntiBuffer = new(true,false);
+    
+    public bool IsHeavyAttackCharging => _isAttackPressed && _heavyAttackChargeAntiBuffer.Value;
+    
+    public bool IsParryBufferActive => _parryBuffer.Value;
+    
+    private Utility.MultipleTemporaryValue<bool> _parryBuffer;
+    
     public Vector3 InputMoveVector => inputMoveVector;
-    public Vector3 LastNonZeroInputMoveVector { get; private set; } = Vector3.zero;
+    public Vector3 NonZeroInputMoveVector { get; private set; } = Vector3.zero;
     public bool IsPlayerPressingWASD { get; private set; } = false;
 
     public void ChangeLastNonZeroInputToCurrentHorizontalVelocity()
     {
-        LastNonZeroInputMoveVector = _playerSensors.HorizontalVelocity;
+        NonZeroInputMoveVector = _playerSensors.NormalizedHorizontalVelocity;
     }
     
     
@@ -58,16 +75,16 @@ public class PlayerInputController : MonoBehaviour
     private PlayerGunController _playerGunController;
     private PlayerSensors _playerSensors;
     private PlayerTargetLockController _playerTargetLockController;
-    private MeleeToTargetMoveController _meleeToTargetMoveController;
+    private MeleeTransformController _meleeTransformController;
 
     private void Awake()
     {
         _playerGunController = GetComponent<PlayerGunController>();
         _playerSensors = GetComponentInChildren<PlayerSensors>();
         _playerTargetLockController = GetComponent<PlayerTargetLockController>();
-        _meleeToTargetMoveController = GetComponent<MeleeToTargetMoveController>();
-        attackBuffer = new(false, true, attackBufferTime, attackBufferSize);
-        parryBuffer = new (false, true, parryBufferTime, parryBufferSize);
+        _meleeTransformController = GetComponent<MeleeTransformController>();
+        _attackBuffer = new(false, true, attackBufferTime, attackBufferSize);
+        _parryBuffer = new (false, true, parryBufferTime, parryBufferSize);
     }
     
     private void OnEnable()
@@ -103,12 +120,11 @@ public class PlayerInputController : MonoBehaviour
         GlobalGameInputManager.Instance.OnAimReleaseEvent -= HandleAimRelease;
         GlobalGameInputManager.Instance.OnTargetLockEvent -= HandleTargetTargetLock;
     }
-
+    
     private void HandleTargetTargetLock()
     {
         _playerTargetLockController.FlipLock();
     }
-    
     private void HandleDashPressed()
     {
         IsDashPressed = true;
@@ -120,28 +136,23 @@ public class PlayerInputController : MonoBehaviour
         IsDashPressed = false;
         shouldFreezeLookDirection = false;
     }
-    
     private void HandleSlidePress()
     {
         IsSlidePressed = true;
     }
-    
     private void HandleSlideRelease()
     {
         IsSlidePressed = false;
     }
-    
     private void HandleMove(Vector2 input)
     {
         rawInputMoveVector = new Vector3(input.x, 0f, 
             input.y);
     }
-
     private void HandleJump()
     {
-        jumpBuffer.Activate(jumpBufferTime);
+        _jumpBuffer.Activate(jumpBufferTime);
     }
-
     private void HandleAttackPress()
     {
         if (IsAimPressed)
@@ -150,68 +161,45 @@ public class PlayerInputController : MonoBehaviour
         }
         else
         {
-            IsAttackPressed = true;
-            attackBuffer.Activate();
+            _shouldAttackReleaseTriggerAttack = true;
+            _isAttackPressed = true;
+            _heavyAttackChargeAntiBuffer.Activate(heavyChargeAntiTime);
         }
     }
     private void HandleAttackRelease()
     {
-        IsAttackPressed = false;
+        _heavyAttackChargeAntiBuffer.Deactivate();
+        _isAttackPressed = false;
+        if (_shouldAttackReleaseTriggerAttack)
+        {
+            _shouldAttackReleaseTriggerAttack = false;
+            _attackBuffer.Activate();
+        }
     }
-
     private void HandleParryPress()
     {
-        parryBuffer.Activate();
-        IsParryPressed = true;
+        _parryBuffer.Activate();
     }
-    
-    
-    public void ConsumeAttack(){attackBuffer.Deactivate();parryBuffer.DeactivateAll();}
-    public void ConsumeParry(){parryBuffer.Deactivate(); attackBuffer.DeactivateAll();}
-    
     private void HandleParryRelease()
     {
-        IsParryPressed = false;
     }
-
     private void HandleAimPress()
     {
         IsAimPressed = true;
     }
-
     private void HandleAimRelease()
     {
         IsAimPressed = false;
     }
-    
     private void Update()
     { 
-        if (_playerGunController.GunStateValue == Utility.BaseActionTransitionsEnum.Base)
-        {
-            if (IsParryBufferActive)
-            {
-                SwordInputState = SwordInputEnum.Parry;
-                LastActiveSwordInputState = SwordInputEnum.Parry;
-            }
-            else if (IsAttackBufferActive)
-            {
-                SwordInputState = SwordInputEnum.Attack;
-                LastActiveSwordInputState = SwordInputEnum.Attack;
-            }
-            else
-            {
-                SwordInputState = SwordInputEnum.Non;
-            }
-        }
-        
-        
         if (shouldFreezeLookDirection)
         {
             inputMoveVector = Utility.FromLocalToGlobalByZX(freezeLookDirection, rawInputMoveVector);
         }
         else if (_playerTargetLockController.IsLocked)
         {
-            inputMoveVector = Utility.FromLocalToGlobalByZX(_playerTargetLockController.TargetDirection, rawInputMoveVector);
+            inputMoveVector = Utility.FromLocalToGlobalByZX(_playerTargetLockController.NormalizedHorizontalDirectionToLockedTarget, rawInputMoveVector);
         }
         else
         {
@@ -219,18 +207,18 @@ public class PlayerInputController : MonoBehaviour
         }
 
         inputMoveVector.y = 0f;
-
+        
+        
         if (inputMoveVector.magnitude > 0.001f)
         {
             inputMoveVector.Normalize();
-            LastNonZeroInputMoveVector = inputMoveVector;
+            NonZeroInputMoveVector = inputMoveVector;
             IsPlayerPressingWASD = true;
-            _meleeToTargetMoveController.ShouldMoveToTarget = Vector3.Dot(inputMoveVector, transform.forward) > 0.3f;
         }
         else
         {
+            NonZeroInputMoveVector = _playerSensors.NormalizedHorizontalVelocity;
             IsPlayerPressingWASD = false;
-            _meleeToTargetMoveController.ShouldMoveToTarget = true;
         }
         
     }

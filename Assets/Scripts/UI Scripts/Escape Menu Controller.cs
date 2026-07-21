@@ -4,12 +4,14 @@ using UnityEngine.UI;
 public class EscapeMenuController : MonoBehaviour
 {
     [SerializeField] private Button continueButton;
+    [SerializeField] private Button resetButton;
     [SerializeField] private Button exitButton;
     [SerializeField] private InputSlider mouseSensX;
     [SerializeField] private InputSlider mouseSensY;
     [SerializeField] private InputSlider mouseSensAim;
     
     public Button ContinueButton => continueButton;
+    public Button ResetButton => resetButton;
     public Button ExitButton => exitButton;
     public InputSlider MouseSensX => mouseSensX;
     public InputSlider MouseSensY => mouseSensY;

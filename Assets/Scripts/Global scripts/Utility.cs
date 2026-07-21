@@ -11,39 +11,43 @@ public static class Utility
         public float ClipSpeed => 0f;   
         public bool ClipIsNull  => true;
         public AnimationClip Clip => null;
+        public bool ShouldUpdateCurrentPlayableAnyway => false;
     }
     public enum BaseActionTransitionsEnum { Base, BaseToAction, Action, ActionToBase }
 
-    public static float GetTransitionFraction(Utility.IFractionTimer<BaseActionTransitionsEnum> timer)
+    public static float GetTransitionFraction(IFractionTimer<BaseActionTransitionsEnum> timer, float weightMultiplier = 1f)
     {
         return timer.Value switch
         {
-            BaseActionTransitionsEnum.Action => 1f,
-            BaseActionTransitionsEnum.BaseToAction => Mathf.Clamp01(timer.TimeFraction),
-            BaseActionTransitionsEnum.ActionToBase => 1f - Mathf.Clamp01(timer.TimeFraction),
+            BaseActionTransitionsEnum.Action => weightMultiplier,
+            BaseActionTransitionsEnum.BaseToAction => Mathf.Clamp01(timer.TimeFraction) * weightMultiplier,
+            BaseActionTransitionsEnum.ActionToBase => (1f - Mathf.Clamp01(timer.TimeFraction)) * weightMultiplier,
             _ => 0f
         };
     }
-    
-    public static float GetTransitionFraction(float fraction, BaseActionTransitionsEnum state)
-    {
-        return state switch
-        {
-            BaseActionTransitionsEnum.Action => 1f,
-            BaseActionTransitionsEnum.BaseToAction => Mathf.Clamp01(fraction),
-            BaseActionTransitionsEnum.ActionToBase => 1f - Mathf.Clamp01(fraction),
-            _ => 0f
-        };
-    }
-    
     public static float GetAnimationSpeed(AnimationClip animationClip, float targetTime)
     {
         return animationClip.length / Mathf.Max(0.001f, targetTime);
+    }
+    
+    public static float GetAnimationSpeed(AnimationClip animationClip, float targetTime, float crossFadeDuration)
+    {
+        return animationClip.length / Mathf.Max(0.001f, animationClip.isLooping ? targetTime + crossFadeDuration : targetTime);
     }
 
     public static float GetSpeedFraction(AnimationClip target, AnimationClip origin)
     {
         return origin.length / Mathf.Max(0.001f, target.length);
+    }
+    
+    
+    public static Vector3 ProjectPointOnLine(Transform point, Transform line)
+    {
+        var toPoint = point.position - line.position;
+    
+        var t = Vector3.Dot(toPoint, line.forward);
+        
+        return line.position + line.forward * t;
     }
     
     
@@ -63,19 +67,19 @@ public static class Utility
         return origin + direction * distance;
     }
     
-    public static bool HasLineOfSight(Vector3 origin, Transform target, int layerMask)
+    public static bool HasLineOfSight(Vector3 origin, Collider target, int layerMask)
     {
         
-        if (Physics.Linecast(origin, target.position, out var hit, layerMask))
+        if (Physics.Linecast(origin, target.bounds.center, out var hit, layerMask))
         {
-            if (hit.transform.root == target.root)
+            if (hit.collider == target)
             {
                 return true;
             }
         }
         return false;
     }
-
+    
     private readonly static Collider[] _colliders = new Collider[6];
     public static bool HasLineOfSight(Vector3 origin, Vector3 target, int layerMask, int targetLayerMask)
     {
@@ -96,6 +100,20 @@ public static class Utility
             }
         }
         return false;
+    }
+    
+
+    
+    public static float EvaluateCurveAverage(AnimationCurve curve)
+    {
+        var sum = 0f;
+        var samples = 100;
+        for (var i = 0; i < samples; i++)
+        {
+            var t = (float)i / (samples - 1);
+            sum += curve.Evaluate(t);
+        }
+        return sum / samples;
     }
     
     public static Vector3 GetCapsuleRayCastPoint(Vector3 origin, Vector3 centerToTop, float capsuleRadius, Vector3 direction, float distance, LayerMask layerMask)
@@ -232,7 +250,7 @@ public static class Utility
     ///<summary>
     /// Blocks changing the value for the specified duration
     ///</summary>
-    public class BlockingValueTimer<T>
+    public class BlockingValueTimer<T> 
     {
         private float targetTime;
         public T Value { get; private set; }
@@ -318,7 +336,7 @@ public static class Utility
     ///<summary>
     /// Delays changing the value for the specified delay
     ///</summary>
-    public class DelayedValueTimer<T>
+    public class DelayedValueTimer<T> 
     {
         private float targetTime;
         private T lastValue;
@@ -353,9 +371,7 @@ public static class Utility
         }
     }
     
-    
-
-    public class TemporaryValue<T>
+    public class TemporaryValue<T> : IFractionTimer<T>
     {
         private float targetTime;
         public T BaseValue{get; set;}
@@ -375,8 +391,9 @@ public static class Utility
         }
 
         public T Value => Time.time < targetTime ? ActiveValue : BaseValue;
-        
-        
+
+        public float TimeFraction => throw new InvalidOperationException();
+
         public void Activate(T activeValue, float duration)
         {
             ActiveValue = activeValue; 
@@ -404,10 +421,167 @@ public static class Utility
         }
     }
     
+    public class FractionTemporaryValue<T> : IFractionTimer<T>
+    {
+        private float targetTime;
+        private float startingTime;
+        public T BaseValue{get; set;}
+        public T ActiveValue{get; private set;}
+
+        public FractionTemporaryValue(T baseValue, T activeValue)
+        {
+            BaseValue = baseValue;
+            ActiveValue = activeValue;
+            targetTime = 0f;
+            startingTime = 0f;
+        }
+        public FractionTemporaryValue(T value)
+        {
+            BaseValue = value;
+            ActiveValue = value;
+            targetTime = 0f;
+            startingTime = 0f;
+        }
+
+        public T Value => Time.time < targetTime ? ActiveValue : BaseValue;
+        
+        public float TimeFraction => Mathf.Abs(targetTime - startingTime) <= 0.0001f ? 1 : (Time.time-startingTime)/(targetTime - startingTime);
+        
+        public void Activate(T activeValue, float duration)
+        {
+            ActiveValue = activeValue;
+            startingTime = Time.time;
+            targetTime = Time.time + duration;
+        }
+
+        public void Activate(float duration)
+        {
+            startingTime = Time.time;
+            targetTime = Time.time + duration;
+        }
+
+        public void Deactivate()
+        {
+            startingTime = 0f;
+            targetTime = 0f;
+        }
+        
+        public static implicit operator FractionTemporaryValue<T>(T value)
+        {
+            return new FractionTemporaryValue<T>(value);
+        }
+        
+        public static implicit operator T(FractionTemporaryValue<T> tmpValue)
+        {
+            return tmpValue.Value;
+        }
+    }
+
+    public class BaseActionAutomaticTransition
+    {
+        private readonly FractionBlockingValueTimer<BaseActionTransitionsEnum> _timer;
+        public float CrossFadeDuration{get; set; }
+        public float WeightMultiplier { get; set; }
+
+        public BaseActionTransitionsEnum Value => _timer.Value;
+        
+        public BaseActionAutomaticTransition(BaseActionTransitionsEnum startingValue, float crossFadeDuration, float weightMultiplier = 1f)
+        {
+            _timer = startingValue;
+            CrossFadeDuration = crossFadeDuration;
+            WeightMultiplier =  weightMultiplier;
+        }
+
+        public BaseActionAutomaticTransition(float crossFadeDuration, float weightMultiplier = 1f)
+        {
+            _timer = BaseActionTransitionsEnum.Base;
+            CrossFadeDuration = crossFadeDuration;
+            WeightMultiplier =  weightMultiplier;
+        }
+        
+        public float GetFraction(bool shouldBeActive){
+            switch (_timer.Value)
+            {
+                case BaseActionTransitionsEnum.Base:
+                    if(shouldBeActive)
+                        _timer.SetForce(BaseActionTransitionsEnum.BaseToAction, CrossFadeDuration);
+                    break;
+                case BaseActionTransitionsEnum.BaseToAction:
+                    if(!shouldBeActive)
+                        _timer.SetForce(BaseActionTransitionsEnum.ActionToBase, CrossFadeDuration, 1-_timer.TimeFraction);
+                    if(_timer.CanBeChanged)
+                        _timer.SetForce(BaseActionTransitionsEnum.Action);
+                    break;
+                case BaseActionTransitionsEnum.Action:
+                    if(!shouldBeActive)
+                        _timer.SetForce(BaseActionTransitionsEnum.ActionToBase, CrossFadeDuration);
+                    break;
+                case BaseActionTransitionsEnum.ActionToBase:
+                    if(shouldBeActive)
+                        _timer.SetForce(BaseActionTransitionsEnum.BaseToAction, CrossFadeDuration, 1-_timer.TimeFraction);
+                    if(_timer.CanBeChanged)
+                        _timer.SetForce(BaseActionTransitionsEnum.Base);
+                    break;
+            }
+            return GetTransitionFraction(_timer, WeightMultiplier);
+        }
+
+        public float GetRemainCurrentStateFraction()
+        {
+            switch (_timer.Value)
+            {
+                case BaseActionTransitionsEnum.BaseToAction:
+                    if(_timer.CanBeChanged)
+                        _timer.SetForce(BaseActionTransitionsEnum.Action);
+                    break;
+                case BaseActionTransitionsEnum.ActionToBase:
+                    if(_timer.CanBeChanged)
+                        _timer.SetForce(BaseActionTransitionsEnum.Base);
+                    break;
+            }
+            return GetTransitionFraction(_timer, WeightMultiplier);
+        }
+        
+        public static implicit operator BaseActionAutomaticTransition(float crossFadeDuration)
+        {
+            return new BaseActionAutomaticTransition(crossFadeDuration);
+        }
+        
+        public static implicit operator BaseActionTransitionsEnum(BaseActionAutomaticTransition transition)
+        {
+            return transition.Value;
+        }
+    }
+
+    public class ChangeableFractionValue : IFractionTimer<bool>
+    {
+        private IFractionTimer<bool> _holder;
+        private int _setCounter = 0;
+        
+        public bool Value => _setCounter > 0 && _holder.Value;
+        public float TimeFraction => _setCounter > 0 ? _holder.TimeFraction : 1f;
+
+        public void Set(IFractionTimer<bool> holder)
+        {
+            _holder = holder;
+            ++_setCounter;
+        }
+
+        public void Unset()
+        {
+            --_setCounter;
+        }
+        
+        public static implicit operator bool(ChangeableFractionValue holder)
+        {
+            return holder.Value;
+        }
+    }
+    
     /// <summary>
     /// Works as normal temporary value, but Deactivate removes only one Activate.
     /// </summary>
-    public class MultipleTemporaryValue<T>
+    public class MultipleTemporaryValue<T> 
     {
         private readonly float[] _targetTimes;
         private readonly int _slots;
@@ -619,61 +793,7 @@ public static class Utility
     }
     
     
-    public class FractionTemporaryValue<T> : IFractionTimer<T>
-    {
-        private float targetTime;
-        private float startingTime;
-        public T BaseValue{get; set;}
-        public T ActiveValue{get; private set;}
 
-        public FractionTemporaryValue(T baseValue, T activeValue)
-        {
-            BaseValue = baseValue;
-            ActiveValue = activeValue;
-            targetTime = 0f;
-            startingTime = 0f;
-        }
-        public FractionTemporaryValue(T value)
-        {
-            BaseValue = value;
-            ActiveValue = value;
-            targetTime = 0f;
-            startingTime = 0f;
-        }
-
-        public T Value => Time.time < targetTime ? ActiveValue : BaseValue;
-        
-        public float TimeFraction => Mathf.Abs(targetTime - startingTime) <= 0.0001f ? 1 : (Time.time-startingTime)/(targetTime - startingTime);
-        
-        public void Activate(T activeValue, float duration)
-        {
-            ActiveValue = activeValue;
-            startingTime = Time.time;
-            targetTime = Time.time + duration;
-        }
-
-        public void Activate(float duration)
-        {
-            startingTime = Time.time;
-            targetTime = Time.time + duration;
-        }
-
-        public void Deactivate()
-        {
-            startingTime = 0f;
-            targetTime = 0f;
-        }
-        
-        public static implicit operator FractionTemporaryValue<T>(T value)
-        {
-            return new FractionTemporaryValue<T>(value);
-        }
-        
-        public static implicit operator T(FractionTemporaryValue<T> tmpValue)
-        {
-            return tmpValue.Value;
-        }
-    }
     
     public class DelayDurationValueTimer<T>
     {

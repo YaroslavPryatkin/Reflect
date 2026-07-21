@@ -28,7 +28,7 @@ public class GettingHitController : MonoBehaviour
 
     private void Awake()
     {
-        if (!TryGetComponent(out AnimationController controller))
+        if (!TryGetComponent(out AnimationAndRigManager controller))
         {
             Debug.LogError("No AnimationController found!", this);
             enabled = false;
@@ -50,12 +50,12 @@ public class GettingHitController : MonoBehaviour
         foreach (var clip in clips)
             uniqueClips.Add(clip);
         
-        _animationLayerController = controller.GetAnimationLayer(uniqueClips, 5, avatarMask);
+        _animationLayerController = controller.GetAnimationLayer(uniqueClips, 5, avatarMask, "Getting hit");
         _lastClip = clips[0];
+        _transitionState = new(crossFadeDuration,weightMultiplier);
     }
 
-    private Utility.FractionBlockingValueTimer<Utility.BaseActionTransitionsEnum> _transitionState =
-        Utility.BaseActionTransitionsEnum.Base;
+    private Utility.BaseActionAutomaticTransition _transitionState;
 
     private Utility.FractionTemporaryValue<bool> _stun = new(false, true);
     private AnimationClip _lastClip;
@@ -63,14 +63,27 @@ public class GettingHitController : MonoBehaviour
     public bool CanGetStunned { get; set; } = true;
     
     public bool IsStunned => _stun.Value;
+    
+    
+    private readonly Utility.ChangeableFractionValue _hyperArmor = new();
+    
+    public void ActivateHyperArmor(Utility.FractionTemporaryValue<bool> timer)
+    {
+        _hyperArmor.Set(timer);
+    }
 
+    public void StopHyperArmor()
+    {
+        _hyperArmor.Unset();
+    }
+    
     private void Update()
     {
         if (!CanGetStunned)
         {
             _stun.Deactivate();
         }
-        _animationLayerController.SetLayerWeightAndChangeState(_transitionState, _stun.Value, crossFadeDuration, weightMultiplier);
+        _animationLayerController.SetLayerWeight(_transitionState.GetFraction( _stun.Value));
     }
 
     private void InternalStun(float poiseDamage)
@@ -90,7 +103,7 @@ public class GettingHitController : MonoBehaviour
 
     public void Stun(float poiseDamage, bool haveParried)
     {
-        if (_stun.TimeFraction < stunDurationFractionToGetStunnedAgain || !CanGetStunned) return;
+        if (_stun.TimeFraction < stunDurationFractionToGetStunnedAgain || !CanGetStunned || !_hyperArmor) return;
         
         if (poiseDamage < minimalPoiseDamageToGetStunned) return;
 

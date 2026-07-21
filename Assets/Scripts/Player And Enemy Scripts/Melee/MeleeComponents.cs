@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using System;
 using CustomAttributes;
+using InterruptionEnum = MeleeComponents.MeleeStateInformation.InterruptionEnum;
 
 namespace MeleeComponents
 {
@@ -9,18 +10,23 @@ namespace MeleeComponents
     public abstract class MeleeStateInformation
     {
         [SerializeField] protected float duration = 0f;
-        [SerializeField] protected bool canBeSafelyInterrupted;
+        [SerializeField] protected InterruptionEnum canBeInterruptedInto;
 
         public MeleeStateInformation()
         { }
 
-        public MeleeStateInformation(bool canBeSafelyInterrupted)
+        public MeleeStateInformation(InterruptionEnum canBeInterruptedInto)
         {
-            this.canBeSafelyInterrupted = canBeSafelyInterrupted;
+            this.canBeInterruptedInto = canBeInterruptedInto;
+        }
+
+        public enum InterruptionEnum
+        {
+            Never, ToOtherCombo, ToAnything
         }
 
         public float Duration => duration;
-        public bool CanBeSafelyInterrupted => canBeSafelyInterrupted;
+        public InterruptionEnum CanBeInterruptedInto => canBeInterruptedInto;
         public float ClipSpeed { get; protected set; }= 0f;
         public bool HasClip { get; protected set; } = false;
         public virtual AnimationClip Clip => null;
@@ -46,7 +52,7 @@ namespace MeleeComponents
         {
         }
 
-        public MeleeAnimationStateInformation(bool canBeSafelyInterrupted) : base(canBeSafelyInterrupted)
+        public MeleeAnimationStateInformation(InterruptionEnum canBeInterruptedInto) : base(canBeInterruptedInto)
         {
         }
         
@@ -67,7 +73,7 @@ namespace MeleeComponents
         {
         }
 
-        public MeleeTransitionStateInformation(bool canBeSafelyInterrupted) : base(canBeSafelyInterrupted)
+        public MeleeTransitionStateInformation(InterruptionEnum canBeInterruptedInto) : base(canBeInterruptedInto)
         {
         }
     }
@@ -79,7 +85,7 @@ namespace MeleeComponents
         {
         }
 
-        public MeleeRemainStateInformation(bool canBeSafelyInterrupted) : base(canBeSafelyInterrupted)
+        public MeleeRemainStateInformation(InterruptionEnum canBeInterruptedInto) : base(canBeInterruptedInto)
         {
         }
     }
@@ -116,7 +122,7 @@ namespace MeleeComponents
             settings.Awake();
             foreach (var additionalAction in additionalActions)
             {
-                HaveReturnToLoop = HaveReturnToLoop || additionalAction.Awake(meleeController, thisMeleePlayable, settings.Duration);
+                HaveReturnToLoop = additionalAction.Awake(meleeController, thisMeleePlayable, settings.Duration) || HaveReturnToLoop;
             }
         }
 
@@ -133,10 +139,7 @@ namespace MeleeComponents
         {
             for (var i = 0; i < additionalActions.Count; ++i)
             {
-                var duration = settings.Duration;
-                
-                if(additionalActions[i].UseSpecificDuration)
-                    duration = additionalActions[i].Duration;
+                var duration = additionalActions[i].Duration;
 
                 if (duration > 0)
                 {
@@ -165,7 +168,7 @@ namespace MeleeComponents
         }
     }
     
-    [Serializable]
+    [Serializable, VisibleSubclass]
     public class MeleePlayable : Utility.IPlayable
     {
         [SerializeField] protected List<MeleePlayablePart> parts = new();
@@ -192,14 +195,16 @@ namespace MeleeComponents
         public int Length { get; private set; }
         public float LengthFraction => _currentPart.Value + _currentPart.TimeFraction;
         public bool IsActive => _currentPart < Length;
-        public bool CanBeSafelyInterrupted =>
-            _currentPart == Length || parts[_currentPart].Settings.CanBeSafelyInterrupted;
+        public InterruptionEnum CanBeInterruptedInto =>
+            _currentPart == Length ? InterruptionEnum.ToAnything : parts[_currentPart].Settings.CanBeInterruptedInto;
         public bool ClipIsNull => _nextPartWithClip == Length;
         public AnimationClip Clip => parts[_nextPartWithClip].Settings.Clip;
         public float ClipSpeed => parts[_currentPart].Settings.ClipSpeed;
-        public float CurrentClipWeight => parts[_currentPart].Settings.ShouldAnimationTransition
+        public float CurrentClipTimeFraction => parts[_currentPart].Settings.ShouldAnimationTransition
             ? _currentPart.TimeFraction
             :  1f;
+        public bool ShouldAnimationTransition => parts[_currentPart].Settings.ShouldAnimationTransition;
+        public bool ShouldUpdateCurrentPlayableAnyway { get; private set; } = false;
         
         
         
@@ -208,6 +213,7 @@ namespace MeleeComponents
         
         private int _loopMark = 0;
         private bool _shouldReturnToLoopMark = false;
+        private bool _startingOtherComboOnFinish = false;
 
         private bool _hasClip = false;
         private bool _hasLoop = false;
@@ -274,6 +280,11 @@ namespace MeleeComponents
             _shouldReturnToLoopMark = true;
         }
 
+        public void StartingOtherComboOnFinish()
+        {
+            _startingOtherComboOnFinish = true;
+        }
+
         public void Awake(MeleeController meleeController)
         {
             Length = parts.Count;
@@ -320,6 +331,7 @@ namespace MeleeComponents
 
         public void Start(float fraction)
         {
+            ShouldUpdateCurrentPlayableAnyway = false;
             var startPos = (int)Mathf.Floor(fraction);
             var startFraction = fraction - startPos;
             startPos = Math.Clamp(startPos, 0, Length);
@@ -330,15 +342,22 @@ namespace MeleeComponents
 
         public void Update()
         {
-            
+            ShouldUpdateCurrentPlayableAnyway = false;
             if (IsActive && _currentPart.CanBeChanged)
             {
                 parts[_currentPart].FinishAdditionalActions(_additionalActionsActivityTimers);
+                
                 int newValue;
-                if (_shouldReturnToLoopMark)
+                if (_startingOtherComboOnFinish)
+                {
+                    _startingOtherComboOnFinish = false;
+                    newValue = Length;
+                }
+                else if (_shouldReturnToLoopMark)
                 {
                     newValue = _loopMark;
                     _shouldReturnToLoopMark = false;
+                    ShouldUpdateCurrentPlayableAnyway = true;
                 }
                 else
                 {
@@ -351,7 +370,8 @@ namespace MeleeComponents
 
         public void Interrupt()
         {
-            if (IsActive)
+            ShouldUpdateCurrentPlayableAnyway = false;
+            if (IsActive && !_startingOtherComboOnFinish)
             {
                 parts[_currentPart].InterruptAdditionalActions(_additionalActionsActivityTimers);
             }
@@ -359,12 +379,10 @@ namespace MeleeComponents
     }
     
     [Serializable]
-    public abstract class MeleeAdditionalStateInformation
+    public class MeleeAdditionalStateInformation
     {
-        [SerializeField] protected bool useSpecificDuration = false;
-        [SerializeField, EnableIf("useSpecificDuration")] protected float duration = -1f;
-        public float Duration => duration;
-        public bool UseSpecificDuration => useSpecificDuration;
+        [SerializeField] protected float durationFraction = 1f;
+        public float DurationFraction => durationFraction;
         
         public virtual void Awake()
         { }
@@ -373,11 +391,14 @@ namespace MeleeComponents
     [Serializable]
     public class AdditionalStateInformationParry : MeleeAdditionalStateInformation
     {
-        
+        [Header("Not successful parry")]
         [SerializeField] private float parryTimeReductionForConsecutiveParries;
         [SerializeField] private float consecutiveParriesRechargeTime;
         [SerializeField] private float minimalParryTime;
+        
+        [Header("Successful parry")]
         [SerializeField] private float parryStateAfterSuccessfulParryTime;
+        [SerializeField] private int onSuccessfulParryPlayableIndex = 1;
 
         public bool ParryTimeChanges { get;private set; }
         
@@ -385,6 +406,7 @@ namespace MeleeComponents
         public float ParryTimeReductionForConsecutiveParries => parryTimeReductionForConsecutiveParries;
         public float ConsecutiveParriesRechargeTime => consecutiveParriesRechargeTime;
         public float MinimalParryTime => minimalParryTime;
+        public int OnSuccessfulParryPlayableIndex => onSuccessfulParryPlayableIndex;
 
         public override void Awake()
         {
@@ -413,36 +435,69 @@ namespace MeleeComponents
     [Serializable]
     public class AdditionalStateInformationMoveToTarget : MeleeAdditionalStateInformation
     {
+        [Header("Rotation")] 
+        [SerializeField] private float rotateByDegrees = 0f;
+        [SerializeField] private bool forceLookToTarget = false;
+        
+        [Header("Movement")]
         [SerializeField] private float distanceToTravel = 0f;
         [SerializeField] private float targetDistance = 0f;
-        [SerializeField] private int animationClipIndex = 0;
+        [SerializeField] private AnimationCurve speedCurve = new AnimationCurve(new Keyframe(0f, 0f),new Keyframe(0.1f,1f),new Keyframe(0.9f,1f), new Keyframe(1f, 0f));
         public float TargetDistance => targetDistance;
         public float DistanceToTravel => distanceToTravel;
-        public int AnimationClipIndex => animationClipIndex;
+        public float CurveAverage { get;private set; }
+        public AnimationCurve SpeedCurve => speedCurve;
+        public float RotateByRad { get; private set; }
+        public bool ForceLookToTarget => forceLookToTarget;
+        
+        public override void Awake()
+        {
+            CurveAverage = Utility.EvaluateCurveAverage(speedCurve);
+            RotateByRad = rotateByDegrees * Mathf.Deg2Rad;
+        }
     }
     
     [Serializable]
-    public class AdditionalStateInformationSecondHand : MeleeAdditionalStateInformation
+    public class AdditionalStateInformationLookAtTarget : MeleeAdditionalStateInformation
     {
-        [SerializeField] private Utility.BaseActionTransitionsEnum type =  Utility.BaseActionTransitionsEnum.Base;
-        public Utility.BaseActionTransitionsEnum Type => type;
-
-        public AdditionalStateInformationSecondHand()
+        [Header("Rotation")] 
+        [SerializeField] private float rotateByDegrees = 30f;
+        [SerializeField] private bool forceLookToTarget = false;
+        [SerializeField] private bool standInPlace = true;
+        public float RotateByRad { get; private set; }
+        public bool ForceLookToTarget => forceLookToTarget;
+        public bool StandInPlace => standInPlace;
+        public override void Awake()
         {
+            RotateByRad = rotateByDegrees * Mathf.Deg2Rad;
+        }
+    }
+    
+    [Serializable]
+    public class AdditionalStateInformationChangeToOtherPlayable
+    {
+        [SerializeField] private int combo;
+        public int Combo => combo;
+    }
+    
+    [Serializable]
+    public class AdditionalStateInformationUseSecondHand : MeleeAdditionalStateInformation
+    {
+        public enum UseSecondHandEnum
+        {
+            Activate, RemainActive
         }
 
-        public AdditionalStateInformationSecondHand(Utility.BaseActionTransitionsEnum type)
-        {
-            this.type = type;
-        }
+        [SerializeField] private UseSecondHandEnum behavior = UseSecondHandEnum.Activate;
+
+        public bool Type => behavior == UseSecondHandEnum.Activate;
     }
     
     public class AdditionalStateInformationDummy : MeleeAdditionalStateInformation
     {
         public AdditionalStateInformationDummy()
         {
-            useSpecificDuration = false;
-            duration = -1f;
+            durationFraction = 1f;
         }
     }
     
@@ -450,19 +505,19 @@ namespace MeleeComponents
     public abstract class MeleeAdditionalAction
     {
         protected abstract MeleeAdditionalStateInformation StateInformation { get; }
-        protected MeleeController MeleeController;
+        protected MeleeController ThisMeleeController;
         protected MeleePlayable ThisMeleePlayable;
+        public float Duration { get; private set;}
         
-        public float Duration => StateInformation.Duration;
-        public bool UseSpecificDuration => StateInformation.UseSpecificDuration;
         
         public virtual void AddClipsToSet(HashSet<AnimationClip> uniqueClips){}
 
         public virtual bool Awake(MeleeController meleeController, MeleePlayable thisMeleePlayable, float thisStateDuration)
         {
-            MeleeController = meleeController;
+            ThisMeleeController = meleeController;
             ThisMeleePlayable = thisMeleePlayable;
             StateInformation.Awake();
+            Duration = thisStateDuration * Mathf.Clamp01(StateInformation.DurationFraction);
             return false;
         }
 
@@ -483,17 +538,7 @@ namespace MeleeComponents
     public class Parry : MeleeAdditionalAction
     {
         [SerializeField] private AdditionalStateInformationParry settings;
-        [SerializeReference, SelectSubclass] private MeleePlayable onSuccessfulParry;
         protected override MeleeAdditionalStateInformation StateInformation => settings;
-        
-        private float _realDuration;
-        
-        public Parry() { }
-
-        public Parry(MeleePlayable onSuccessfulParry)
-        {
-            this.onSuccessfulParry = onSuccessfulParry;
-        }
         
         private Utility.MultipleTemporaryValue<bool> _consecutiveParriesCounter;
         private Utility.TemporaryValue<bool> _parrying = new(false, true);
@@ -502,27 +547,20 @@ namespace MeleeComponents
         public override bool Awake(MeleeController meleeController, MeleePlayable thisMeleePlayable, float thisStateDuration)
         {
             base.Awake(meleeController, thisMeleePlayable, thisStateDuration);
-            onSuccessfulParry.Awake(meleeController);
 
-            _realDuration = settings.UseSpecificDuration ? settings.Duration : thisStateDuration;
             
             if (!settings.ParryTimeChanges) return false;
             
             var consecitiveSlots =
-                Math.Clamp((int)Math.Floor((_realDuration - settings.MinimalParryTime) / 
+                Math.Clamp((int)Math.Floor((Duration - settings.MinimalParryTime) / 
                                            settings.ParryTimeReductionForConsecutiveParries), 1, 10);
             _consecutiveParriesCounter = new(false, true, settings.ConsecutiveParriesRechargeTime, consecitiveSlots);
             return false;
         }
-        
-        public override void AddClipsToSet(HashSet<AnimationClip> uniqueClips)
-        {
-            onSuccessfulParry.AddClipsToSet(uniqueClips);
-        }
 
         public override void Interrupt(bool wasActive)
         {
-            MeleeController.ClearParryingReferences();
+            ThisMeleeController.ClearParryingReferences();
             if (wasActive)
             {
                 _parrying.Activate(settings.ParryStateAfterSuccessfulParryTime);
@@ -531,7 +569,6 @@ namespace MeleeComponents
             {
                 _parrying.Deactivate();
             }
-            
             if (settings.ParryTimeChanges)
             {
                 _consecutiveParriesCounter.Deactivate();
@@ -541,23 +578,22 @@ namespace MeleeComponents
         public override void Finish()
         {
             _parrying.Deactivate();
-            MeleeController.ClearParryingReferences();
+            ThisMeleeController.ClearParryingReferences();
         }
         
 
         public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
         {
-            var parryDuration = _realDuration;
+            var parryDuration = Duration;
             if (settings.ParryTimeChanges)
             {
                 parryDuration = Mathf.Max(parryDuration - settings.ParryTimeReductionForConsecutiveParries *
                     _consecutiveParriesCounter.AmountOfActive, 0);
                 _consecutiveParriesCounter.Activate();
             }
-            //Debug.Log("Parying for " + parryDuration);
             _parrying.Activate(parryDuration);
-            MeleeController.ActivateParrying(_parrying, thisActivityTimer, onSuccessfulParry);
-            MeleeController.OnParry();
+            ThisMeleeController.ActivateParrying(_parrying, thisActivityTimer, settings.OnSuccessfulParryPlayableIndex);
+            ThisMeleeController.OnParry();
         }
         
         // public override MeleeAdditionalAction Clone()
@@ -577,13 +613,13 @@ namespace MeleeComponents
         
         public override void Interrupt(bool wasActive)
         {
-            MeleeController.MeleeHitboxController.FinishSwing();
+            ThisMeleeController.MeleeHitboxController.FinishSwing();
         }
 
         public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
         {
-            MeleeController.MeleeHitboxController.StartSwing(settings.Damage, settings.PoiseDamage);
-            MeleeController.OnAttack();
+            ThisMeleeController.MeleeHitboxController.StartSwing(settings.Damage, settings.PoiseDamage);
+            ThisMeleeController.OnAttack();
         }
         // public override MeleeAdditionalAction Clone()
         // {
@@ -598,30 +634,40 @@ namespace MeleeComponents
     {
         [SerializeField] private AdditionalStateInformationMoveToTarget settings;
         protected override MeleeAdditionalStateInformation StateInformation => settings;
-        private float _duration;
-        private float _speed;
-        
+        private float _speedMultiplier;
+        private float _rotationSpeed;
         
         public override void Interrupt(bool wasActive)
         {
-            MeleeController.ToTargetMoveController.StopMovingAndClearReferences();
+            ThisMeleeController.TransformController.StopMovingAndClearReferences();
         }
         
 
         public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
         {
-            MeleeController.ToTargetMoveController.ActivateMoving(
-                settings.TargetDistance, _speed, _duration, settings.AnimationClipIndex, thisActivityTimer);
+            ThisMeleeController.TransformController.ActivateMoving(
+                settings.TargetDistance, 
+                _speedMultiplier,
+                settings.SpeedCurve,
+                _rotationSpeed, 
+                settings.ForceLookToTarget,
+                thisActivityTimer);
         }
 
         public override bool Awake(MeleeController meleeController, MeleePlayable thisMeleePlayable, float thisStateDuration)
         {
             base.Awake(meleeController, thisMeleePlayable, thisStateDuration);
+            if (Duration < 0.001f)
+            {
+                _speedMultiplier = 0f;
+                _rotationSpeed = 0f;
+            }
+            else
+            {
+                _speedMultiplier = settings.DistanceToTravel / (settings.CurveAverage * Duration);
+                _rotationSpeed = settings.RotateByRad / Duration;
+            }
 
-            _duration = thisStateDuration;
-            if (settings.UseSpecificDuration)
-                _duration = settings.Duration;
-            _speed = settings.DistanceToTravel/_duration;
             return false;
         }
 
@@ -634,56 +680,137 @@ namespace MeleeComponents
     }
     
     [Serializable, VisibleSubclass]
-    public class UseSecondHand : MeleeAdditionalAction
+    public class LookAtTarget : MeleeAdditionalAction
     {
-        [SerializeField] private AdditionalStateInformationSecondHand settings;
+        [SerializeField] private AdditionalStateInformationLookAtTarget settings;
         protected override MeleeAdditionalStateInformation StateInformation => settings;
-
-        public UseSecondHand()
-        {
-        }
-
-        public UseSecondHand(Utility.BaseActionTransitionsEnum type)
-        {
-            settings = new  AdditionalStateInformationSecondHand(type);
-        }
-
+        private float _rotationSpeed;
+        
         public override void Interrupt(bool wasActive)
         {
-            MeleeController.SecondHandController.ClearSecondHandReferences();
+            ThisMeleeController.TransformController.StopMovingAndClearReferences();
         }
         
 
         public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
         {
-            MeleeController.SecondHandController.SetSecondHand(settings.Type, thisActivityTimer);
+            ThisMeleeController.TransformController.ActivateStandingAndLooking(_rotationSpeed, settings.ForceLookToTarget, settings.StandInPlace, thisActivityTimer);
         }
+
+        public override bool Awake(MeleeController meleeController, MeleePlayable thisMeleePlayable, float thisStateDuration)
+        {
+            base.Awake(meleeController, thisMeleePlayable, thisStateDuration);
+            
+            
+            if (Duration < 0.001f)
+            {
+                _rotationSpeed = 0f;
+            }
+            else
+            {
+                _rotationSpeed = settings.RotateByRad / Duration;
+            }
+
+            return false;
+        }
+        
         // public override MeleeAdditionalAction Clone()
         // {
-        //     var clone = new UseSecondHand();
+        //     var clone = new MoveToTarget();
         //     clone.settings = settings;
         //     return clone;
         // }
     }
     
     [Serializable, VisibleSubclass]
-    public class OtherAvatarMask : MeleeAdditionalAction
+    public class UseSecondHand : MeleeAdditionalAction
     {
-        [SerializeField] private AdditionalStateInformationMask settings;
+        [SerializeField] private AdditionalStateInformationUseSecondHand settings = new();
         protected override MeleeAdditionalStateInformation StateInformation => settings;
 
+        private bool _shouldTurnOff = false;
+        
         public override void Interrupt(bool wasActive)
         {
-            MeleeController.ClearOtherMaskReferences();
+            if(_shouldTurnOff)
+                ThisMeleeController.SecondHandController.ClearSecondHandReferences();
+            _shouldTurnOff = false;
         }
         
 
         public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
         {
-            MeleeController.SetOtherMask(settings.Mask);
+            if (settings.Type)
+            {
+                _shouldTurnOff = true;
+                ThisMeleeController.SecondHandController.SetSecondHand(thisActivityTimer);
+            }
+            else
+            {
+                _shouldTurnOff =
+                    ThisMeleeController.SecondHandController.SetSecondHandIfWasSecondHand(thisActivityTimer);
+            }
         }
 
     }
+    
+    [Serializable, VisibleSubclass]
+    public class DontAnimateLegs : MeleeAdditionalAction
+    {
+        private AdditionalStateInformationDummy _settings = new();
+        //[SerializeField] private AdditionalStateInformationUseSecondHand settings = new();
+        protected override MeleeAdditionalStateInformation StateInformation => _settings;
+
+        public override void Interrupt(bool wasActive)
+        {
+            ThisMeleeController.StopDontAnimateLegs();
+        }
+        
+
+        public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
+        {
+            ThisMeleeController.ActivateDontAnimateLegs(thisActivityTimer);
+        }
+
+    }
+    
+    [Serializable, VisibleSubclass]
+    public class HyperArmor : MeleeAdditionalAction
+    {
+        [SerializeField] private MeleeAdditionalStateInformation settings = new();
+        protected override MeleeAdditionalStateInformation StateInformation => settings;
+
+        public override void Interrupt(bool wasActive)
+        {
+            ThisMeleeController.GettingHitController.StopHyperArmor();
+        }
+        
+
+        public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
+        {
+            ThisMeleeController.GettingHitController.ActivateHyperArmor(thisActivityTimer);
+        }
+
+    }
+    
+    // [Serializable, VisibleSubclass]
+    // public class OtherAvatarMask : MeleeAdditionalAction
+    // {
+    //     [SerializeField] private AdditionalStateInformationMask settings;
+    //     protected override MeleeAdditionalStateInformation StateInformation => settings;
+    //
+    //     public override void Interrupt(bool wasActive)
+    //     {
+    //         ThisMeleeController.ReturnMask();
+    //     }
+    //     
+    //
+    //     public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
+    //     {
+    //         ThisMeleeController.SetOtherMask(settings.Mask);
+    //     }
+    //
+    // }
 
     [Serializable, VisibleSubclass]
     public class LoopMark : MeleeAdditionalAction
@@ -744,6 +871,31 @@ namespace MeleeComponents
         //     return clone;
         // }
     }
+    
+    [Serializable, VisibleSubclass]
+    public class StartComboOnFinish : MeleeAdditionalAction
+    {
+        private AdditionalStateInformationDummy _settings = new();
+        [SerializeField] private AdditionalStateInformationChangeToOtherPlayable settings = new();
+        protected override MeleeAdditionalStateInformation StateInformation => _settings;
+
+
+        public override void Interrupt(bool wasActive)
+        {
+            //do nothing
+        }
+
+        public override void Finish()
+        {
+            ThisMeleePlayable.StartingOtherComboOnFinish();
+            ThisMeleeController.PlayCombo(settings.Combo);
+        }
+
+        public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
+        {
+            
+        }
+    }
 
     
     
@@ -753,17 +905,30 @@ namespace MeleeComponents
         [Serializable]
         public class InterruptableAnimationInformation : MeleeAnimationStateInformation
         {
-            public InterruptableAnimationInformation() : base(true)
+            public InterruptableAnimationInformation() : base(InterruptionEnum.ToAnything)
             { }
         }
         
         [Serializable]
         public class InterruptableTransitionInformation : MeleeTransitionStateInformation
         {
-            public InterruptableTransitionInformation() : base(true)
+            public InterruptableTransitionInformation() : base(InterruptionEnum.ToAnything)
             { }
         }
         
+        [Serializable]
+        public class InterruptableToComboAnimationInformation : MeleeAnimationStateInformation
+        {
+            public InterruptableToComboAnimationInformation() : base(InterruptionEnum.ToOtherCombo)
+            { }
+        }
+        
+        [Serializable]
+        public class InterruptableToComboTransitionInformation : MeleeTransitionStateInformation
+        {
+            public InterruptableToComboTransitionInformation() : base(InterruptionEnum.ToOtherCombo)
+            { }
+        }
         
         
         
@@ -784,6 +949,14 @@ namespace MeleeComponents
                 additionalActions: new())
             { }
         }
+        [Serializable]
+        public class StandardInterruptableToComboAnimation : MeleePlayablePart
+        {
+            public StandardInterruptableToComboAnimation() : base(
+                settings: new InterruptableToComboAnimationInformation(),
+                additionalActions: new())
+            { }
+        }
         
         
         [Serializable]
@@ -799,6 +972,15 @@ namespace MeleeComponents
         public class StandardInterruptableTransition : MeleePlayablePart
         {
             public StandardInterruptableTransition() : base(
+                settings: new InterruptableTransitionInformation(),
+                additionalActions: new())
+            { }
+        }
+        
+        [Serializable]
+        public class StandardInterruptableToComboTransition : MeleePlayablePart
+        {
+            public StandardInterruptableToComboTransition() : base(
                 settings: new InterruptableTransitionInformation(),
                 additionalActions: new())
             { }
@@ -828,7 +1010,6 @@ namespace MeleeComponents
             { }
         }
         
-        
         [Serializable]
         public class StandardAttackPart : MeleePlayablePart
         {
@@ -849,7 +1030,7 @@ namespace MeleeComponents
                 settings: new InterruptableTransitionInformation(),
                 additionalActions: new List<MeleeAdditionalAction>
                 {
-                    new UseSecondHand(Utility.BaseActionTransitionsEnum.BaseToAction)
+                    new UseSecondHand()
                 })
             { }
         }
@@ -863,19 +1044,7 @@ namespace MeleeComponents
                 {
                     new Attack(),
                     new MoveToTarget(),
-                    new UseSecondHand(Utility.BaseActionTransitionsEnum.Action)
-                })
-            { }
-        }
-        
-        [Serializable]
-        public class StandardRecoveryTwoHandedPart : MeleePlayablePart
-        {
-            public StandardRecoveryTwoHandedPart() : base(
-                settings: new MeleeAnimationStateInformation(),
-                additionalActions: new List<MeleeAdditionalAction>
-                {
-                    new UseSecondHand(Utility.BaseActionTransitionsEnum.ActionToBase)
+                    new UseSecondHand()
                 })
             { }
         }
@@ -887,7 +1056,19 @@ namespace MeleeComponents
                 settings: new MeleeAnimationStateInformation(),
                 additionalActions: new List<MeleeAdditionalAction>
                 {
-                    new Parry(new StandardOnSuccessfulParry())
+                    new Parry()
+                })
+            { }
+        }
+        
+        [Serializable]
+        public class StandardChargingPart : MeleePlayablePart
+        {
+            public StandardChargingPart() : base(
+                settings: new InterruptableToComboAnimationInformation(),
+                additionalActions: new List<MeleeAdditionalAction>
+                {
+                    new StartComboOnFinish()
                 })
             { }
         }
@@ -928,21 +1109,21 @@ namespace MeleeComponents
             )
             { }
         }
+        
+        
+        
         [Serializable, VisibleSubclass]
         public class StandardOnSuccessfulParry : MeleePlayable
         {
             public StandardOnSuccessfulParry() : base(new List<MeleePlayablePart>
                 {
                     new StandardTransition(),
-                    new StandardAnimation(),
-                    new StandardInterruptableAnimation()
+                    new StandardInterruptableToComboAnimation(),
+                    new StandardInterruptableToComboAnimation()
                 }
             )
             { }
         }
-        
-        
-        
         [Serializable, VisibleSubclass]
         public class StandardParry : MeleePlayable
         {
@@ -956,46 +1137,12 @@ namespace MeleeComponents
             { }
         }
         [Serializable, VisibleSubclass]
-        public class StandardTwoHandedAttack : MeleePlayable
+        public class StandardCharging : MeleePlayable
         {
-            public StandardTwoHandedAttack() : base(new List<MeleePlayablePart>
+            public StandardCharging() : base(new List<MeleePlayablePart>
                 {
-                    new StandardTransitionToTwoHandedPart(),
-                    new StandardTwoHandedAttackPart(),
-                    new StandardRecoveryTwoHandedPart()
-                }
-            )
-            { }
-        }
-        [Serializable, VisibleSubclass]
-        public class StandardTwoHandedCombo2 : MeleePlayable
-        {
-            public StandardTwoHandedCombo2() : base(new List<MeleePlayablePart>
-                {
-                    new StandardTransitionToTwoHandedPart(),
-                    new StandardTwoHandedAttackPart(),
-                    new StandardRecoveryTwoHandedPart(),
-                    new StandardTransitionToTwoHandedPart(),
-                    new StandardTwoHandedAttackPart(),
-                    new StandardRecoveryTwoHandedPart()
-                }
-            )
-            { }
-        }
-        [Serializable, VisibleSubclass]
-        public class StandardTwoHandedCombo3 : MeleePlayable
-        {
-            public StandardTwoHandedCombo3() : base(new List<MeleePlayablePart>
-                {
-                    new StandardTransitionToTwoHandedPart(),
-                    new StandardTwoHandedAttackPart(),
-                    new StandardRecoveryTwoHandedPart(),
-                    new StandardTransitionToTwoHandedPart(),
-                    new StandardTwoHandedAttackPart(),
-                    new StandardRecoveryTwoHandedPart(),
-                    new StandardTransitionToTwoHandedPart(),
-                    new StandardTwoHandedAttackPart(),
-                    new StandardRecoveryTwoHandedPart()
+                    new StandardTransition(),
+                    new StandardChargingPart()
                 }
             )
             { }
@@ -1005,9 +1152,8 @@ namespace MeleeComponents
         {
             public StandardAttack() : base(new List<MeleePlayablePart>
                 {
-                    new StandardInterruptableTransition(),
-                    new StandardAttackPart(),
-                    new StandardAnimation()
+                    new StandardInterruptableToComboTransition(),
+                    new StandardAttackPart()
                 }
             )
             { }
@@ -1017,12 +1163,10 @@ namespace MeleeComponents
         {
             public StandardCombo2() : base(new List<MeleePlayablePart>
                 {
+                    new StandardInterruptableToComboTransition(),
+                    new StandardAttackPart(),
                     new StandardInterruptableTransition(),
                     new StandardAttackPart(),
-                    new StandardAnimation(),
-                    new StandardInterruptableTransition(),
-                    new StandardAttackPart(),
-                    new StandardAnimation()
                 }
             )
             { }
@@ -1032,15 +1176,12 @@ namespace MeleeComponents
         {
             public StandardCombo3() : base(new List<MeleePlayablePart>
                 {
+                    new StandardInterruptableToComboTransition(),
+                    new StandardAttackPart(),
                     new StandardInterruptableTransition(),
                     new StandardAttackPart(),
-                    new StandardAnimation(),
                     new StandardInterruptableTransition(),
-                    new StandardAttackPart(),
-                    new StandardAnimation(),
-                    new StandardInterruptableTransition(),
-                    new StandardAttackPart(),
-                    new StandardAnimation()
+                    new StandardAttackPart()
                 }
             )
             { }
@@ -1050,42 +1191,14 @@ namespace MeleeComponents
         {
             public StandardCombo4() : base(new List<MeleePlayablePart>
                 {
+                    new StandardInterruptableToComboTransition(),
+                    new StandardAttackPart(),
                     new StandardInterruptableTransition(),
                     new StandardAttackPart(),
-                    new StandardAnimation(),
                     new StandardInterruptableTransition(),
                     new StandardAttackPart(),
-                    new StandardAnimation(),
                     new StandardInterruptableTransition(),
                     new StandardAttackPart(),
-                    new StandardAnimation(),
-                    new StandardInterruptableTransition(),
-                    new StandardAttackPart(),
-                    new StandardAnimation()
-                }
-            )
-            { }
-        }
-        [Serializable, VisibleSubclass]
-        public class StandardCombo5 : MeleePlayable
-        {
-            public StandardCombo5() : base(new List<MeleePlayablePart>
-                {
-                    new StandardInterruptableTransition(),
-                    new StandardAttackPart(),
-                    new StandardAnimation(),
-                    new StandardInterruptableTransition(),
-                    new StandardAttackPart(),
-                    new StandardAnimation(),
-                    new StandardInterruptableTransition(),
-                    new StandardAttackPart(),
-                    new StandardAnimation(),
-                    new StandardInterruptableTransition(),
-                    new StandardAttackPart(),
-                    new StandardAnimation(),
-                    new StandardInterruptableTransition(),
-                    new StandardAttackPart(),
-                    new StandardAnimation()
                 }
             )
             { }

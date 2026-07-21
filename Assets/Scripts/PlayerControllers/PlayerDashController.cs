@@ -17,10 +17,15 @@ public class PlayerDashController : MonoBehaviour
 
     private Vector3 capsuleCenterToTop;
     private float capsuleRadius;
+    
     private PlayerSensors  _playerSensors;
     private PlayerInputController _playerInputController;
     private Rigidbody rb;
     private PlayerForwardJumpingController  _playerForwardJumpingController;
+    private PlayerFixedDirectionMovementController _playerFixedDirectionMovementController;
+    
+    
+    
     private Utility.FractionBlockingValueTimer<bool> isDashing = new(false);
 
     
@@ -42,6 +47,7 @@ public class PlayerDashController : MonoBehaviour
         capsuleCenterToTop = _playerSensors.ColliderCenterToTop;
         _playerForwardJumpingController = GetComponent<PlayerForwardJumpingController>();
         _playerInputController = GetComponent<PlayerInputController>();
+        _playerFixedDirectionMovementController = GetComponent<PlayerFixedDirectionMovementController>();
         layerMask = _playerSensors.IgnoreMyLayerMask;
         //Debug.Log(capsuleCenterToTop.magnitude + ", " + capsuleRadius);
     }
@@ -169,7 +175,9 @@ public class PlayerDashController : MonoBehaviour
                 normalized.z * newHorizontalSpeed);
         }
         rb.angularVelocity = Vector3.zero;
+        Physics.SyncTransforms();
         _playerSensors.UpdateVelocity();
         _playerInputController.ChangeLastNonZeroInputToCurrentHorizontalVelocity();
+        _playerFixedDirectionMovementController.SuppressAfterJump(0f);
     }
 }

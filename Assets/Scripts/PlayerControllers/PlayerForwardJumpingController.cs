@@ -42,9 +42,6 @@ public class PlayerForwardJumpingController : MonoBehaviour
 
     public void PerformForwardJump(Vector3 startPos, Vector3 endPos, float obstacleHeight)
     {
-
-
-
         var diff = endPos - startPos;
         var horizontalDiff = new Vector3(diff.x, 0f, diff.z);
         var horizontalDiffScalar = horizontalDiff.magnitude;

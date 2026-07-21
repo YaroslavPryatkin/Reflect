@@ -21,6 +21,38 @@ public class HealthController : MonoBehaviour
     protected bool haveMelee;
     protected Sensors _sensors;
     
+    protected ArenaController ArenaController;
+    protected bool HaveArenaController = false;
+
+    public void SetArenaController(ArenaController arenaController)
+    {
+        HaveArenaController = true;
+        ArenaController = arenaController;
+    }
+
+    public void RemoveArenaController()
+    {
+        HaveArenaController = false;
+    }
+    
+
+    private int _iFrameSourcesCount = 0;
+
+    public void GrantIFrames()
+    {
+        ++_iFrameSourcesCount;
+    }
+
+    public void TakeIFrames()
+    {
+        --_iFrameSourcesCount;
+    }
+
+    public enum DamageDealer
+    {
+        Bullet, Melee
+    }
+    
     protected virtual void Awake()
     {
         CurrentHealth = maxHealth;
@@ -38,10 +70,6 @@ public class HealthController : MonoBehaviour
     public void ChangeHealth(float change)
     {
         CurrentHealth += change;
-        if (change < 0f)
-        {
-            OnDamageTaken(-change);
-        }
         if (CurrentHealth <= 0f)
         {
             IsDead = true;
@@ -57,16 +85,19 @@ public class HealthController : MonoBehaviour
         }
     }
 
-    public void DoDeflectDamage(float damage, float poiseDamage)
+    public void DoDeflectDamage(float damage, float poiseDamage, DamageDealer  damageDealer)
     {
         _meleeController.OnSuccessfulParry();
         
+        if (_iFrameSourcesCount > 0) return;
         if (_haveGettingHitController)
             _gettingHitController.Stun(poiseDamage, true);
     }
 
-    public void DoNormalDamage(float damage, float poiseDamage)
+    public void DoNormalDamage(float damage, float poiseDamage, DamageDealer damageDealer)
     {
+        if (_iFrameSourcesCount > 0) return;
+        
         if (_haveGettingHitController)
         {
             if(_gettingHitController.IsStunned)
@@ -78,11 +109,11 @@ public class HealthController : MonoBehaviour
         }
         else
             ChangeHealth(-damage);
-        
-            
+
+        OnDamageTaken(damage, damageDealer);
     }
 
-    protected virtual void OnDamageTaken(float damage)
+    protected virtual void OnDamageTaken(float damage, DamageDealer damageDealer)
     {
         
     }

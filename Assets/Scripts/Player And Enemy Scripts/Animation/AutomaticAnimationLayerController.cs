@@ -6,42 +6,46 @@ using UnityEngine.Animations;
 using UnityEngine.Assemblies;
 using BaseActionTransitionsEnum = Utility.BaseActionTransitionsEnum;
 
-public class AutomaticAnimationLayerController : AnimationLayerController
+public class AutomaticAnimationLayerController : CurrentPlayableAnimationLayerController
 {
     public AutomaticAnimationLayerController(PlayableGraph graph, AnimationLayerMixerPlayable layerMixer, 
-        uint destinationLayerPort, HashSet<AnimationClip> uniqueClips, bool additive) : base( graph,  layerMixer, 
-        destinationLayerPort,  uniqueClips, additive)
+        uint destinationLayerPort, HashSet<AnimationClip> uniqueClips,string name, bool additive) : base( graph,  layerMixer, 
+        destinationLayerPort,  uniqueClips,name, additive)
     { }
     
     public AutomaticAnimationLayerController(PlayableGraph graph, AnimationLayerMixerPlayable layerMixer, 
-        uint destinationLayerPort, HashSet<AnimationClip> uniqueClips,  AvatarMask avatarMask, bool additive) : base( graph,  layerMixer, 
-        destinationLayerPort,  uniqueClips, avatarMask, additive)
+        uint destinationLayerPort, HashSet<AnimationClip> uniqueClips,  AvatarMask avatarMask,string name, bool additive) : base( graph,  layerMixer, 
+        destinationLayerPort,  uniqueClips, avatarMask, name, additive)
     { }
     
     private readonly Utility.FractionTemporaryValue<bool> _isTransitioning = new (false, true);
 
     public void AutomaticUpdateCurrentPlayable(AnimationClip clip, float clipSpeed, float crossFadeDuration)
     {
-        var newPort = ClipToPort.GetValueOrDefault(clip, -1);
-        var updateTime = false;
+        if (!ClipToPort.TryGetValue(clip, out var newPort))
+        {
+            Debug.LogError("Didn't register the clip: " + clip.name);
+            return;
+        }
 
-        if (newPort != CurrentPort)
+        if (newPort != CurrentPort.Port)
         {
             InternalChangeCurrentPort(newPort);
             _isTransitioning.Activate(crossFadeDuration);
-            updateTime = true;
-        }
-        InternalChangeCurrentPlayableSpeedAndTime(clipSpeed,  updateTime);
-
-        var weight = 1f;
-        if (_isTransitioning)
-        {
-            UpdateCurrentPlayableWeight(_isTransitioning.TimeFraction);
-            weight = _isTransitioning.TimeFraction;
+            InternalChangeCurrentPlayableSpeedAndTime(clipSpeed,  true);
         }
         else
         {
-            UpdateCurrentPlayableWeight(1f);
+            InternalChangeCurrentPlayableSpeedAndTime(clipSpeed,  false);
+        }
+
+        if (_isTransitioning)
+        {
+            UpdateCurrentPlayableTransitioningWeight(_isTransitioning.TimeFraction);
+        }
+        else
+        {
+            FinishTransitioningToCurrentPlayable();
         }
     }
 }

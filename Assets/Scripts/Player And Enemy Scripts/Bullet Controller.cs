@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Pool;
 
 public class BulletController : MonoBehaviour
 {
@@ -12,7 +13,12 @@ public class BulletController : MonoBehaviour
 
     private Transform _backTarget;
     
-
+    private IObjectPool<BulletController> _pool;
+    
+    public void SetPool(IObjectPool<BulletController> pool)
+    {
+        _pool = pool;
+    }
     
     public void Initialize(float speed, int destructionLayerMask, int targetLayerMask, float damage, float poiseDamage, Transform backTarget)
     {
@@ -22,6 +28,8 @@ public class BulletController : MonoBehaviour
         _damage = damage;
         _backTarget =  backTarget;
         _poiseDamage = poiseDamage;
+        _traveledDistance = 0f;
+        
         var candidates = Physics.OverlapSphere(transform.position, 0.1f,  _destructionLayerMask);
         foreach (var c in candidates)
         {
@@ -38,7 +46,7 @@ public class BulletController : MonoBehaviour
             {
                 if (healthController.TryDeflecting(transform.forward))
                 {
-                    healthController.DoDeflectDamage(_damage, _poiseDamage);
+                    healthController.DoDeflectDamage(_damage, _poiseDamage, HealthController.DamageDealer.Bullet);
                     healthController.GetNewEnemyLayerMask(out _destructionLayerMask, out _enemyLayerMask);
                     healthController.GetNewBulletDamage(ref _damage);
                     _destructionLayerMask |= _enemyLayerMask;
@@ -48,7 +56,7 @@ public class BulletController : MonoBehaviour
                 }
                 else
                 {
-                    healthController.DoNormalDamage(_damage, _poiseDamage);
+                    healthController.DoNormalDamage(_damage, _poiseDamage, HealthController.DamageDealer.Bullet);
                 }
             }
             else
@@ -56,7 +64,7 @@ public class BulletController : MonoBehaviour
                 Debug.Log("No health controller on target object " + obj.name);
             }
         }
-        Destroy(gameObject);
+        ReturnToPool();
     }
     
     private void Update()
@@ -74,6 +82,18 @@ public class BulletController : MonoBehaviour
         _traveledDistance += step;
 
         if (_traveledDistance >= MaxDistance)
+        {
+            ReturnToPool();
+        }
+    }
+    
+    private void ReturnToPool()
+    {
+        if (_pool != null)
+        {
+            _pool.Release(this);
+        }
+        else
         {
             Destroy(gameObject);
         }

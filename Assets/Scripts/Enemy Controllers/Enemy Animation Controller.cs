@@ -29,7 +29,7 @@ public class EnemyAnimationController : MonoBehaviour
     
     private void Awake()
     {
-        if (!TryGetComponent(out AnimationController controller))
+        if (!TryGetComponent(out AnimationAndRigManager controller))
         {
             Debug.LogError("No AnimationController found!", this);
             enabled = false;
@@ -40,8 +40,7 @@ public class EnemyAnimationController : MonoBehaviour
         clips.Add(idleClip);
         clips.Add(traversalClip);
         clips.Add(aimingIdleClip);
-        _animationLayerController = controller.GetAutomaticAnimationLayer(clips, 0);
-        _animationLayerController.SetPlayableWeight(idleClip, 1f);
+        _animationLayerController = controller.GetAutomaticAnimationLayer(clips, 0, "Enemy base");
         _animationLayerController.SetLayerWeight(1f);
         
         _sensors = GetComponent<EnemySensors>();
@@ -83,6 +82,7 @@ public class EnemyAnimationController : MonoBehaviour
             }
         }
         
+       //Debug.Log("Target clip = " + targetClip.name + ", target speed = " + targetSpeed + ", using multidir = " + _multidirController.ShouldUseMultiDirectionalAnimation);
         _animationLayerController.AutomaticUpdateCurrentPlayable(targetClip, targetSpeed, crossfadeDuration);
     }
 }

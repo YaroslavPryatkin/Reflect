@@ -27,17 +27,17 @@ public class PlayerTargetLockController : MonoBehaviour
     [SerializeField] private float speedCurvePower = 2f;
 
     private PlayerSensors _playerSensors;
-    private PlayerMovementController _playerMovementController;
+    private PlayerSlidingController _playerSlidingController;
     private PlayerGunController _playerGunController;
-    private MeleeToTargetMoveController _meleeToTargetMoveController;
+    private MeleeTransformController _meleeTransformController;
     private float _smoothFactor;
     
     private void Awake()
     {
         _playerSensors = GetComponent<PlayerSensors>();
-        _playerMovementController = GetComponent<PlayerMovementController>();
+        _playerSlidingController = GetComponent<PlayerSlidingController>();
         _playerGunController = GetComponent<PlayerGunController>();
-        _meleeToTargetMoveController = GetComponent<MeleeToTargetMoveController>();
+        _meleeTransformController = GetComponent<MeleeTransformController>();
         layerMask = _playerSensors.IgnoreMyLayerMask;
         _smoothFactor = 2 * reLockAngleFactor;
     }
@@ -47,7 +47,7 @@ public class PlayerTargetLockController : MonoBehaviour
     private bool foundHealthController = false;
     private int layerMask;
 
-    public Vector3 TargetDirection { get; private set; } = Vector3.zero;
+    public Vector3 NormalizedHorizontalDirectionToLockedTarget { get; private set; } = Vector3.zero;
     public Vector3 TargetCameraDirection { get; private set; } = Vector3.zero;
     public Vector3 TargetPosition { get; private set; } = Vector3.zero;
 
@@ -86,7 +86,7 @@ public class PlayerTargetLockController : MonoBehaviour
 
             if (score < minScore)
             {
-                if (Utility.HasLineOfSight(camPos, collider.transform, layerMask))
+                if (Utility.HasLineOfSight(camPos, collider, layerMask))
                 {
                     minScore = score;
                     bestTarget = collider.transform;
@@ -109,12 +109,10 @@ public class PlayerTargetLockController : MonoBehaviour
                 foundHealthController = false;
                 Debug.Log("No health controller on target object " + bestTarget.gameObject.name);
             }
-            _meleeToTargetMoveController.SetTarget(bestTarget);
         }
         else
         {
             IsLocked = false;
-            _meleeToTargetMoveController.UnsetTarget();
         }
     }
 
@@ -130,7 +128,7 @@ public class PlayerTargetLockController : MonoBehaviour
 
     private float GetShiftedSmooth(float x)
     {
-        x = x - 0.5f;
+        x -= 0.5f;
         return GetSmooth(x * (1f + _smoothFactor * (0.5f - Mathf.Abs(x))) + 0.5f);
     }
     
@@ -167,12 +165,13 @@ public class PlayerTargetLockController : MonoBehaviour
 
             if (score < minScore)
             {
-                if (Utility.HasLineOfSight(camPos, collider.transform, layerMask))
+                if (Utility.HasLineOfSight(camPos, collider, layerMask))
                 {
                     minScore = score;
                     bestTarget = collider.transform;
                     foundTarget = true;
                 }
+
             }
         }
 
@@ -190,19 +189,16 @@ public class PlayerTargetLockController : MonoBehaviour
                 foundHealthController = false;
                 Debug.Log("No health controller on target object " + bestTarget.gameObject.name);
             }
-            _meleeToTargetMoveController.SetTarget(bestTarget);
         }
         else
         {
             IsLocked = false;
-            _meleeToTargetMoveController.UnsetTarget();
         }
     }
 
     public void Unlock()
     {
-        IsLocked = false;
-        _meleeToTargetMoveController.UnsetTarget();
+        IsLocked = false; 
     }
 
     public void FlipLock()
@@ -226,11 +222,13 @@ public class PlayerTargetLockController : MonoBehaviour
             {
                 TryReLock(true);
             }
-            
-            
-            if(!IsLocked) 
+
+
+            if (!IsLocked)
+            {
                 return;
-            
+            }
+
             if (Vector3.Distance(GlobalCameraManager.GetPlayerCameraPosition(), targetTransform.position) >=
                 unlockDistance)
             {
@@ -240,7 +238,7 @@ public class PlayerTargetLockController : MonoBehaviour
 
             TargetPosition = targetTransform.position;
             var tmpDir = TargetPosition - transform.position;
-            TargetDirection = new Vector3(tmpDir.x, 0, tmpDir.z).normalized;
+            NormalizedHorizontalDirectionToLockedTarget = new Vector3(tmpDir.x, 0, tmpDir.z).normalized;
 
             TargetCameraDirection = TargetPosition - GlobalCameraManager.GetPlayerCameraPosition();
             
@@ -273,7 +271,7 @@ public class PlayerTargetLockController : MonoBehaviour
                 currentSpeed = deadZoneSpeed;
             }
 
-            var targetYaw = Vector3.SignedAngle(Vector3.forward, TargetDirection, Vector3.up);
+            var targetYaw = Vector3.SignedAngle(Vector3.forward, NormalizedHorizontalDirectionToLockedTarget, Vector3.up);
             
             var currentYaw = GlobalLookDirectionManager.CurrentYaw;
             

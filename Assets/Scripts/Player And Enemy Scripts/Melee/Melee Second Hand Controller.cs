@@ -7,85 +7,87 @@ using UnityEngine.Animations.Rigging;
 using MeleeComponents;
 using MeleeComponents.Presets;
 using CustomAttributes;
+using BaseActionTransitionsEnum = Utility.BaseActionTransitionsEnum;
 
 public class MeleeSecondHandController : MonoBehaviour
 {
     [SerializeField] private int secondHandRigIndex;
+    [SerializeField] private Transform secondHandIKTarget;
+    [SerializeField] private float crossFadeDuration = 0.1f;
 
-    [SerializeField] private int transformSourceRigIndex = 1;
-    
-    [SerializeField] private float autoFadeOutTime = 0.3f;
-
-    
-    private Utility.BaseActionTransitionsEnum _secondHandState =
-        Utility.BaseActionTransitionsEnum.Base;
-    private Utility.FractionTemporaryValue<bool> _secondHandTimer;
-    private bool _hasSecondHandTimer = false;
-    private IkRigTargetController _secondHandController;
-
-    private Utility.FractionTemporaryValue<bool> _autoFadeOut = new(false, true);
-
-    public void SetSecondHand(Utility.BaseActionTransitionsEnum secondHandState,Utility.FractionTemporaryValue<bool> secondHandTimer )
+    public enum TypeEnum
     {
-        _secondHandState = secondHandState;
-        _secondHandTimer = secondHandTimer;
-        _hasSecondHandTimer = true;
+        Active, RemainPrevious
+    }
+
+    //private TypeEnum _type;
+    private readonly Utility.ChangeableFractionValue _useSecondHand = new();
+    
+    private IkRigTargetController _secondHandController;
+    private IkRigTargetController.TransformSource _secondHandTransformSource;
+
+    private Utility.BaseActionAutomaticTransition _transitionState;
+
+    public void SetSecondHand(Utility.FractionTemporaryValue<bool> secondHandTimer)
+    {
+        _useSecondHand.Set(secondHandTimer);
+    }
+
+    public bool SetSecondHandIfWasSecondHand(Utility.FractionTemporaryValue<bool> secondHandTimer)
+    {
+        if (_transitionState.Value == BaseActionTransitionsEnum.Action ||
+            _transitionState.Value == BaseActionTransitionsEnum.ActionToBase)
+        {
+            _useSecondHand.Set(secondHandTimer);
+            return true;
+        }
+        return false;
     }
 
     public void ClearSecondHandReferences()
     {
-        _hasSecondHandTimer = false;
+        _useSecondHand.Unset();
     }
 
     private void Awake()
     {
-        if (!TryGetComponent(out AnimationController controller))
+        if (!TryGetComponent(out AnimationAndRigManager controller))
         {
             Debug.LogError("No AnimationController found!", this);
             enabled = false;
             return;
         }
         _secondHandController = controller.GetRig(secondHandRigIndex);
+        _secondHandTransformSource = new IkRigTargetController.TransformSource(secondHandIKTarget);
+        _secondHandController.SetSource(_secondHandTransformSource, 2);
+        _transitionState = crossFadeDuration;
     }
+
 
     private void Update()
     {
-        if (_secondHandState == Utility.BaseActionTransitionsEnum.Base)
-        {
-            _secondHandController.SetRigWeight(0f);
-        }
-        else if (!_hasSecondHandTimer || !_secondHandTimer.Value)
-        {
-            if (_autoFadeOut.Value)
-            {
-                _secondHandController.SetRigWeight(
-                    _autoFadeOut.TimeFraction, Utility.BaseActionTransitionsEnum.ActionToBase);
-            }
-            else if (_secondHandState == Utility.BaseActionTransitionsEnum.ActionToBase)
-            {
-                _secondHandController.SetRigWeight(0f);
-                
-            }
-            else
-            {
-                _autoFadeOut.Activate(autoFadeOutTime);
-                _secondHandState = Utility.BaseActionTransitionsEnum.ActionToBase;
-            }
-        }
-        else
-        {
-            _secondHandController.SetTransformTarget(transformSourceRigIndex, 0);
-            if (_autoFadeOut.Value)
-            {
-                _secondHandController.SetRigWeight(Mathf.Max(
-                    Utility.GetTransitionFraction(_secondHandTimer.TimeFraction, _secondHandState),
-                    1f - _autoFadeOut.TimeFraction));
-
-            }
-            else
-            {
-                _secondHandController.SetRigWeight(_secondHandTimer.TimeFraction, _secondHandState);
-            }
-        }
+        // if (_hasSecondHandTimer && _secondHandTimer)
+        // {
+        //     if (_type == TypeEnum.Active)
+        //     {
+        //         _secondHandTransformSource.Weight = 
+        //             _transitionState.GetFraction(true);
+        //     }
+        //     else
+        //     {
+        //
+        //         _secondHandTransformSource.Weight =
+        //             _transitionState.GetRemainCurrentStateFraction();
+        //     }
+        // }
+        // else
+        // {
+        //     
+        //     _secondHandTransformSource.Weight = 
+        //         _transitionState.GetFraction(false);
+        // }
+        
+        _secondHandTransformSource.Weight = 
+                     _transitionState.GetFraction(_useSecondHand);
     }
 }

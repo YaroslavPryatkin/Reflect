@@ -15,6 +15,7 @@ public class PlayerAnimationController : MonoBehaviour
 
     [Header("Movement Clips")]
     [SerializeField] private AnimationClip idleClip;
+    [SerializeField] private AnimationClip targetLockIdleClip;
     [SerializeField] private AnimationClip walkClip;
     [SerializeField] private AnimationClip runClip;
     
@@ -28,12 +29,18 @@ public class PlayerAnimationController : MonoBehaviour
     [SerializeField] private AnimationClip rollLandingClip;
     
     [Header("Jump Clips")]
+    [Header("Ground standing")]
     [SerializeField] private AnimationClip startingGroundStandJumpClip;
     [SerializeField] private AnimationClip continuingGroundStandJumpClip;
+    [Header("Ground run")]
     [SerializeField] private AnimationClip startingGroundRunJumpClip;
     [SerializeField] private AnimationClip continuingGroundRunJumpClip;
+    [Header("Wall")]
     [SerializeField] private AnimationClip startingWallJumpClip;
     [SerializeField] private AnimationClip continuingWallJumpClip;
+    [Header("Rail line")]
+    [SerializeField] private AnimationClip startingRailJumpClip;
+    [SerializeField] private AnimationClip continuingRailJumpClip;
 
     [Header("Forward Jump Clips")]
     [SerializeField] private AnimationClip forwardJumpingInAirClip;
@@ -43,6 +50,9 @@ public class PlayerAnimationController : MonoBehaviour
     [SerializeField] private AnimationClip leftWallRunClip;
     [SerializeField] private AnimationClip rightWallRunClip;
 
+    [Header("Rail line riding")]
+    [SerializeField] private AnimationClip railLineRidingClip;
+    
     [Header("Slide Clips")]
     [SerializeField] private AnimationClip startingSlideClip;
     [SerializeField] private AnimationClip slidingClip;
@@ -54,24 +64,27 @@ public class PlayerAnimationController : MonoBehaviour
     [SerializeField] private float runThreshold = 8f;
     [SerializeField] private float normalSpeedForRunAnimationSpeed = 8f;
     [SerializeField] private float normalSpeedForWallRunAnimationSpeed = 12f;
+
+    [Header("Some Clip durations")] 
+    [SerializeField] private float targetLockClipDuration = 1f;
+    [SerializeField] private float railLineRidingClipDuration = 1f;
     
     [Header("Other Settings")] 
-    [SerializeField] private float runLandingExitOffset = 0.2f;
-    [SerializeField] private float rollLandingExitOffset = 0.05f;
     [SerializeField] private float crossfadeDuration = 0.15f;
 
     // --- References ---
     private Transform bodyTransform;
     private PlayerSensors _playerSensors;
-    private PlayerMovementController _playerMovementController;
+    private PlayerSlidingController _playerSlidingController;
     private PlayerForwardJumpingController _playerForwardJumpingController;
     private PlayerDashController _playerDashController;
     private PlayerJumpController _playerJumpController;
     private PlayerLandingController _playerLandingController;
-    private PlayerMeleeController _playerMeleeController;
-    private PlayerGunController _playerGunController;
     private MeleeController _meleeController;
     private PlayerTargetLockController _playerTargetLockController;
+    private AutomaticAnimationLayerController _animationLayerController;
+    private MultidirectionalMovementController _multidirectionalMovementController;
+    private PlayerFixedDirectionMovementController _playerFixedDirectionMovementController;
 
     // --- Caches ---
     private Quaternion _defaultBodyLocalRot;
@@ -89,21 +102,22 @@ public class PlayerAnimationController : MonoBehaviour
     private float _cachedContinuingGroundRunJumpSpeed;
     private float _cachedStartingWallJumpSpeed;
     private float _cachedContinuingWallJumpSpeed;
-    
+    private float _cachedStartingRailJumpSpeed;
+    private float _cachedContinuingRailJumpSpeed;
+
+    private float _cachedTargetLockClipSpeed;
+    private float _cachedLineRideClipSpeed;
     
     private float _cachedStandLandingSpeed;
     private float _cachedRunLandingSpeed;
     private float _cachedRollLandingSpeed;
 
-    private AutomaticAnimationLayerController _animationLayerController;
-    private MultidirectionalMovementController _multidirectionalMovementController;
     
-    private AnimationClip targetClip;
-    private float targetSpeed;
+
     
     private void Awake()
     {
-        if (!TryGetComponent(out AnimationController controller))
+        if (!TryGetComponent(out AnimationAndRigManager controller))
         {
             Debug.LogError("No AnimationController found!", this);
             enabled = false;
@@ -112,6 +126,7 @@ public class PlayerAnimationController : MonoBehaviour
         
         var clips = new HashSet<AnimationClip>();
         clips.Add(idleClip);
+        clips.Add(targetLockIdleClip);
         clips.Add(walkClip);
         clips.Add(runClip);
         clips.Add(dashClip);
@@ -125,6 +140,8 @@ public class PlayerAnimationController : MonoBehaviour
         clips.Add(continuingGroundRunJumpClip);
         clips.Add(startingWallJumpClip);
         clips.Add(continuingWallJumpClip);
+        clips.Add(startingRailJumpClip);
+        clips.Add(continuingRailJumpClip);
         clips.Add(forwardJumpingInAirClip);
         clips.Add(forwardJumpingLandingClip);
         clips.Add(leftWallRunClip);
@@ -132,22 +149,22 @@ public class PlayerAnimationController : MonoBehaviour
         clips.Add(slidingClip);
         clips.Add(startingSlideClip);
         clips.Add(endingSlideClip);
+        clips.Add(railLineRidingClip);
 
-        _animationLayerController = controller.GetAutomaticAnimationLayer(clips, 0);
+        _animationLayerController = controller.GetAutomaticAnimationLayer(clips, 0, "Player base");
         _animationLayerController.SetLayerWeight(1f);
         
         bodyTransform = body.GetComponent<Transform>();
         _playerSensors = GetComponent<PlayerSensors>();
-        _playerMovementController = GetComponent<PlayerMovementController>();
+        _playerSlidingController = GetComponent<PlayerSlidingController>();
         _playerForwardJumpingController = GetComponent<PlayerForwardJumpingController>();
         _playerDashController = GetComponent<PlayerDashController>();
         _playerJumpController = GetComponent<PlayerJumpController>();
         _playerLandingController = GetComponent<PlayerLandingController>();
-        _playerMeleeController = GetComponent<PlayerMeleeController>();
-        _playerGunController = GetComponent<PlayerGunController>();
         _playerTargetLockController = GetComponent<PlayerTargetLockController>(); 
         _meleeController = GetComponent<MeleeController>();
         _multidirectionalMovementController = GetComponent<MultidirectionalMovementController>();
+        _playerFixedDirectionMovementController = GetComponent<PlayerFixedDirectionMovementController>();
         
         _defaultBodyLocalRot = bodyTransform.localRotation;
     }
@@ -157,23 +174,28 @@ public class PlayerAnimationController : MonoBehaviour
 
     private void Start()
     {
-        _cachedStandLandingSpeed = Utility.GetAnimationSpeed(standLandingClip, _playerLandingController.StandLandingDuration);
-        _cachedRunLandingSpeed = Utility.GetAnimationSpeed(runLandingClip,  _playerLandingController.RunLandingDuration + runLandingExitOffset);
-        _cachedRollLandingSpeed = Utility.GetAnimationSpeed(rollLandingClip, _playerLandingController.RollLandingDuration + rollLandingExitOffset);
+        _cachedStandLandingSpeed = Utility.GetAnimationSpeed(standLandingClip, _playerLandingController.StandLandingDuration, crossfadeDuration);
+        _cachedRunLandingSpeed = Utility.GetAnimationSpeed(runLandingClip,  _playerLandingController.RunLandingDuration, crossfadeDuration);
+        _cachedRollLandingSpeed = Utility.GetAnimationSpeed(rollLandingClip, _playerLandingController.RollLandingDuration, crossfadeDuration);
         
         
-        _cachedStartingSlideSpeed = Utility.GetAnimationSpeed(startingSlideClip, _playerMovementController.StartingSlideTime);
-        _cachedEndingSlideSpeed = Utility.GetAnimationSpeed(endingSlideClip, _playerMovementController.EndingSlideTime);
-        _cachedForwardJumpLandingSpeed = Utility.GetAnimationSpeed(forwardJumpingLandingClip, _playerForwardJumpingController.LandingTime);
-        _cachedStartingGroundStandJumpSpeed = Utility.GetAnimationSpeed(startingGroundStandJumpClip, _playerJumpController.StartingGroundStandJumpTime);
-        _cachedContinuingGroundStandJumpSpeed = Utility.GetAnimationSpeed(continuingGroundStandJumpClip, _playerJumpController.ContinuingGroundStandJumpTime);
-        _cachedStartingGroundRunJumpSpeed = Utility.GetAnimationSpeed(startingGroundRunJumpClip, _playerJumpController.StartingGroundRunJumpTime);
-        _cachedContinuingGroundRunJumpSpeed = Utility.GetAnimationSpeed(continuingGroundRunJumpClip, _playerJumpController.ContinuingGroundRunJumpTime);
-        _cachedStartingWallJumpSpeed = Utility.GetAnimationSpeed(startingWallJumpClip, _playerJumpController.StartingWallJumpTime);
-        _cachedContinuingWallJumpSpeed = Utility.GetAnimationSpeed(continuingWallJumpClip, _playerJumpController.ContinuingWallJumpTime);
+        _cachedStartingSlideSpeed = Utility.GetAnimationSpeed(startingSlideClip, _playerSlidingController.StartingSlideTime, crossfadeDuration);
+        _cachedEndingSlideSpeed = Utility.GetAnimationSpeed(endingSlideClip, _playerSlidingController.EndingSlideTime, crossfadeDuration);
+        _cachedForwardJumpLandingSpeed = Utility.GetAnimationSpeed(forwardJumpingLandingClip, _playerForwardJumpingController.LandingTime, crossfadeDuration);
+        _cachedStartingGroundStandJumpSpeed = Utility.GetAnimationSpeed(startingGroundStandJumpClip, _playerJumpController.StartingGroundStandJumpTime, crossfadeDuration);
+        _cachedContinuingGroundStandJumpSpeed = Utility.GetAnimationSpeed(continuingGroundStandJumpClip, _playerJumpController.ContinuingGroundStandJumpTime, crossfadeDuration);
+        _cachedStartingGroundRunJumpSpeed = Utility.GetAnimationSpeed(startingGroundRunJumpClip, _playerJumpController.StartingGroundRunJumpTime, crossfadeDuration);
+        _cachedContinuingGroundRunJumpSpeed = Utility.GetAnimationSpeed(continuingGroundRunJumpClip, _playerJumpController.ContinuingGroundRunJumpTime, crossfadeDuration);
+        _cachedStartingWallJumpSpeed = Utility.GetAnimationSpeed(startingWallJumpClip, _playerJumpController.StartingWallJumpTime, crossfadeDuration);
+        _cachedContinuingWallJumpSpeed = Utility.GetAnimationSpeed(continuingWallJumpClip, _playerJumpController.ContinuingWallJumpTime, crossfadeDuration);
+        _cachedStartingRailJumpSpeed = Utility.GetAnimationSpeed(startingRailJumpClip, _playerJumpController.StartingRailJumpTime, crossfadeDuration);
+        _cachedContinuingRailJumpSpeed = Utility.GetAnimationSpeed(continuingRailJumpClip, _playerJumpController.ContinuingRailJumpTime, crossfadeDuration);
+
+        _cachedTargetLockClipSpeed = Utility.GetAnimationSpeed(targetLockIdleClip, targetLockClipDuration);
+        _cachedLineRideClipSpeed = Utility.GetAnimationSpeed(railLineRidingClip, railLineRidingClipDuration);
         
-        _cachedRotationChangeSpeedForSlideStarting = 90.0f / Mathf.Max(0.001f, _playerMovementController.StartingSlideTime);
-        _cachedRotationChangeSpeedForSlideEnding = 90.0f / Mathf.Max(0.001f, _playerMovementController.EndingSlideTime);
+        _cachedRotationChangeSpeedForSlideStarting = 90.0f / Mathf.Max(0.001f, _playerSlidingController.StartingSlideTime);
+        _cachedRotationChangeSpeedForSlideEnding = 90.0f / Mathf.Max(0.001f, _playerSlidingController.EndingSlideTime);
     }
 
 
@@ -182,14 +204,13 @@ public class PlayerAnimationController : MonoBehaviour
     {
         //dummy.position = hint.position;
         CalculateBaseLayerLogic();
-        _animationLayerController.AutomaticUpdateCurrentPlayable(targetClip, targetSpeed, crossfadeDuration);
         UpdateBodyRotation();
     }
 
     private void CalculateBaseLayerLogic()
     {
-        targetClip = fallingIdleClip;
-        targetSpeed = 1f;
+        var targetClip = fallingIdleClip;
+        var targetSpeed = 1f;
         _multidirectionalMovementController.ShouldUseMultiDirectionalAnimation = false;
         
         var currentSpeed = _playerSensors.SpeedAlignedWithGround;
@@ -229,49 +250,81 @@ public class PlayerAnimationController : MonoBehaviour
                 targetSpeed = forwardJumpingInAirClip.length / Mathf.Max(0.001f, _playerForwardJumpingController.TimeToJump); 
             }
         }
-        else if (_playerJumpController.JumpState != 0)
+        else if (!_playerFixedDirectionMovementController.IsStateNon)
         {
-            switch (_playerJumpController.JumpState)
+            switch (_playerFixedDirectionMovementController.State)
             {
-                case 1:
-                    targetClip = startingGroundStandJumpClip;
-                    targetSpeed = _cachedStartingGroundStandJumpSpeed;
+                case PlayerFixedDirectionMovementController.StateEnum.RightWall:
+                    targetClip = rightWallRunClip;
+                    targetSpeed = currentSpeed / normalSpeedForWallRunAnimationSpeed;
                     break;
-                case 2:
-                    targetClip = continuingGroundStandJumpClip;
-                    targetSpeed = _cachedContinuingGroundStandJumpSpeed;
+                case PlayerFixedDirectionMovementController.StateEnum.LeftWall:
+                    targetClip = leftWallRunClip;
+                    targetSpeed = currentSpeed / normalSpeedForWallRunAnimationSpeed;
                     break;
-                case 3:
-                    targetClip = startingGroundRunJumpClip;
-                    targetSpeed = _cachedStartingGroundRunJumpSpeed;
+                case PlayerFixedDirectionMovementController.StateEnum.Line:
+                    targetClip = railLineRidingClip;
+                    targetSpeed = _cachedLineRideClipSpeed;
                     break;
-                case 4:
-                    targetClip = continuingGroundRunJumpClip;
-                    targetSpeed = _cachedContinuingGroundRunJumpSpeed;
+            }
+            
+        }
+        else if (!_playerJumpController.IsStateNon)
+        {
+            switch (_playerJumpController.State)
+            {
+                case PlayerJumpController.StateEnum.Starting:
+                    switch (_playerJumpController.Type)
+                    {
+                        case PlayerJumpController.JumpTypeEnum.Standing:
+                            targetClip = startingGroundStandJumpClip;
+                            targetSpeed = _cachedStartingGroundStandJumpSpeed;
+                            break;
+                        case PlayerJumpController.JumpTypeEnum.Running:
+                            targetClip = startingGroundRunJumpClip;
+                            targetSpeed = _cachedStartingGroundRunJumpSpeed;
+                            break;
+                        case PlayerJumpController.JumpTypeEnum.Wall:
+                            targetClip = startingWallJumpClip;
+                            targetSpeed = _cachedStartingWallJumpSpeed;
+                            break;
+                        case PlayerJumpController.JumpTypeEnum.Line:
+                            targetClip = startingRailJumpClip;
+                            targetSpeed = _cachedStartingRailJumpSpeed;
+                            break;
+                    }
                     break;
-                case 5:
-                    targetClip = startingWallJumpClip;
-                    targetSpeed = _cachedStartingWallJumpSpeed;
-                    break;
-                case 6:
-                    targetClip = continuingWallJumpClip;
-                    targetSpeed = _cachedContinuingWallJumpSpeed;
+                case PlayerJumpController.StateEnum.Continuing:
+                    switch (_playerJumpController.Type)
+                    {
+                        case PlayerJumpController.JumpTypeEnum.Standing:
+                            targetClip = continuingGroundStandJumpClip;
+                            targetSpeed = _cachedContinuingGroundStandJumpSpeed;
+                            break;
+                        case PlayerJumpController.JumpTypeEnum.Running:
+                            targetClip = continuingGroundRunJumpClip;
+                            targetSpeed = _cachedContinuingGroundRunJumpSpeed;
+                            break;
+                        case PlayerJumpController.JumpTypeEnum.Wall:
+                            targetClip = continuingWallJumpClip;
+                            targetSpeed = _cachedContinuingWallJumpSpeed;
+                            break;
+                        case PlayerJumpController.JumpTypeEnum.Line:
+                            targetClip = continuingRailJumpClip;
+                            targetSpeed = _cachedContinuingRailJumpSpeed;
+                            break;
+                    }
                     break;
             }
         }
-        else if (_playerMovementController.WallRunningState != 0)
+        else if (!_playerSlidingController.IsStateNon)
         {
-            targetClip = _playerMovementController.WallRunningState > 0 ? rightWallRunClip : leftWallRunClip;
-            targetSpeed = currentSpeed / normalSpeedForWallRunAnimationSpeed;
-        }
-        else if (_playerMovementController.SlidingPhase != 0)
-        {
-            if (_playerMovementController.SlidingPhase == 1) 
+            if (_playerSlidingController.State == PlayerSlidingController.StateEnum.Starting) 
             {
                 targetClip = startingSlideClip;
                 targetSpeed = _cachedStartingSlideSpeed;
             }
-            else if (_playerMovementController.SlidingPhase == 2) 
+            else if (_playerSlidingController.State == PlayerSlidingController.StateEnum.InProcess) 
             {
                 targetClip = slidingClip;
             }
@@ -285,9 +338,10 @@ public class PlayerAnimationController : MonoBehaviour
         {
             if (_playerTargetLockController.IsLocked)
             {
-                targetClip = idleClip;
+                targetClip = targetLockIdleClip;
+                targetSpeed = _cachedTargetLockClipSpeed;
                 _multidirectionalMovementController.ShouldUseMultiDirectionalAnimation = 
-                    currentSpeed > walkThreshold;
+                    currentSpeed > walkThreshold && _meleeController.State != MeleeController.MeleeStateEnum.Combo;
                 //Debug.Log( currentSpeed + ", " + walkThreshold + ", "+_multidirectionalMovementController.ShouldUseMultiDirectionalAnimation);
             }
             else if (currentSpeed > runThreshold)
@@ -309,6 +363,8 @@ public class PlayerAnimationController : MonoBehaviour
         {
             targetClip = fallingIdleClip; 
         }
+        
+        _animationLayerController.AutomaticUpdateCurrentPlayable(targetClip, targetSpeed, crossfadeDuration);
     }
     
     
@@ -320,22 +376,22 @@ public class PlayerAnimationController : MonoBehaviour
     {
         var targetYAngle = 0f;
         var rotationSpeed = 90f;
-        switch (_playerMovementController.SlidingPhase)
+        switch (_playerSlidingController.State)
         {
-            case 1:
-                targetYAngle = 90f * _playerMovementController.SlidingPhaseFraction;
+            case PlayerSlidingController.StateEnum.Starting:
+                targetYAngle = 90f * _playerSlidingController.SlidingPhaseFraction;
                 rotationSpeed = _cachedRotationChangeSpeedForSlideStarting * Time.deltaTime;
                 break;
-            case 2:
+            case PlayerSlidingController.StateEnum.InProcess:
                 targetYAngle = 90f;
                 break;
-            case 3:
-                targetYAngle = 90f * (1-_playerMovementController.SlidingPhaseFraction);
+            case PlayerSlidingController.StateEnum.Ending:
+                targetYAngle = 90f * (1-_playerSlidingController.SlidingPhaseFraction);
                 rotationSpeed = _cachedRotationChangeSpeedForSlideEnding * Time.deltaTime;
                 break;
         }
         
-        if (_playerSensors.IsGrounded && _playerSensors.FoundGroundNormal && _playerMovementController.IsActiveSlidingPhase)
+        if (_playerSensors.IsGrounded && _playerSensors.FoundGroundNormal && _playerSlidingController.IsActiveSlidingPhase)
         {
            var localNormal = transform.InverseTransformDirection(_playerSensors.GroundNormal);
 

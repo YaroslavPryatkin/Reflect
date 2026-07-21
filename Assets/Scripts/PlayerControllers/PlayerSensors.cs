@@ -18,6 +18,12 @@ public class PlayerSensors : Sensors
     [SerializeField] private float wallRunMinimalWallAngle = 80f;
     [SerializeField] private LayerMask wallRunLayer;
     [SerializeField] private LayerMask blockingWallRunLayer;
+
+    [Header("Rail line sensors")] 
+    [SerializeField] private float railLineCheckDistanceStart = 0.7f;
+    [SerializeField] private float railLineCheckDistanceEnd = 1.1f;
+    [SerializeField] private float railLineCheckRadius = 0.4f;
+    [SerializeField] private LayerMask railLayer;
     
     [Header("Ground sensors for front jumps")]
     [SerializeField, Range(2, 10)] private int frontGroundRayCount = 3;
@@ -66,12 +72,17 @@ public class PlayerSensors : Sensors
     
     public bool IsLeftWallRun { get; private set; }
     public bool IsRightWallRun { get; private set; }
-
+    public bool IsRailLine { get; private set; }
+    
+    
     public Vector3 LeftWallRunNormal { get; private set; }
     public Vector3 RightWallRunNormal { get; private set; }
     
     public Vector3 LeftWallRunPoint { get; private set; }
     public Vector3 RightWallRunPoint { get; private set; }
+
+    
+    
     
     public bool HasSomethingInTheCollider { get; private set; } = false;
     
@@ -86,8 +97,9 @@ public class PlayerSensors : Sensors
     public Vector3 ColliderHalfHeightVector {get; private set;} = Vector3.up;
 
     private PlayerInputController _playerInputController;
-    private PlayerMovementController _playerMovementController;
+    private PlayerSlidingController _playerSlidingController;
     private Rigidbody rb;
+    private PlayerFixedDirectionMovementController _playerFixedDirectionMovementController;
     
     private float speedToDistanceFraction = 0f;
     private float forceSpeedToDistanceFraction;
@@ -115,8 +127,9 @@ public class PlayerSensors : Sensors
         realAmountOfWallRunRays +=(1 - realAmountOfWallRunRays % 2);
         
         _playerInputController = GetComponent<PlayerInputController>();
-        _playerMovementController = GetComponent<PlayerMovementController>();
+        _playerSlidingController = GetComponent<PlayerSlidingController>();
         ThisCollider = GetComponent<CapsuleCollider>();
+        _playerFixedDirectionMovementController = GetComponent<PlayerFixedDirectionMovementController>();
         
         
         ColliderRadius =  ThisCollider.radius;
@@ -133,6 +146,7 @@ public class PlayerSensors : Sensors
         base.Update();
         GatherWallSensors();
         GatherWallRunSensors();
+        GatherRailSensors();
         GatherFrontGroundSensor();
         GatherInTheColliderSensors();
     }
@@ -145,7 +159,7 @@ public class PlayerSensors : Sensors
 
     private void GatherInTheColliderSensors()
     {
-        if (!_playerMovementController.IsActiveSlidingPhase)
+        if (!_playerSlidingController.IsActiveSlidingPhase)
         {
             HasSomethingInTheCollider = false;
             return;
@@ -155,8 +169,6 @@ public class PlayerSensors : Sensors
         var point2 = transform.position + transform.up * ColliderCenterToTopDistance;
         HasSomethingInTheCollider = Physics.CheckCapsule(point1, point2, ColliderRadius, IgnoreMyLayerMask);
     }
-    
-
     private void GatherWallSensors()
     {
         var cameraRight = GlobalLookDirectionManager.FromCameraLocalToGlobalByZX(Vector3.right);
@@ -221,7 +233,6 @@ public class PlayerSensors : Sensors
             }
         }
     }
-
     private bool TryFindWallRunSector(Vector3 baseDirection, float angleSign, out RaycastHit bestHit)
     {
         bestHit = new RaycastHit();
@@ -249,6 +260,91 @@ public class PlayerSensors : Sensors
         return didHit;
     }
 
+    
+    public Transform RailLine { get; private set; }
+    public Vector3 RailLineForward => RailLine.forward * _railMovementDirection;
+    private RailSegmentController _railSegmentController;
+    private float _railMovementDirection = 0f;
+    
+    private Collider[] railColliders = new Collider[3];
+    private void GatherRailSensors()
+    {
+        if (IsGrounded)
+        {
+            IsRailLine = false;
+            return;
+        }
+        
+        var point1 = transform.position + Vector3.up * railLineCheckDistanceStart;
+        var point2 = transform.position + Vector3.up * railLineCheckDistanceEnd;
+        int res = Physics.OverlapCapsuleNonAlloc(point1, point2,
+            railLineCheckRadius, railColliders, railLayer, QueryTriggerInteraction.Collide);
+        if (res == 0)
+        {
+            IsRailLine = false;
+            return;
+        }
+
+        if (IsRailLine)
+        {
+            bool foundThis = false;
+            if (_railSegmentController.HasNext(out var next, _railMovementDirection))
+            {
+                for (var i = 0; i < res; ++i)
+                {
+                    var tr = railColliders[i].transform;
+                    if (tr.gameObject == RailLine.gameObject)
+                    {
+                        foundThis = true;
+                    }
+                    else if (tr.gameObject == next.gameObject)
+                    {
+                        RailLine = next;
+                        RailLine.TryGetComponent(out _railSegmentController);
+                        _playerFixedDirectionMovementController.SnapSpeed(RailLineForward);
+                        foundThis = true;
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                for (var i = 0; i < res; ++i)
+                {
+                    var tr = railColliders[i].transform;
+                    if (tr.gameObject == RailLine.gameObject)
+                    {
+                        foundThis = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!foundThis)
+            {
+                IsRailLine = false;
+            }
+        }
+        else
+        {
+            var bestDot = -1f;
+            for (var i = 0; i < res; ++i)
+            {
+                var tr = railColliders[i].transform;
+                var dot = Mathf.Abs(Vector3.Dot(tr.forward, _playerInputController.NonZeroInputMoveVector));
+                if (dot > bestDot)
+                {
+                    bestDot = dot;
+                    RailLine = tr;
+                }
+            }
+            IsRailLine = true;
+            RailLine.TryGetComponent(out _railSegmentController);
+            _railMovementDirection = Mathf.Sign(Vector3.Dot(RailLine.forward,
+                _playerInputController.NonZeroInputMoveVector));
+        }
+    }
+    
     private Vector3 _inputForward;
     private void GatherFrontGroundSensor()
     {
@@ -421,6 +517,13 @@ public class PlayerSensors : Sensors
     {
         base.OnDrawGizmosSelected();
 
+        Gizmos.color = IsRailLine ? Color.yellow : Color.purple;
+        var point = transform.position + Vector3.up * railLineCheckDistanceStart;
+        Gizmos.DrawWireSphere(point, railLineCheckRadius);
+        point = transform.position + Vector3.up * railLineCheckDistanceEnd;
+        Gizmos.DrawWireSphere(point, railLineCheckRadius);
+        
+        
         Gizmos.color = IsNearRightWall ? Color.green : Color.red;
         Gizmos.DrawLine(transform.position, transform.position + transform.right * wallCheckDistance);
 

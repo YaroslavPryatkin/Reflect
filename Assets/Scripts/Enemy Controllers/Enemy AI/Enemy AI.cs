@@ -50,31 +50,11 @@ public class EnemyAI : MonoBehaviour
     [SerializeField, EnableIf("shootWhileMoving")]
     private bool shouldOrbit = true;
     
-    
     [Header("Wandering")]
     [SerializeField]
-    private float wanderingDirectionTimerMinDuration = 2f;
+    private float directionTimerMinDuration = 2f;
     [SerializeField]
-    private float wanderingDirectionTimerMaxDuration = 5f;
-    
-    
-    [Header("Dodging bullets")]
-    [SerializeField] private bool canDodgeBullets = true;
-    [SerializeField, EnableIf("canDodgeBullets")] 
-    private int bulletsTakenToDodge = 1;
-    [SerializeField, EnableIf("canDodgeBullets")]
-    private float dodgeDuration = 0.2f;
-    [SerializeField, EnableIf("canDodgeBullets")]
-    private float dodgeRecharge = 1f;
-    
-    [Header("Step back from melee hits")]
-    [SerializeField] private bool canStepBack = true;
-    [SerializeField, EnableIf("canStepBack")] 
-    private int hitsTakenToStepBack = 2;
-    [SerializeField, EnableIf("canStepBack")]
-    private float stepBackDuration = 0.2f;
-    [SerializeField, EnableIf("canStepBack")]
-    private float stepBackRecharge = 1f;
+    private float directionTimerMaxDuration = 5f;
 
     public bool IsMoving { get; private set; } = false;
     public bool IsAiming { get; private set; } = false;
@@ -97,6 +77,18 @@ public class EnemyAI : MonoBehaviour
     private bool _goingToMid=true;
     private readonly List<float> _directions = new ();
     private readonly List<float> _distances = new ();
+
+    private int _controlsMovementAndShooting = 0;
+
+    public void TakeControls()
+    {
+        ++_controlsMovementAndShooting;
+    }
+
+    public void ReturnControls()
+    {
+        --_controlsMovementAndShooting;
+    }
     
     private void Awake()
     {
@@ -121,7 +113,7 @@ public class EnemyAI : MonoBehaviour
     {
         IsMoving = _agent.hasPath;
         IsAiming = (currentShootWhileMoving || !IsMoving || _enemySensors.SpeedAlignedWithGround < shootingSpeedThreshold) && 
-                   _enemySensors.IsSeeingPlayer &&
+                   _enemySensors.CanShootToPlayer &&
                    Vector3.Distance(transform.position, _enemySensors.PlayerPosition) <= shootingDistance;
         
         _agent.speed = IsMoving ? (IsAiming ? shootingSpeed : speed) : 0f;
@@ -132,7 +124,7 @@ public class EnemyAI : MonoBehaviour
     private void Retreat()
     {
         _calculatingTargetTime.Deactivate();
-        var targetPos = transform.position - _enemySensors.NormalizedHorizontalDirectionFromSeePointToPlayer * 1f;
+        var targetPos = transform.position - _enemySensors.NormalizedHorizontalDirectionToPlayer * 1f;
         SetAgentDestination(targetPos);
         ChangeState(shootingRetreatSpeed, retreatSpeed, shootWhileRetreating && shootWhileMoving, shootAngleIncreaseWhileRetreating);
     }
@@ -174,7 +166,7 @@ public class EnemyAI : MonoBehaviour
     {
         var path = new NavMeshPath();
 
-        var deltaY = Mathf.Abs(_enemySensors.PlayerPosition.y - _enemySensors.SeePointPosition.y);
+        var deltaY = Mathf.Abs(_enemySensors.PlayerPosition.y - _enemySensors.MyPosition.y);
 
         if (deltaY > shootingDistance)
         {
@@ -182,9 +174,9 @@ public class EnemyAI : MonoBehaviour
             return;
         }
 
-        var distToPlayer = _enemySensors.DistanceFromSeePointToPlayer;
+        var distToPlayer = _enemySensors.DistanceToPlayer;
         if (!_goingToMid &&
-             _enemySensors.IsSeeingPlayer && 
+             _enemySensors.CanShootToPlayer && 
              distToPlayer >= preferredDistanceMin &&
              distToPlayer <= preferredDistanceMax)
         {
@@ -219,7 +211,7 @@ public class EnemyAI : MonoBehaviour
             hMin = Mathf.Sqrt(retreatDistance * retreatDistance - deltaY * deltaY);
         }
         
-        var baseDir = -_enemySensors.HorizontalDirectionFromSeePointToPlayer;
+        var baseDir = -_enemySensors.HorizontalDirectionToPlayer;
         if (baseDir.sqrMagnitude < 0.001f) baseDir = Vector3.forward;
         baseDir.Normalize();
 
@@ -252,20 +244,18 @@ public class EnemyAI : MonoBehaviour
             {
                 var dir = Quaternion.Euler(0, angle, 0) * baseDir;
                 var targetPos = _enemySensors.PlayerPosition + dir * dist;
-                targetPos.y = _enemySensors.SeePointPosition.y;
+                targetPos.y = _enemySensors.MyPosition.y;
 
                 if (_enemySensors.HasLineOfSightToPlayer(targetPos))
                 {
-                    var rawDist = Vector3.Distance(_enemySensors.SeePointPosition, targetPos);
-                    _enemySensors.GetTransformPositionFromSeePointPosition(ref targetPos);
                     if (NavMesh.SamplePosition(targetPos, out var hit, 2f, NavMesh.AllAreas))
                     {
-                        if (NavMesh.CalculatePath(_enemySensors.SeePointPosition, hit.position, NavMesh.AllAreas, path) &&
+                        if (NavMesh.CalculatePath(_enemySensors.MyPosition, hit.position, NavMesh.AllAreas, path) &&
                             path.status == NavMeshPathStatus.PathComplete)
                         {
                             //Debug.Log("Found position: angle =  " + angle + ", dist = " + dist);
                             //marker.position = targetPos;
-                            _goingToMid =  rawDist > distanceStep * 1.2f;
+                            _goingToMid =  Vector3.Distance(_enemySensors.MyPosition, targetPos) > distanceStep * 1.2f;
                             //Debug.Log("Going, dist = " + rawDist + ", dist to player " + distToPlayer + ", hMax " + hMax  + ", hPref " + hPref + ", hMin " + hMin + ", dist count " + distancesCount);
                             _agent.SetPath(path);
                             _calculatingTargetTime.Deactivate();
@@ -304,9 +294,9 @@ public class EnemyAI : MonoBehaviour
         if (!_orbitingDirectionTimer)
         {
             MakeRandomMovementDirection();
-            _orbitingDirectionTimer.Activate(Random.Range(wanderingDirectionTimerMinDuration, wanderingDirectionTimerMaxDuration));
+            _orbitingDirectionTimer.Activate(Random.Range(directionTimerMinDuration, directionTimerMaxDuration));
         }
-        var dir = _enemySensors.NormalizedHorizontalDirectionFromSeePointToPlayer;
+        var dir = _enemySensors.NormalizedHorizontalDirectionToPlayer;
         var strafeDir = Vector3.Cross(dir, Vector3.up) * _movementDirection;
         strafeDir = Quaternion.Euler(0f, _orbitingAheadHalfAngle * -_movementDirection, 0f) * strafeDir;
 
@@ -327,7 +317,7 @@ public class EnemyAI : MonoBehaviour
             //Debug.Log("Isnt detecting");
             return;
         }
-        if(_enemySensors.HorizontalDistanceFromSeePointToPlayer < retreatDistance)
+        if(_enemySensors.HorizontalDistanceToPlayer < retreatDistance)
             Retreat();
         else
             TryToShoot();
@@ -335,6 +325,12 @@ public class EnemyAI : MonoBehaviour
 
     private void Update()
     {
-        ControlMovementAndShooting();
+        if(_controlsMovementAndShooting == 0)
+            ControlMovementAndShooting();
+        else
+        {
+            IsMoving = false;
+            IsAiming = false;
+        }
     }
 }

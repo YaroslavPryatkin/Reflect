@@ -3,6 +3,7 @@ using CustomAttributes;
 using UnityEngine;
 using BaseActionTransitionsEnum = Utility.BaseActionTransitionsEnum;
 using Random = UnityEngine.Random;
+using UnityEngine.Pool;
 
 public abstract class GunController : MonoBehaviour
 {
@@ -10,7 +11,7 @@ public abstract class GunController : MonoBehaviour
     [SerializeField] protected Transform shoulderPoint;
     [SerializeField] private float gunFromShoulderDistance = 0.4f;
     [Header("Bullet")]
-    [SerializeField] private GameObject bulletPrefab;
+    [SerializeField] private BulletController bulletPrefab;
     [SerializeField] protected float bulletSpeed = 10f;
     [SerializeField] private float bulletDamage = 40f;
     [SerializeField] private float bulletPoiseDamage = 40f;
@@ -68,12 +69,13 @@ public abstract class GunController : MonoBehaviour
 
     private Utility.FractionTemporaryValue<bool> isRechargingBullet = new(false, true);
     private Utility.FractionTemporaryValue<bool> canShootAfterPreviouseShot = new(true, false);
-    private bool hasChangedTime = false;
     
     private int virtualMagazineCapacity;
     private int virtualCurrentAmountOfBullets = -1;
     
     protected int layerMask;
+    
+    private IObjectPool<BulletController> _bulletPool;
     
 
 
@@ -90,7 +92,27 @@ public abstract class GunController : MonoBehaviour
         {
             Debug.Log("Left gun horizontal angle is greater than right");
         }
+        
+        _bulletPool = new ObjectPool<BulletController>(
+            createFunc: CreateBullet,
+            actionOnGet: bullet => bullet.gameObject.SetActive(true),
+            actionOnRelease: bullet => bullet.gameObject.SetActive(false),
+            actionOnDestroy: bullet => Destroy(bullet.gameObject),
+            collectionCheck: false,
+            defaultCapacity: magazineCapacity,
+            maxSize: Math.Max(10, magazineCapacity*2)
+        );
+        
     }
+    
+    private BulletController CreateBullet()
+    {
+        var bullet = Instantiate(bulletPrefab);
+        bullet.SetPool(_bulletPool);
+        return bullet;
+    }
+    
+    
 
     protected abstract void SetWantedTargetPoint();
     protected abstract void ChangeIsAimingAndAimingAngleIncrease();
@@ -155,13 +177,10 @@ public abstract class GunController : MonoBehaviour
             SpendBullet();
             for (var i = 0; i < amountOfBulletsPerShot; ++i)
             {
-                var bullet = Instantiate(bulletPrefab, GunPosition, GetRandomShotgunDirection());
-
-                if (bullet.TryGetComponent(out BulletController bulletScript))
-                {
-                    bulletScript.Initialize(bulletSpeed, layerMask, _sensors.EnemyLayer,
-                        bulletDamage, bulletPoiseDamage, transform);
-                }
+                var bullet = _bulletPool.Get();
+                bullet.transform.SetPositionAndRotation(GunPosition,  GetRandomShotgunDirection());
+                bullet.Initialize(bulletSpeed, layerMask, _sensors.EnemyLayer,
+                    bulletDamage, bulletPoiseDamage, transform);
             }
 
             return 1;
@@ -202,14 +221,29 @@ public abstract class GunController : MonoBehaviour
         }
     }
 
+    protected void GetBulletsAtLeast(int amount)
+    {
+        if (CurrentAmountOfBullets >= amount) return;
+
+        if (amount >= magazineCapacity)
+        {
+            virtualCurrentAmountOfBullets = virtualMagazineCapacity;
+            isRechargingBullet.Deactivate();
+        }
+        else
+        {
+            virtualCurrentAmountOfBullets = amount;
+        }
+    }
+
     private void InterruptAiming()
     {
         if(GunState.Value!=BaseActionTransitionsEnum.Base)
             GunState.SetForce(BaseActionTransitionsEnum.Base, 0);
-        if (hasChangedTime && useSloMo)
+        
+        if (useSloMo)
         {
             GlobalTimeScaleController.ReturnTimePace(this);
-            hasChangedTime = false;
         }
     }
 
@@ -224,13 +258,14 @@ public abstract class GunController : MonoBehaviour
             case BaseActionTransitionsEnum.BaseToAction:
                 if (IsAiming)
                 {
-                    if (!hasChangedTime && useSloMo)
+                    if (GunState.CanBeChanged)
                     {
-                        GlobalTimeScaleController.ChangeTimePace(this, sloMoCoefficient);
-                        hasChangedTime = true;
-                    }
-                    if(GunState.CanBeChanged)
+                        if (useSloMo)
+                        {
+                            GlobalTimeScaleController.ChangeTimePace(this, sloMoCoefficient);
+                        }
                         GunState.SetForce(BaseActionTransitionsEnum.Action, 0);
+                    }
                 }
                 else
                 {
@@ -241,10 +276,9 @@ public abstract class GunController : MonoBehaviour
             case BaseActionTransitionsEnum.Action:
                 if(!IsAiming)
                 {
-                    if (hasChangedTime && useSloMo)
+                    if (useSloMo)
                     {
                         GlobalTimeScaleController.ReturnTimePace(this);
-                        hasChangedTime = false;
                     }
 
                     GunState.SetForce(BaseActionTransitionsEnum.ActionToBase, finishAimTime);

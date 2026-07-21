@@ -1,9 +1,3 @@
-﻿transforms:
-0 - passive gun target
-1 - melee second hand
-offsets:
-0 - gun barrel offset
-
-targets
-0 - final
-1 - passive gun
+﻿0 - passive
+1 - gun targeting
+2 - melee second hand

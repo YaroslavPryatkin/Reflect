@@ -29,6 +29,32 @@ public class EnemyGunController : GunController
     private float _openFireLeftRad;
     private float _openFireRightRad;
 
+    private int _interruptAimingCounter = 0;
+    
+    public void InterruptAiming()
+    {
+        ++_interruptAimingCounter;
+    }
+
+    public void StopInterruptingAiming()
+    {
+        --_interruptAimingCounter;
+    }
+
+
+    private Utility.TemporaryValue<bool> _useFastTelegraphTime = new(false, true);
+    private float _fastTelegraphTime;
+    private float _fastTelegraphAngleIncrease;
+
+    public void UseFastTelegraphTime(float duration, float telegraphTime,  float angleIncrease)
+    {
+        _fastTelegraphAngleIncrease = angleIncrease;
+        _useFastTelegraphTime.Activate(duration);
+        _fastTelegraphTime=telegraphTime;
+        fireState.SetForce(FireStateEnum.Non);
+        GetBulletsAtLeast(minimalCurrentBulletsToOpenFire);
+    }
+
     private EnemySensors _enemySensors;
     private EnemyAI _enemyAI;
     
@@ -92,12 +118,13 @@ public class EnemyGunController : GunController
     protected override void ChangeIsAimingAndAimingAngleIncrease()
     {
         IsAiming = _enemyAI.IsAiming;
-        AimAngleIncrease = _enemyAI.ShootingConeAngleIncrease;
+        
+        AimAngleIncrease = _useFastTelegraphTime ?_fastTelegraphAngleIncrease : _enemyAI.ShootingConeAngleIncrease;
     }
 
     protected override bool ShouldInterruptAiming()
     {
-        return false;
+        return _interruptAimingCounter>0;
     }
 
     protected override void Update()
@@ -107,8 +134,17 @@ public class EnemyGunController : GunController
         switch (fireState.Value)
         {
             case FireStateEnum.Non:
-                if(fireState.CanBeChanged && CanStartBurst() && IsAiming)
-                    fireState.SetForce(FireStateEnum.Telegraph, burstTelegraphTime);
+                if (fireState.CanBeChanged && CanStartBurst() && IsAiming)
+                {
+                    if (_useFastTelegraphTime)
+                    {
+                        fireState.SetForce(FireStateEnum.Telegraph, _fastTelegraphTime);
+                    }
+                    else{
+                        fireState.SetForce(FireStateEnum.Telegraph, burstTelegraphTime);
+                    }
+                }
+
                 break;
             case FireStateEnum.Telegraph:
                 if (!CanStartBurst()  || !IsAiming)

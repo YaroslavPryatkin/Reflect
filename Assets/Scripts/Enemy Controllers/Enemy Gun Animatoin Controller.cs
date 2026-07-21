@@ -27,6 +27,7 @@ public class EnemyGunAnimationController : GunAnimationController
     protected override void Update()
     {
         base.Update();
+        
         UpdateTelegraphingObject();
     }
     private bool IsShowingTelegraph = false;

@@ -12,9 +12,13 @@ public class PlayerJumpController : MonoBehaviour
     [SerializeField] private float wallJumpBackStrength = 10f;
     [SerializeField] private float wallJumpBackSpeedThreshold = 5f;
     
+    [Header("Jumping from rail line")]
+    [SerializeField] private float railJumpStrength = 20f;
+    
     [Header("Coyote")]
     [SerializeField] private float groundCoyoteTime = 0.2f;
     [SerializeField] private float wallCoyoteTime = 0.1f;
+    [SerializeField] private float railCoyoteTime = 0.1f;
 
 
     [Header("Ground stand timings")]
@@ -32,6 +36,18 @@ public class PlayerJumpController : MonoBehaviour
     [SerializeField] private float startingWallJumpTime = 0.1f;
     [SerializeField] private float continuingWallJumpTime = 0.7f;
     [SerializeField] private float wallJumpRechargeTime = 0.4f;
+    [Header("Rail line jumping timings")] 
+    [SerializeField] private float startingRailJumpTime = 0.1f;
+    [SerializeField] private float continuingRailJumpTime = 0.7f;
+    [SerializeField] private float railJumpRechargeTime = 0.4f;
+    
+    [Header("Suppress")]
+    [SerializeField] private float groundSpeedSuppressAfterJump = 0.3f;
+    
+    [Header("Suppresses for fixed movement")]
+    [SerializeField] private float afterJumpFromWall = 0.5f;
+    [SerializeField] private float afterJumpFromGround = 0.2f;
+    [SerializeField] private float afterJumpFromLine = 0.2f;
     
     [Header("General")]
     [SerializeField] private float interruptionRechargeTime = 0.1f;
@@ -46,123 +62,129 @@ public class PlayerJumpController : MonoBehaviour
     public float StartingWallJumpTime => startingWallJumpTime;
     public float ContinuingWallJumpTime => continuingWallJumpTime;
     
+    public float StartingRailJumpTime => startingRailJumpTime;
+    public float ContinuingRailJumpTime => continuingRailJumpTime;
+    
     private Rigidbody rb;
-    private PlayerMovementController _playerMovementController;
+    private PlayerSlidingController _playerSlidingController;
+    private PlayerFixedDirectionMovementController _playerFixedDirectionMovementController;
     private PlayerSensors _playerSensors;
     private PlayerInputController _playerInputController;
     private PlayerForwardJumpingController _playerForwardJumpingController;
-    private PlayerDashController _playerDashController;
-    private PlayerLandingController _playerLandingController;
-    
-    
-    /// <summary>
-    /// 0 - cant, 1 - from ground, 2 - from wall
-    /// </summary>
-    private Utility.DelayedValueTimer<int> havePlaceToJumpFrom = 0;
-    
-    /// <summary>
-    ///  0 - not jumping,
-    /// 1 - starting from ground standing, 2 - continuing from ground standing,
-    /// 3 - starting from ground running, 2 - continuing from ground running,
-    /// 5 - starting from wall, 6 - continuing from wall
-    /// </summary>
-    private Utility.BlockingValueTimer<int> jumpState = 0;
+    private PlayerManager _playerManager;
 
-    private bool jumpStartBlocked = false;
+    public enum JumpPlaceEnum
+    {
+        Non, Ground, Wall, Line
+    }
     
-    /// <summary>
-    ///  0 - not jumping,
-    /// 1 - starting from ground standing, 2 - continuing from ground standing,
-    /// 3 - starting from ground running, 2 - continuing from ground running,
-    /// 5 - starting from wall, 6 - continuing from wall
-    /// </summary>
-    public int JumpState => jumpState.Value;
+    private readonly Utility.DelayedValueTimer<JumpPlaceEnum> _possibleJumpPlace = JumpPlaceEnum.Non;
 
-    public bool StartingJump => jumpState.Value == 1 || jumpState.Value == 3 || jumpState.Value == 5;
+    public enum StateEnum
+    {
+        Non, Starting, Continuing
+    }
+    private readonly Utility.BlockingValueTimer<StateEnum> _jumpState = StateEnum.Non;
+
+    public enum JumpTypeEnum
+    {
+        Standing, Running, Wall, Line
+    }
+    private JumpTypeEnum _currentJumpType = JumpTypeEnum.Standing;
+    public bool IsStateNon => _jumpState.Value == StateEnum.Non;
+    public StateEnum State => _jumpState.Value;
+    public JumpTypeEnum Type => _currentJumpType;
+    
+    private readonly Utility.TemporaryValue<bool> _shouldSuppressGroundFriction = new(false, true);
+    public bool ShouldSuppressGroundFriction => _shouldSuppressGroundFriction.Value;
 
     public void InterruptJump()
     {
-        if(jumpState!=0)
-            jumpState.SetForce(0, interruptionRechargeTime);
+        if(_jumpState!=StateEnum.Non)
+            _jumpState.SetForce(StateEnum.Non, interruptionRechargeTime);
     }
     
     private void InterruptJumpIfRequired()
     {
-        bool shouldInterrupt = false;
-        
-        if (_playerLandingController.LandingState != 0 ||
-            _playerDashController.IsDashing ||
-            _playerForwardJumpingController.IsForwardJumping ||
-            _playerMovementController.SlidingPhase == 1)
+        if (
+            (!_playerManager.CanJump && _jumpState.Value != StateEnum.Non) ||
+            (_jumpState.Value == StateEnum.Continuing && !_playerSlidingController.IsStateNon)
+        )
         {
-            shouldInterrupt = true;
-            //Debug.Log("Interrupt any wat=y");
+            _jumpState.SetForce(StateEnum.Non, interruptionRechargeTime);
         }
-        else
-        {
-            switch (jumpState.Value)
-            {
-                case 2 or 4 or 6:
-                    shouldInterrupt = _playerMovementController.WallRunningState != 0;
-                    //Debug.Log("Interrupt specific");
-                    break;
-            }
-        }
-        
-        if(shouldInterrupt && jumpState!=0)
-            jumpState.SetForce(0, interruptionRechargeTime);
     }
     
     private void ChangeJumpState()
     {
-        if (jumpState.CanBeChanged)
+        if (_jumpState.CanBeChanged)
         {
-            switch (jumpState.Value)
+            switch (_jumpState.Value)
             {
-                case 1:
+                case StateEnum.Starting:
+                    
                     rb.linearVelocity = _playerSensors.VelocityAlignedWithGround;
-                    if(_playerSensors.IsGrounded && _playerSensors.FoundGroundNormal)
-                        rb.AddForce(_playerSensors.GroundNormal * jumpStrength, ForceMode.Impulse);
-                    else
-                        rb.AddForce(Vector3.up * jumpStrength, ForceMode.Impulse);
+                    
+                    switch (_currentJumpType)
+                    {
+                        case JumpTypeEnum.Standing or JumpTypeEnum.Running:
+                            if(_playerSensors.IsGrounded && _playerSensors.FoundGroundNormal)
+                                rb.AddForce(_playerSensors.GroundNormal * jumpStrength, ForceMode.Impulse);
+                            else
+                                rb.AddForce(Vector3.up * jumpStrength, ForceMode.Impulse);
+                    
+                            _playerFixedDirectionMovementController.SuppressAfterJump(afterJumpFromGround);
+                            _shouldSuppressGroundFriction.Activate(groundSpeedSuppressAfterJump);
+                            break;
+                        case JumpTypeEnum.Wall:
+                            var force = Vector3.up * wallJumpUpStrength + _playerFixedDirectionMovementController.LastNormal * wallJumpSideStrength;
+                            if(_playerSensors.HorizontalSpeed >= wallJumpBackSpeedThreshold)
+                                force -= _playerSensors.NormalizedHorizontalVelocity * wallJumpBackStrength;
+                            rb.AddForce( force, ForceMode.Impulse);
+                            
+                            _playerFixedDirectionMovementController.SuppressAfterJump(afterJumpFromWall);
+                            break;
+                        case JumpTypeEnum.Line:
+                            rb.AddForce( Vector3.up * railJumpStrength, ForceMode.Impulse);
+                            
+                            _playerFixedDirectionMovementController.SuppressAfterJump(afterJumpFromLine);
+                            break;
+                    }
                     
                     _playerSensors.UpdateVelocity();
-                    _playerMovementController.ChangeFlagsAfterJumpFromGround();
 
-                    jumpState.SetForce(2, continuingGroundStandJumpTime);
+                    switch (_currentJumpType)
+                    {
+                        case JumpTypeEnum.Standing:
+                            _jumpState.SetForce(StateEnum.Continuing, continuingGroundStandJumpTime);
+                            break;
+                        case JumpTypeEnum.Running:
+                            _jumpState.SetForce(StateEnum.Continuing, continuingGroundRunJumpTime);
+                            break;
+                        case JumpTypeEnum.Wall:
+                            _jumpState.SetForce(StateEnum.Continuing, continuingWallJumpTime);
+                            break;
+                        case  JumpTypeEnum.Line:
+                            _jumpState.SetForce(StateEnum.Continuing, continuingRailJumpTime);
+                            break;
+                    }
                     break;
-                case 2:
-                    jumpState.SetForce(0, groundStandJumpRechargeTime);
-                    break;
-                case 3:
-                    rb.linearVelocity = _playerSensors.VelocityAlignedWithGround;
-                    if(_playerSensors.IsGrounded && _playerSensors.FoundGroundNormal)
-                        rb.AddForce(_playerSensors.GroundNormal * jumpStrength, ForceMode.Impulse);
-                    else
-                        rb.AddForce(Vector3.up * jumpStrength, ForceMode.Impulse);
-                    
-                    _playerSensors.UpdateVelocity();
-                    _playerMovementController.ChangeFlagsAfterJumpFromGround();
-
-                    jumpState.SetForce(2, continuingGroundRunJumpTime);
-                    break;
-                case 4:
-                    jumpState.SetForce(0, groundRunJumpRechargeTime);
-                    break;
-                case 5:
-                    rb.linearVelocity = _playerSensors.VelocityAlignedWithGround;
-                    var force = Vector3.up * wallJumpUpStrength + _playerMovementController.LastWallRunNormal * wallJumpSideStrength;
-                    if(_playerSensors.HorizontalSpeed >= wallJumpBackSpeedThreshold)
-                        force -= _playerSensors.NormalizedHorizontalVelocity * wallJumpBackStrength;
-                    rb.AddForce( force, ForceMode.Impulse);
-                    
-                    _playerSensors.UpdateVelocity();
-                    _playerMovementController.ChangeFlagsAfterJumpFromWall();
-                    
-                    jumpState.SetForce(4, continuingWallJumpTime);
-                    break;
-                case 6:
-                    jumpState.SetForce(0, wallJumpRechargeTime);
+                case StateEnum.Continuing:
+                    switch (_currentJumpType)
+                    {
+                        case JumpTypeEnum.Standing:
+                            _jumpState.SetForce(StateEnum.Non, groundStandJumpRechargeTime);
+                            break;
+                        case JumpTypeEnum.Running:
+                            _jumpState.SetForce(StateEnum.Non, groundRunJumpRechargeTime);
+                            break;
+                        case JumpTypeEnum.Wall:
+                            _jumpState.SetForce(StateEnum.Non, wallJumpRechargeTime);
+                            break;
+                        case JumpTypeEnum.Line:
+                            _jumpState.SetForce(StateEnum.Non, railJumpRechargeTime);
+                            break;
+                    }
                     break;
             }
         }
@@ -170,66 +192,84 @@ public class PlayerJumpController : MonoBehaviour
 
     private void DetectPlaceToJumpFrom()
     {
-        if (_playerMovementController.WallRunningState != 0)
+        if (!_playerFixedDirectionMovementController.IsStateNon)
         {
-            havePlaceToJumpFrom.Set(2, 0);
+            if(_playerFixedDirectionMovementController.State == PlayerFixedDirectionMovementController.StateEnum.Line)
+                _possibleJumpPlace.Set(JumpPlaceEnum.Line, 0);
+            else
+                _possibleJumpPlace.Set(JumpPlaceEnum.Wall, 0);
         }
         else if (_playerSensors.IsGrounded)
         {
-            havePlaceToJumpFrom.Set(1, 0);
+            _possibleJumpPlace.Set(JumpPlaceEnum.Ground, 0);
         }
-        else if (havePlaceToJumpFrom.RealValue == 2)
+        else
         {
-            havePlaceToJumpFrom.Set(0, wallCoyoteTime);
-        }
-        else if (havePlaceToJumpFrom.RealValue == 1)
-        {
-            havePlaceToJumpFrom.Set(0, groundCoyoteTime);
+            switch (_possibleJumpPlace.RealValue)
+            {
+                case JumpPlaceEnum.Ground:
+                    _possibleJumpPlace.Set(0, groundCoyoteTime);
+                    break;
+                case  JumpPlaceEnum.Wall:
+                    _possibleJumpPlace.Set(0, wallCoyoteTime);
+                    break;
+                case JumpPlaceEnum.Line:
+                    _possibleJumpPlace.Set(0, railCoyoteTime);
+                    break;
+            }
         }
     }
 
-    private void BlockJumpStart()
+    public void PerformLineJump()
     {
-        jumpStartBlocked = _playerLandingController.LandingState != 0 ||
-                           _playerDashController.IsDashing ||
-                           _playerForwardJumpingController.IsForwardJumping ||
-                           _playerMovementController.SlidingPhase == 1;
+        if (_jumpState.Value != StateEnum.Non) return;
+        
+        _currentJumpType = JumpTypeEnum.Line;
+        _jumpState.SetForce(StateEnum.Starting, startingRailJumpTime);
     }
     
     private void StartJump()
     {
-        if (!_playerInputController.IsJumpPressed  || jumpStartBlocked || jumpState!=0 || !jumpState.CanBeChanged) return;
-        
-        if (havePlaceToJumpFrom == 2)
+        if (!_playerInputController.IsJumpBufferActive  || !_playerManager.CanJump || _jumpState.Value!=StateEnum.Non || !_jumpState.CanBeChanged) return;
+
+
+        switch (_possibleJumpPlace.Value)
         {
-            jumpState.SetForce(5, startingWallJumpTime);
-            _playerInputController.ResetJumpBuffer();
-        }
-        else if (havePlaceToJumpFrom == 1)
-        {
-            if (_playerSensors.FrontGroundState == 1)
-            {
-                _playerForwardJumpingController.PerformForwardJump(transform.position, _playerSensors.GetForwardGroundEndPoint(), _playerSensors.FrontGroundObstacleHeight);
-            }
-            else
-            {
-                if (_playerSensors.HorizontalSpeed < groundRunSpeedThreshold)
+            case JumpPlaceEnum.Wall:
+                _currentJumpType = JumpTypeEnum.Wall;
+                _jumpState.SetForce(StateEnum.Starting, startingWallJumpTime);
+                break;
+            case JumpPlaceEnum.Line:
+                _currentJumpType = JumpTypeEnum.Line;
+                _jumpState.SetForce(StateEnum.Starting, startingRailJumpTime);
+                break;
+            case JumpPlaceEnum.Ground:
+                if (_playerSensors.FrontGroundState == 1)
                 {
-                    jumpState.SetForce(1, startingGroundStandJumpTime);
+                    _playerForwardJumpingController.PerformForwardJump(transform.position, _playerSensors.GetForwardGroundEndPoint(), _playerSensors.FrontGroundObstacleHeight);
                 }
                 else
                 {
-                    jumpState.SetForce(3, startingGroundRunJumpTime);
+                    if (_playerSensors.HorizontalSpeed < groundRunSpeedThreshold)
+                    {
+                        _currentJumpType = JumpTypeEnum.Standing;
+                        _jumpState.SetForce(StateEnum.Starting, startingGroundStandJumpTime);
+                    }
+                    else
+                    {
+                        _currentJumpType = JumpTypeEnum.Running;
+                        _jumpState.SetForce(StateEnum.Starting, startingGroundRunJumpTime);
+                    }
+                
                 }
-            }
-            _playerInputController.ResetJumpBuffer();
+                break;
         }
+        _playerInputController.ConsumeJump();
     }
 
     private void Update()
     {
         DetectPlaceToJumpFrom();
-        BlockJumpStart();
         StartJump();
     }
 
@@ -242,11 +282,11 @@ public class PlayerJumpController : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
-        _playerMovementController = GetComponent<PlayerMovementController>();
+        _playerSlidingController = GetComponent<PlayerSlidingController>();
         _playerSensors = GetComponentInChildren<PlayerSensors>();
         _playerInputController = GetComponentInChildren<PlayerInputController>();
         _playerForwardJumpingController = GetComponentInChildren<PlayerForwardJumpingController>();
-        _playerDashController =  GetComponentInChildren<PlayerDashController>();
-        _playerLandingController = GetComponentInChildren<PlayerLandingController>();
+        _playerManager = GetComponent<PlayerManager>();
+        _playerFixedDirectionMovementController = GetComponent<PlayerFixedDirectionMovementController>();
     }
 }

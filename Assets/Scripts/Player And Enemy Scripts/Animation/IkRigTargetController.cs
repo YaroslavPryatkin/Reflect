@@ -12,41 +12,133 @@ public class IkRigTargetController : MonoBehaviour
     [Header("Settings")]
     [SerializeField] private List<RigController> rigs;
     [SerializeField] private Transform ikTarget;
+    [SerializeField] private Transform controlledObject;
     [SerializeField] private int index;
     
-    [Header("Targets")]
-    [SerializeField] private List<Transform> positions;
-    [SerializeField] private List<Offset> offsets;
-    [SerializeField] private int targetArrayCount = 2;
+    [Header("Sources")]
+    [SerializeField] private int sourcesArrayCount = 2;
     
     [Header("Speeds")]
     [SerializeField] private float movementSpeed;
     [SerializeField] private float rotationSpeed;
     
     public int Index => index;
+    private float _totalWeight;
+
+    public void ChangeTotalWeight(float delta)
+    {
+        _totalWeight += delta;
+    }
+
+    [Serializable]
+    public abstract class PositionAndRotationSource
+    {
+        protected abstract Vector3 PositionInternal { get; }
+        protected abstract Quaternion RotationInternal { get; }
+
+        public Vector3 Position => Origin.InverseTransformPoint(PositionInternal);
+        public Quaternion Rotation => Quaternion.Inverse(Origin.rotation) * RotationInternal;
+
+        private float _weight = 0f;
+        public float Weight
+        {
+            get => _weight;
+            set
+            {
+                value = Mathf.Clamp01(value);
+                _controller.ChangeTotalWeight(value - _weight);
+                _weight = value;
+            }
+        }
+
+        protected Transform Origin;
+        private IkRigTargetController _controller;
+
+        public virtual void Initialize(IkRigTargetController controller, Transform origin)
+        {
+            Origin = origin;
+            _controller = controller;
+        }
+    }
     
     [Serializable]
-    public class Offset
+    public class OffsetSource : PositionAndRotationSource
     {
         [SerializeField] private Transform input;
         [SerializeField] private Transform output;
 
+        public OffsetSource(Transform input, Transform output)
+        {
+            this.input = input;
+            this.output = output;
+        }
+        
         private Vector3 _posOffset;
         private Quaternion _rotOffset;
+
+        private Vector3 _position;
+        private Quaternion _rotation;
+
+        protected override Vector3 PositionInternal => _position;
+        protected override Quaternion RotationInternal =>  _rotation;
         
-        public void Initialize()
+        public override void Initialize(IkRigTargetController controller, Transform origin)
         {
+            base.Initialize(controller, origin);
+            if (input == null || output == null)
+            {
+                Debug.LogError("OffsetRigSource: Input or Output transform is missing!", origin);
+                return;
+            }
             _posOffset = output.InverseTransformPoint(input.position);
             _rotOffset = Quaternion.Inverse(output.rotation) * input.rotation;
         }
 
-        public void SetPositionAndRotation(PositionAndRotation target, Vector3 inputPosition, Quaternion inputRotation)
+        public void SetTarget(Vector3 inputPosition, Quaternion inputRotation)
         {
-            target.Rotation = inputRotation * Quaternion.Inverse(_rotOffset);
-            target.Position = inputPosition - (target.Rotation * _posOffset);
+            _rotation = inputRotation * Quaternion.Inverse(_rotOffset);
+            _position = inputPosition - (_rotation * _posOffset);
+        }
+    }
+    
+    public class RawSource : PositionAndRotationSource
+    {
+        private Vector3 _position;
+        private Quaternion _rotation;
+
+        protected override Vector3 PositionInternal => _position;
+        protected override Quaternion RotationInternal =>  _rotation;
+
+        public void SetTarget(Vector3 inputPosition, Quaternion inputRotation)
+        {
+            _rotation = inputRotation;
+            _position = inputPosition;
         }
     }
 
+    [Serializable]
+    public class TransformSource : PositionAndRotationSource
+    {
+        [SerializeField] private Transform source;
+
+        public TransformSource(Transform source)
+        {
+            this.source = source;
+        }
+        
+        protected override Vector3 PositionInternal => source.position;
+        protected override Quaternion RotationInternal => source.rotation;
+
+        public override void Initialize(IkRigTargetController controller, Transform origin)
+        {
+            base.Initialize(controller, origin);
+            if (source == null)
+            {
+                Debug.LogError("TransformRigSource: Source transform is missing!", origin);
+            }
+        }
+    }
+    
     public class PositionAndRotation
     {
         public Vector3 Position { get; set; } = Vector3.zero;
@@ -58,19 +150,29 @@ public class IkRigTargetController : MonoBehaviour
             Position = Vector3.MoveTowards(Position, target.Position,  movementSpeed*Time.deltaTime);
         }
 
-        public void Lerp(PositionAndRotation a, PositionAndRotation b, float fraction)
+        public void UseSource(PositionAndRotationSource target,  float blendWeight)
         {
-            Position = Vector3.Lerp(a.Position, b.Position, fraction);
-            Rotation = Quaternion.Lerp(a.Rotation, b.Rotation, fraction);
+            var weight = Mathf.Clamp01(blendWeight);
+            Position = Vector3.Lerp(Position, target.Position, weight);
+            Rotation = Quaternion.Slerp(Rotation, target.Rotation, weight);
+        }
+
+        public void Reset()
+        {
+            Position = Vector3.zero;
+            Rotation = Quaternion.identity;
         }
     }
     
     private readonly PositionAndRotation _current = new ();
-    private PositionAndRotation[] _targets;
+    private readonly PositionAndRotation _target = new();
+    private PositionAndRotationSource[] _sources;
+
+    private TransformSource _controlledObjectSource;
     
     private void Awake()
     {
-        if (TryGetComponent(out AnimationController controller))
+        if (TryGetComponent(out AnimationAndRigManager controller))
         {
             controller.AddRig(this);
         }
@@ -80,81 +182,68 @@ public class IkRigTargetController : MonoBehaviour
             enabled = false;
             return;
         }
-
-        foreach (var offset in offsets)
-        {
-            offset.Initialize();
-        }
-
-        _targets = new  PositionAndRotation[targetArrayCount];
-        for(var i=0;i<targetArrayCount;i++)
-            _targets[i]= new PositionAndRotation();
+        _sources = new PositionAndRotationSource[sourcesArrayCount];
+        _controlledObjectSource = new TransformSource(controlledObject);
+        _controlledObjectSource.Initialize(this, transform);
     }
     
 
     private void Update()
     {
-        _current.MoveTowards(_targets[0], movementSpeed, rotationSpeed);
+        if (_totalWeight < 0.01f)
+        {
+            SetRigWeight(0f);
+            _current.UseSource(_controlledObjectSource, 1f);
+            return;
+        }
+        
+        _target.Reset();
+        for (var i = 0; i < _sources.Length; i++)
+        {
+            var src = _sources[i];
+            
+            if (src == null) continue; 
+            _target.UseSource(src, src.Weight/_totalWeight);
+        }
+        
+        SetRigWeight(_totalWeight);
+        _current.MoveTowards(_target, movementSpeed, rotationSpeed);
         ikTarget.position = transform.TransformPoint(_current.Position);
         ikTarget.rotation = transform.rotation * _current.Rotation;
     }
-
-
     
-    public void SetOffsetTarget(Vector3 worldPosition, Quaternion worldRotation, int offsetIndex, int targetIndex)
+    private void SetRigWeight(float weight)
     {
-        offsets[offsetIndex].SetPositionAndRotation(_targets[targetIndex], worldPosition, worldRotation);
-        
-        _targets[targetIndex].Position = transform.InverseTransformPoint(_targets[targetIndex].Position);
-        _targets[targetIndex].Rotation = Quaternion.Inverse(transform.rotation) * _targets[targetIndex].Rotation;
-    }
-
-    public void SetTransformTarget(int positionTransformIndex, int targetIndex)
-    {
-        var targetT = positions[positionTransformIndex];
-        _targets[targetIndex].Position = transform.InverseTransformPoint(targetT.position);
-        _targets[targetIndex].Rotation = Quaternion.Inverse(transform.rotation) * targetT.rotation;
-        
-    }
-
-    public void SetTarget(Vector3 worldPosition, Quaternion worldRotation, int targetIndex)
-    {
-        _targets[targetIndex].Position = transform.InverseTransformPoint(worldPosition);
-        _targets[targetIndex].Rotation = Quaternion.Inverse(transform.rotation) * worldRotation;
-    }
-
-    public void BlendTargets(int a, int b, int result, float fraction)
-    {
-        _targets[result].Lerp(_targets[a], _targets[b], fraction);
-    }
-    
-    public void BlendTargetsInverse(int a, int b, int result, Utility.IFractionTimer<BaseActionTransitionsEnum> baseActionTransitionsState)
-    {
-        _targets[result].Lerp(_targets[a], _targets[b], 1f - Utility.GetTransitionFraction(baseActionTransitionsState));
-    }
-    
-
-    public void SetRigWeight(float weight)
-    {
-        SetRigWeightInternal( Mathf.Clamp01(weight));
-    }
-    
-    
-    public void SetRigWeight(float fraction, BaseActionTransitionsEnum baseActionTransitionsState)
-    {
-        SetRigWeightInternal(Utility.GetTransitionFraction(fraction, baseActionTransitionsState));
-    }
-    
-    public void SetRigWeight(Utility.IFractionTimer<BaseActionTransitionsEnum> baseActionTransitionsState)
-    {
-        SetRigWeightInternal(Utility.GetTransitionFraction(baseActionTransitionsState));
-    }
-
-    private void SetRigWeightInternal(float weight)
-    {
+        weight = Mathf.Clamp01(weight);
         foreach (var rig in rigs)
         {
             rig.SetWeight(weight);
         }
     }
+    
+    public void SetSource(PositionAndRotationSource source, int sourceIndex)
+    {
+        if (sourceIndex < 0 || sourceIndex >= _sources.Length)
+        {
+            Debug.LogError($"Source index {sourceIndex} out of bounds! Array size is {sourcesArrayCount}", this);
+            return;
+        }
+
+        if (_sources[sourceIndex] != null)
+        {
+            Debug.LogError($"Source index {sourceIndex} is already taken!", this);
+            return;
+        }
+        source.Initialize(this, transform);
+        _sources[sourceIndex] = source;
+    }
+    
+    public void RemoveSource(int sourceIndex)
+    {
+        if (sourceIndex >= 0 && sourceIndex < _sources.Length)
+        {
+            _sources[sourceIndex] = null;
+        }
+    }
+    
 }

@@ -83,7 +83,7 @@ public class PlayerCameraController : MonoBehaviour
             cameraTransformController.TargetCameraDistance = targetLockCameraDistance;
             cameraTransformController.TargetUpShift = targetLockUpShift;
             var velocity = _playerSensors.NormalizedHorizontalVelocity;
-            var dir = _playerTargetLockController.TargetDirection;
+            var dir = _playerTargetLockController.NormalizedHorizontalDirectionToLockedTarget;
             var dot = Vector3.Dot(velocity, Vector3.Cross(dir, Vector3.up));
             if (Mathf.Abs(dot) > 0.1f)
                 lastTargetLockSideShiftSign = Mathf.Sign(dot);

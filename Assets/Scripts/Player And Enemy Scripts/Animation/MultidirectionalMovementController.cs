@@ -29,7 +29,7 @@ public class MultidirectionalMovementController : MonoBehaviour
     
     private void Awake()
     {
-        if (!TryGetComponent(out AnimationController controller))
+        if (!TryGetComponent(out AnimationAndRigManager controller))
         {
             Debug.LogError("No AnimationController found!", this);
             enabled = false;
@@ -45,7 +45,7 @@ public class MultidirectionalMovementController : MonoBehaviour
             animationClips.Add(multidirectional.animationClip);
         }
         
-        _animationLayerController = controller.GetAnimationLayer(animationClips, 1);
+        _animationLayerController = controller.GetAnimationLayer(animationClips, 1, "Multidir movement");
 
         _directionsCount = multidirectionalMovement.Count;
         _multipliers = new float[_directionsCount];
@@ -54,10 +54,11 @@ public class MultidirectionalMovementController : MonoBehaviour
         {
             _multipliers[i] = Utility.GetSpeedFraction(multidirectionalMovement[i].animationClip, multidirectionalMovement[0].animationClip);
         }
+
+        _transitionState = crossFadeDuration;
     }
     
-    private readonly Utility.FractionBlockingValueTimer<BaseActionTransitionsEnum> _transitionState = 
-        BaseActionTransitionsEnum.Base;
+    private Utility.BaseActionAutomaticTransition _transitionState;
 
 
     private int _currentIndex1;
@@ -153,8 +154,7 @@ public class MultidirectionalMovementController : MonoBehaviour
         {
             UpdateWeights();
         }
-        
-        _animationLayerController.SetLayerWeightAndChangeState(
-            _transitionState, ShouldUseMultiDirectionalAnimation, crossFadeDuration);
+
+        _animationLayerController.SetLayerWeight(_transitionState.GetFraction(ShouldUseMultiDirectionalAnimation));
     }
 }

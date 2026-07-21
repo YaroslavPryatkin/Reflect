@@ -1,30 +1,22 @@
 using System;
+using MeleeComponents;
 using UnityEngine;
 
 public class PlayerGunController : GunController
 {
     [Header("Auto Aim")] 
     [SerializeField] private bool autoAimWhileTargetLock = false;
-    public bool CanAim { get; private set; } = true;
     
     private PlayerInputController _playerInputController;
-    private PlayerDashController _playerDashController;
-    private PlayerMovementController _playerMovementController;
-    private PlayerForwardJumpingController _playerForwardJumpingController;
-    private PlayerLandingController  _playerLandingController;
-    private PlayerMeleeController _playerMeleeController;
     private PlayerTargetLockController _playerTargetLockController;
+    private PlayerManager _playerManager;
 
     protected override void Awake()
     {
         base.Awake();
         _playerInputController = GetComponent<PlayerInputController>();
-        _playerDashController = GetComponent<PlayerDashController>();
-        _playerMovementController = GetComponent<PlayerMovementController>();
-        _playerForwardJumpingController = GetComponent<PlayerForwardJumpingController>();
-        _playerLandingController = GetComponent<PlayerLandingController>();
-        _playerMeleeController = GetComponent<PlayerMeleeController>();
         _playerTargetLockController = GetComponent<PlayerTargetLockController>();
+        _playerManager = GetComponent<PlayerManager>();
     }
 
     
@@ -52,15 +44,11 @@ public class PlayerGunController : GunController
 
     protected override void ChangeIsAimingAndAimingAngleIncrease()
     {
-        CanAim = _playerMovementController.WallRunningState == 0 && _playerMovementController.SlidingPhase == 0 &&
-                 !_playerDashController.IsDashing && !_playerForwardJumpingController.IsForwardJumping &&
-                 _playerLandingController.CanBeInterrupted && _playerMeleeController.CanBeSafelyInterrupted 
-                 && !_playerMeleeController.Parrying;
         IsAiming = _playerInputController.IsAimPressed;
     }
 
     protected override bool ShouldInterruptAiming()
     {
-        return !CanAim;
+        return !_playerManager.CanAim;
     }
 }

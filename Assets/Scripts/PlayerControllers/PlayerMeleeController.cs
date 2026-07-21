@@ -4,47 +4,34 @@ using UnityEngine;
 public class PlayerMeleeController : MeleeController
 {
     private PlayerInputController _playerInputController;
-    private PlayerMovementController _playerMovementController;
-    private PlayerJumpController _playerJumpController;
-    private PlayerDashController _playerDashController;
-    private PlayerForwardJumpingController _playerForwardJumpingController;
-    private PlayerLandingController _playerLandingController;
-    private PlayerSensors _playerSensors;
-    private PlayerGunController _playerGunController;
+    private PlayerManager _playerManager;
     private PlayerTargetLockController _playerTargetLockController;
     
     
-    private bool _canUseSword = false;
-    private bool _shouldInterrupt = false;
     
-    public int currentAction = -1;
+    private int _currentAction = -1;
     
     private void ChangeFlags()
     {
-        _canUseSword = _playerMovementController.WallRunningState == 0 && !_playerForwardJumpingController.IsForwardJumping &&
-                      _playerLandingController.CanBeInterrupted;
-        
-        _shouldInterrupt = _playerMovementController.IsActiveSlidingPhase;
-        if (_shouldInterrupt)
+        if (_playerManager.CanUseSword)
         {
-            currentAction = -1;
+            _currentAction = -1;
             return;
         }
         
         if (_playerInputController.IsParryBufferActive)
         {
-            if (currentAction != 1)
-            {
-                _playerInputController.ConsumeParry();
-                currentAction = 1;
-            }
+            _currentAction = 0;
         }
-        else if (_playerInputController.IsAttackBufferActive)
+        else
         {
-            if (currentAction != 0)
+            if (_playerInputController.IsHeavyAttackCharging)
             {
-                _playerInputController.ConsumeAttack();
-                currentAction = 0;
+                _currentAction = 2;
+            }
+            else if (_playerInputController.IsAttackBufferActive)
+            {
+                _currentAction = 3;
             }
         }
 
@@ -56,13 +43,7 @@ public class PlayerMeleeController : MeleeController
     {
         base.Awake();
         _playerInputController = GetComponent<PlayerInputController>();
-        _playerMovementController = GetComponent<PlayerMovementController>();
-        _playerJumpController =  GetComponent<PlayerJumpController>();
-        _playerDashController =  GetComponent<PlayerDashController>();
-        _playerForwardJumpingController = GetComponent<PlayerForwardJumpingController>();
-        _playerLandingController = GetComponent<PlayerLandingController>();
-        _playerSensors = GetComponent<PlayerSensors>();
-        _playerGunController = GetComponent<PlayerGunController>();
+        _playerManager= GetComponent<PlayerManager>();
         _playerTargetLockController = GetComponent<PlayerTargetLockController>();
     }
 
@@ -74,17 +55,19 @@ public class PlayerMeleeController : MeleeController
     
     protected override int WhatComboToPlay()
     {
-        return currentAction;
+        return _currentAction;
     }
 
     public override void OnAttack()
     {
-        currentAction = -1;
+        _playerInputController.ConsumeAttack();
+        _currentAction = -1;
     }
 
     public override void OnParry()
     {
-        currentAction = -1;
+        _playerInputController.ConsumeParry();
+        _currentAction = -1;
     }
 
     protected override bool ShouldHold()
@@ -94,11 +77,11 @@ public class PlayerMeleeController : MeleeController
 
     protected override bool ShouldInterrupt()
     {
-        return _shouldInterrupt;
+        return _playerManager.CanUseSword;
     }
     
     protected override bool ShouldSwitchStateToNon()
     {
-        return !_canUseSword;
+        return !_playerManager.CanHoldSword;
     }
 }

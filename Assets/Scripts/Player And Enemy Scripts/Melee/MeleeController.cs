@@ -7,6 +7,7 @@ using UnityEngine.Animations.Rigging;
 using MeleeComponents;
 using MeleeComponents.Presets;
 using CustomAttributes;
+using InterruptionEnum = MeleeComponents.MeleeStateInformation.InterruptionEnum;
 
 public abstract class MeleeController : MonoBehaviour
 {
@@ -25,64 +26,99 @@ public abstract class MeleeController : MonoBehaviour
     [SerializeField] private GameObject handWeapon;
     
     [Header("Settings")]
-    [SerializeField] private AvatarMask meleeAvatarMask;
+    [SerializeField] private AvatarMask handsAvatarMask;
     [SerializeField] private MeleeWeaponHitboxController meleeWeaponHitboxController;
     [SerializeField] private float holdAnimationOverrideFraction = 0.5f;
     
+    [Header("Legs")]
+    [SerializeField] private AvatarMask legsAvatarMask;
+    [SerializeField] private float legsCrossFadeDuration = 0.15f;
     
     
-    public  MeleeToTargetMoveController ToTargetMoveController { get; private set; }
+    
+    public MeleeTransformController TransformController { get; private set; }
+    public MeleeSecondHandController SecondHandController { get; private set; }
+    
+    public MeleeWeaponHitboxController MeleeHitboxController => meleeWeaponHitboxController;
+    
 
-    private MeleePlayable _onSuccessfulParry;
+    private int _onSuccessfulParryIndex = -1;
     private Utility.TemporaryValue<bool> _parrying;
     private Utility.FractionTemporaryValue<bool> _waitingForOnSuccessfulParry;
     private bool _hasParrying = false;
-    private bool _hasWaitingForOnSuccessfulParry = false;
     public bool Parrying=> _hasParrying && _parrying.Value;
 
-    public MeleeWeaponHitboxController MeleeHitboxController => meleeWeaponHitboxController;
-    private MeleeSecondHandController _secondHandController;
-    private GettingHitController _gettingHitController;
-    public MeleeSecondHandController SecondHandController => _secondHandController;
+    public GettingHitController GettingHitController { get; private set; }
 
-    public void ActivateParrying(Utility.TemporaryValue<bool> parrying, Utility.FractionTemporaryValue<bool> waitingForOnSuccessfulParry, MeleePlayable onSuccessfulParry)
+    private readonly Utility.ChangeableFractionValue _dontAnimateLegs = new();
+
+        
+    private CurrentPlayableAnimationLayerController  _handAnimationLayer;
+    
+    private CurrentPlayableAnimationLayerController _legsAnimationLayer;
+    private Utility.BaseActionAutomaticTransition _legsTransition;
+    
+    public enum MeleeStateEnum
     {
-        _onSuccessfulParry = onSuccessfulParry;
+        Non, UnSheath, Sheathe, Hold, Combo
+    }
+
+    public MeleeStateEnum State { get; private set; } = MeleeStateEnum.Non;
+    public int CurrentCombo { get; private set; } = -1;
+    
+    public bool CanBeInterruptedToAnything => State == MeleeStateEnum.Non ||
+                                              _currentMeleePlayable.CanBeInterruptedInto == InterruptionEnum.ToAnything;
+    
+    private MeleePlayable _currentMeleePlayable;
+
+    public void ActivateParrying(Utility.TemporaryValue<bool> parrying, Utility.FractionTemporaryValue<bool> waitingForOnSuccessfulParry, int onSuccessfulParryIndex)
+    {
+        _onSuccessfulParryIndex = onSuccessfulParryIndex;
         _parrying = parrying;
         _waitingForOnSuccessfulParry = waitingForOnSuccessfulParry;
-        _hasWaitingForOnSuccessfulParry = true;
         _hasParrying = true;
     }
 
     public void ClearParryingReferences()
     {
-        _hasWaitingForOnSuccessfulParry = false;
+        _onSuccessfulParryIndex = -1;
     }
     
     public void OnSuccessfulParry()
     {
-        if (_hasWaitingForOnSuccessfulParry && _waitingForOnSuccessfulParry.Value)
+        if (_onSuccessfulParryIndex!=-1 && _waitingForOnSuccessfulParry.Value)
         {
-            ChangeCurrentMeleePlayable(_onSuccessfulParry);
+            PlayCombo(_onSuccessfulParryIndex);
+            MeleeHitboxController.SpawnSparks();
         }
     }
     
-    public void SetOtherMask(AvatarMask mask)
+    public void ActivateOtherMask(AvatarMask mask)
     {
-        _animationLayerController.SetAvatarMask(mask);
+        _handAnimationLayer.SetAvatarMask(mask);
     }
 
-    public void ClearOtherMaskReferences()
+    public void StopOtherMask()
     {
-        _animationLayerController.SetAvatarMask(meleeAvatarMask);
+        _handAnimationLayer.SetAvatarMask(handsAvatarMask);
     }
 
+    public void ActivateDontAnimateLegs(Utility.FractionTemporaryValue<bool> timer)
+    {
+        _dontAnimateLegs.Set(timer);
+    }
+
+    public void StopDontAnimateLegs()
+    {
+        _dontAnimateLegs.Unset();
+    }
     
-    private AnimationLayerController  _animationLayerController;
+
+
 
     protected virtual void Awake()
     {
-        if (!TryGetComponent(out AnimationController controller))
+        if (!TryGetComponent(out AnimationAndRigManager controller))
         {
             Debug.LogError("No AnimationController found!", this);
             enabled = false;
@@ -91,8 +127,8 @@ public abstract class MeleeController : MonoBehaviour
         
         var sensors = GetComponent<Sensors>();
         
-        ToTargetMoveController = GetComponent<MeleeToTargetMoveController>();
-        _gettingHitController = GetComponent<GettingHitController>();
+        TransformController = GetComponent<MeleeTransformController>();
+        GettingHitController = GetComponent<GettingHitController>();
         meleeWeaponHitboxController.SetTargetLayers(sensors.EnemyLayer);
         
         sheath.Awake(this);
@@ -108,14 +144,28 @@ public abstract class MeleeController : MonoBehaviour
         unSheath.AddClipsToSet(uniqueClips);
         sheath.AddClipsToSet(uniqueClips);
         hold.AddClipsToSet(uniqueClips);
+        AddComboClipsToSet(uniqueClips);
+       
+        _handAnimationLayer = controller.GetCurrentPlayableAnimationLayer(uniqueClips, 2, handsAvatarMask, "melee hands");
+        
+        // var comboClips =  new HashSet<AnimationClip>();
+        // AddComboClipsToSet(comboClips);
+
+        _legsAnimationLayer = controller.GetCurrentPlayableAnimationLayer(uniqueClips, 4, legsAvatarMask, "melee legs");
+        _legsTransition = legsCrossFadeDuration;
+        
+        if (TryGetComponent(out MeleeSecondHandController secondHandController))
+        {
+            SecondHandController = secondHandController;
+        }
+    }
+
+    public void AddComboClipsToSet(HashSet<AnimationClip> uniqueClips)
+    {
         foreach (var combo in playables)
         {
             combo.AddClipsToSet(uniqueClips);
         }
-        
-       
-        _animationLayerController = controller.GetAnimationLayer(uniqueClips, 2, meleeAvatarMask);
-        TryGetComponent(out _secondHandController);
     }
     /// <returns>
     /// Must return -1 if no combo should be played
@@ -127,18 +177,6 @@ public abstract class MeleeController : MonoBehaviour
     
     public virtual void OnAttack(){}
     public virtual void OnParry(){}
-    
-    public enum MeleeStateEnum
-    {
-        Non, UnSheath, Sheathe, Hold, Combo
-    }
-
-    public MeleeStateEnum State { get; private set; } = MeleeStateEnum.Non;
-    public int CurrentCombo { get; private set; } = -1;
-
-    public bool CanBeSafelyInterrupted => State == MeleeStateEnum.Non || _currentMeleePlayable.CanBeSafelyInterrupted;
-    
-    private MeleePlayable _currentMeleePlayable;
 
     private void ChangeCurrentMeleePlayable(MeleePlayable meleePlayable)
     {
@@ -165,9 +203,19 @@ public abstract class MeleeController : MonoBehaviour
         _currentMeleePlayable = meleePlayable;
     }
 
+    public void PlayCombo(int index)
+    {
+        if (index != CurrentCombo || !_currentMeleePlayable.IsActive)
+        {
+            CurrentCombo = index;
+            State = MeleeStateEnum.Combo;
+            ChangeCurrentMeleePlayable(playables[index]);
+        }
+    }
+    
     private bool CheckInterrupt()
     {
-        if (ShouldInterrupt() || _gettingHitController.IsStunned)
+        if (ShouldInterrupt() || GettingHitController.IsStunned)
         {
             if (State == MeleeStateEnum.Non || State == MeleeStateEnum.Sheathe)
             {
@@ -189,19 +237,18 @@ public abstract class MeleeController : MonoBehaviour
     
     private void DoSomethingBasedOnInput()
     {
-        if (!_currentMeleePlayable.CanBeSafelyInterrupted) return;
+        if (_currentMeleePlayable.CanBeInterruptedInto == InterruptionEnum.Never) return;
         
         var combo = WhatComboToPlay();
         if (combo != -1)
         {
-            if (combo != CurrentCombo || !_currentMeleePlayable.IsActive)
-            {
-                CurrentCombo = combo;
-                State = MeleeStateEnum.Combo;
-                ChangeCurrentMeleePlayable(playables[combo]);
-            }
+            PlayCombo(combo);
+            return;
         }
-        else if (ShouldHold())
+
+        if (_currentMeleePlayable.CanBeInterruptedInto != InterruptionEnum.ToAnything) return;
+        
+        if (ShouldHold())
         {
             CurrentCombo = -1;
             if (State != MeleeStateEnum.Hold || !_currentMeleePlayable.IsActive)
@@ -313,6 +360,11 @@ public abstract class MeleeController : MonoBehaviour
 
     private void UpdateLayerTransition()
     {
+        _legsAnimationLayer.SetLayerWeight(
+            _legsTransition.GetFraction(State == MeleeStateEnum.Combo && !_dontAnimateLegs));
+
+        
+        
         var weight = 0f;
         switch (State)
         {
@@ -321,13 +373,15 @@ public abstract class MeleeController : MonoBehaviour
                 break;
             case  MeleeStateEnum.UnSheath:
                 if (_currentMeleePlayable.LengthFraction < 1f)
-                    weight = _currentMeleePlayable.CurrentClipWeight;
+                    weight = _currentMeleePlayable.CurrentClipTimeFraction;
                 else
                     weight = 1f;
                 break;
             case MeleeStateEnum.Sheathe:
-                if(_currentMeleePlayable.LengthFraction >= _currentMeleePlayable.Length - 1f)
-                    weight = 1 - _currentMeleePlayable.CurrentClipWeight;
+                if (_currentMeleePlayable.LengthFraction >= _currentMeleePlayable.Length - 1f)
+                {
+                    weight = 1 - _currentMeleePlayable.CurrentClipTimeFraction;
+                }
                 else
                     weight = 1f;
                 break;
@@ -339,7 +393,7 @@ public abstract class MeleeController : MonoBehaviour
                 break;
         }
 
-        _animationLayerController.SetLayerWeight(weight);
+        _handAnimationLayer.SetLayerWeight(weight);
     }
     
     private void UpdateAnimationMixer()
@@ -347,22 +401,34 @@ public abstract class MeleeController : MonoBehaviour
         if (_currentMeleePlayable == null) return;
         
 
-        _animationLayerController.UpdateCurrentPlayable(_currentMeleePlayable);
+        _handAnimationLayer.UpdateCurrentPlayable(_currentMeleePlayable);
+        _legsAnimationLayer.UpdateCurrentPlayable(_currentMeleePlayable);
+        
         
         if (State == MeleeStateEnum.Sheathe &&
             _currentMeleePlayable.LengthFraction >= _currentMeleePlayable.Length - 1f)
         {
-            _animationLayerController.UpdateCurrentPlayableWeight(0f);
+            _handAnimationLayer.FinishTransitioningToCurrentPlayable();
+            _legsAnimationLayer.FinishTransitioningToCurrentPlayable();
         }
         else if (State==MeleeStateEnum.UnSheath && _currentMeleePlayable.LengthFraction < 1f)
         {
-            _animationLayerController.UpdateCurrentPlayableWeight(1f);
+            _handAnimationLayer.FinishTransitioningToCurrentPlayable();
+            _legsAnimationLayer.FinishTransitioningToCurrentPlayable();
         }
         else
         {
-            var weight = Mathf.Clamp01(_currentMeleePlayable.CurrentClipWeight);
-        
-            _animationLayerController.UpdateCurrentPlayableWeight(weight);
+            if (_currentMeleePlayable.ShouldAnimationTransition)
+            {
+                var weight = _currentMeleePlayable.CurrentClipTimeFraction;
+                _handAnimationLayer.UpdateCurrentPlayableTransitioningWeight(weight);
+                _legsAnimationLayer.UpdateCurrentPlayableTransitioningWeight(weight);
+            }
+            else
+            {
+                _handAnimationLayer.FinishTransitioningToCurrentPlayable();
+                _legsAnimationLayer.FinishTransitioningToCurrentPlayable();
+            }
         }
         
     }
