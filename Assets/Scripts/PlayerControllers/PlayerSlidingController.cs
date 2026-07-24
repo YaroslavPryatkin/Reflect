@@ -5,14 +5,23 @@ using Vector3 = UnityEngine.Vector3;
 public class PlayerSlidingController : MonoBehaviour
 {
     [Header("Sliding")]
-    [SerializeField] private float slideSpeedHardCap = 20f;
+    [Header("Speed gain")]
     [SerializeField] private float slideSpeedGain = 4f;
     [SerializeField] private float slideSpeedGainMaxSpeed = 14f;
-    [SerializeField] private float minSlideSpeedIfCanNotStandUp = 4f;
+    
+    [Header("Speeds")]
     [SerializeField] private float slideSpeedThreshold = 3f;
-    [SerializeField] private float minimalSlideTime = 0.5f;
+    [SerializeField] private float slideSpeedHardCap = 20f;
+    [Header("Can not stand up")]
+    [SerializeField] private float minSlideSpeedIfCanNotStandUp = 4f;
+    [Header("Force slide")]
+    [SerializeField] private float minForceSlideSpeed=13f;
+    [SerializeField] private float maxAngleFromDown = 30f;
+    
+    [Header("Timings")]
     [SerializeField] private float slideRechargeTime = 0.3f;
     [SerializeField] private float startingSlideTime = 0.1f;
+    [SerializeField] private float minimalSlideTime = 0.5f;
     [SerializeField] private float endingSlideTime = 0.1f;
 
 
@@ -30,7 +39,7 @@ public class PlayerSlidingController : MonoBehaviour
         Non, Starting, InProcess, Ending
     }
 
-    private Utility.FractionBlockingValueTimer<StateEnum> _state = StateEnum.Non;
+    private UtilityClasses.FractionBlockingValueTimer<StateEnum> _state = StateEnum.Non;
 
     public StateEnum State => _state.Value;
 
@@ -42,7 +51,9 @@ public class PlayerSlidingController : MonoBehaviour
     public bool IsStateNon => _state.Value == 0;
     public float SlideSpeedHardCap => slideSpeedHardCap;
     public float MinSlideSpeedIfCanNotStandUp => minSlideSpeedIfCanNotStandUp;
-
+    public float MinForceSlideSpeed => minForceSlideSpeed;
+    public float MaxAngleFromDown => maxAngleFromDown;
+    
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
@@ -53,6 +64,8 @@ public class PlayerSlidingController : MonoBehaviour
     }
 
 
+    private bool ShouldContinueSliding => _playerSensors.IsForceSlide ||
+                                          _playerSensors.HasSomethingInTheCollider;
 
     private void Update()
     {
@@ -63,7 +76,7 @@ public class PlayerSlidingController : MonoBehaviour
                 _state.SetForce(StateEnum.Non, slideRechargeTime);
             }
         }
-        else if (IsActiveSlidingPhase && _playerSensors.HorizontalSpeed < slideSpeedThreshold && !_playerSensors.HasSomethingInTheCollider)
+        else if (IsActiveSlidingPhase && _playerSensors.HorizontalSpeed < slideSpeedThreshold && !ShouldContinueSliding)
         {
             _state.SetForce(StateEnum.Ending, endingSlideTime);
         }
@@ -74,7 +87,7 @@ public class PlayerSlidingController : MonoBehaviour
                 switch (_state.Value)
                 {
                     case StateEnum.Non:
-                        if (_playerInputController.IsSlidePressed && _playerSensors.HorizontalSpeed >= slideSpeedThreshold)
+                        if (_playerSensors.IsForceSlide || (_playerInputController.IsSlidePressed && _playerSensors.HorizontalSpeed >= slideSpeedThreshold))
                         {
                             _playerLandingController.InterruptLanding();
                             _state.SetForce(StateEnum.Starting, startingSlideTime);
@@ -82,7 +95,7 @@ public class PlayerSlidingController : MonoBehaviour
                         }
                         break;
                     case StateEnum.Starting:
-                        if (_playerInputController.IsSlidePressed || _playerSensors.HasSomethingInTheCollider)
+                        if (_playerInputController.IsSlidePressed || ShouldContinueSliding)
                         {
                             _state.SetForce(StateEnum.InProcess, minimalSlideTime);
                         }
@@ -92,7 +105,7 @@ public class PlayerSlidingController : MonoBehaviour
                         }
                         break;
                     case StateEnum.InProcess:
-                        if (!_playerInputController.IsSlidePressed && !_playerSensors.HasSomethingInTheCollider)
+                        if (!_playerInputController.IsSlidePressed && !ShouldContinueSliding)
                         {
                             _state.SetForce(StateEnum.Ending, endingSlideTime);
                         }

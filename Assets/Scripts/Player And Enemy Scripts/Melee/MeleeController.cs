@@ -35,7 +35,7 @@ public abstract class MeleeController : MonoBehaviour
     [SerializeField] private float legsCrossFadeDuration = 0.15f;
     
     
-    
+    private Sensors _sensors;
     public MeleeTransformController TransformController { get; private set; }
     public MeleeSecondHandController SecondHandController { get; private set; }
     
@@ -43,20 +43,21 @@ public abstract class MeleeController : MonoBehaviour
     
 
     private int _onSuccessfulParryIndex = -1;
-    private Utility.TemporaryValue<bool> _parrying;
-    private Utility.FractionTemporaryValue<bool> _waitingForOnSuccessfulParry;
+    private UtilityClasses.TemporaryValue<bool> _parrying;
+    private UtilityClasses.FractionTemporaryValue<bool> _waitingForOnSuccessfulParry;
     private bool _hasParrying = false;
     public bool Parrying=> _hasParrying && _parrying.Value;
 
     public GettingHitController GettingHitController { get; private set; }
 
-    private readonly Utility.ChangeableFractionValue _dontAnimateLegs = new();
+    private readonly UtilityClasses.ChangeableFractionValue _dontAnimateLegs = new();
 
+    private readonly UtilityClasses.ChangeableFractionValue _interruptIfNotOnGround = new();
         
     private CurrentPlayableAnimationLayerController  _handAnimationLayer;
     
     private CurrentPlayableAnimationLayerController _legsAnimationLayer;
-    private Utility.BaseActionAutomaticTransition _legsTransition;
+    private UtilityClasses.BaseActionAutomaticTransition _legsTransition;
     
     public enum MeleeStateEnum
     {
@@ -71,7 +72,7 @@ public abstract class MeleeController : MonoBehaviour
     
     private MeleePlayable _currentMeleePlayable;
 
-    public void ActivateParrying(Utility.TemporaryValue<bool> parrying, Utility.FractionTemporaryValue<bool> waitingForOnSuccessfulParry, int onSuccessfulParryIndex)
+    public void ActivateParrying(UtilityClasses.TemporaryValue<bool> parrying, UtilityClasses.FractionTemporaryValue<bool> waitingForOnSuccessfulParry, int onSuccessfulParryIndex)
     {
         _onSuccessfulParryIndex = onSuccessfulParryIndex;
         _parrying = parrying;
@@ -103,7 +104,7 @@ public abstract class MeleeController : MonoBehaviour
         _handAnimationLayer.SetAvatarMask(handsAvatarMask);
     }
 
-    public void ActivateDontAnimateLegs(Utility.FractionTemporaryValue<bool> timer)
+    public void ActivateDontAnimateLegs(UtilityClasses.FractionTemporaryValue<bool> timer)
     {
         _dontAnimateLegs.Set(timer);
     }
@@ -112,8 +113,16 @@ public abstract class MeleeController : MonoBehaviour
     {
         _dontAnimateLegs.Unset();
     }
-    
 
+    public void ActivateInterruptIfNotOnGround(UtilityClasses.FractionTemporaryValue<bool> timer)
+    {
+        _interruptIfNotOnGround.Set(timer);
+    }
+
+    public void StopInterruptIfNotOnGround()
+    {
+        _interruptIfNotOnGround.Unset();
+    }
 
 
     protected virtual void Awake()
@@ -129,6 +138,7 @@ public abstract class MeleeController : MonoBehaviour
         
         TransformController = GetComponent<MeleeTransformController>();
         GettingHitController = GetComponent<GettingHitController>();
+        _sensors = GetComponent<Sensors>();
         meleeWeaponHitboxController.SetTargetLayers(sensors.EnemyLayer);
         
         sheath.Awake(this);
@@ -175,13 +185,14 @@ public abstract class MeleeController : MonoBehaviour
     protected abstract bool ShouldInterrupt();
     protected abstract bool ShouldSwitchStateToNon();
     
-    public virtual void OnAttack(){}
-    public virtual void OnParry(){}
+    public virtual void OnAttackEnd(){}
+    public virtual void OnParryEnd(){}
 
     private void ChangeCurrentMeleePlayable(MeleePlayable meleePlayable)
     {
         if (_currentMeleePlayable != null)
             _currentMeleePlayable.Interrupt();
+        
         meleePlayable.Start(0f);
         
         _currentMeleePlayable = meleePlayable;
@@ -200,6 +211,10 @@ public abstract class MeleeController : MonoBehaviour
             _currentMeleePlayable.Interrupt();
             meleePlayable.Start(fraction);
         }
+        else
+        {
+            meleePlayable.Start(0f);
+        }
         _currentMeleePlayable = meleePlayable;
     }
 
@@ -215,11 +230,14 @@ public abstract class MeleeController : MonoBehaviour
     
     private bool CheckInterrupt()
     {
-        if (ShouldInterrupt() || GettingHitController.IsStunned)
+        if (ShouldInterrupt() || GettingHitController.IsActivelyStunned || (_interruptIfNotOnGround.Value && !_sensors.IsGrounded))
         {
             if (State == MeleeStateEnum.Non || State == MeleeStateEnum.Sheathe)
             {
                 State = MeleeStateEnum.Non;
+                if(_currentMeleePlayable != null)
+                    _currentMeleePlayable.Interrupt();
+                _currentMeleePlayable = null;
             }
             else
             {
@@ -273,6 +291,9 @@ public abstract class MeleeController : MonoBehaviour
         if (ShouldSwitchStateToNon())
         {
             State = MeleeStateEnum.Non;
+            if(_currentMeleePlayable != null)
+                _currentMeleePlayable.Interrupt();
+            _currentMeleePlayable = null;
             return;
         }
 
@@ -287,11 +308,6 @@ public abstract class MeleeController : MonoBehaviour
             }
             return;
         }
-
-        // if (_currentMeleePlayable == null)
-        // {
-        //     Debug.Log("Something went wrong " + State + ", " + _currentMeleePlayable);
-        // }
         _currentMeleePlayable.Update();
         
 
@@ -336,6 +352,10 @@ public abstract class MeleeController : MonoBehaviour
         if (!_currentMeleePlayable.IsActive)
         {
             State = MeleeStateEnum.Non;
+            
+            if(_currentMeleePlayable!=null)
+                _currentMeleePlayable.Interrupt();
+
             _currentMeleePlayable = null;
         }
         
@@ -389,6 +409,7 @@ public abstract class MeleeController : MonoBehaviour
                 weight = holdAnimationOverrideFraction;
                 break;
             default:
+                GettingHitController.InterruptStunIfNotActive();
                 weight = 1f;
                 break;
         }

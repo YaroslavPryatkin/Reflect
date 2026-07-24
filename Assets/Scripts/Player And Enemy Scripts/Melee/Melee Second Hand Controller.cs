@@ -7,7 +7,7 @@ using UnityEngine.Animations.Rigging;
 using MeleeComponents;
 using MeleeComponents.Presets;
 using CustomAttributes;
-using BaseActionTransitionsEnum = Utility.BaseActionTransitionsEnum;
+using BaseActionTransitionsEnum = UtilityFunctions.BaseActionTransitionsEnum;
 
 public class MeleeSecondHandController : MonoBehaviour
 {
@@ -21,19 +21,19 @@ public class MeleeSecondHandController : MonoBehaviour
     }
 
     //private TypeEnum _type;
-    private readonly Utility.ChangeableFractionValue _useSecondHand = new();
+    private readonly UtilityClasses.ChangeableFractionValue _useSecondHand = new();
     
     private IkRigTargetController _secondHandController;
     private IkRigTargetController.TransformSource _secondHandTransformSource;
 
-    private Utility.BaseActionAutomaticTransition _transitionState;
+    private UtilityClasses.BaseActionAutomaticTransition _transitionState;
 
-    public void SetSecondHand(Utility.FractionTemporaryValue<bool> secondHandTimer)
+    public void SetSecondHand(UtilityClasses.FractionTemporaryValue<bool> secondHandTimer)
     {
         _useSecondHand.Set(secondHandTimer);
     }
 
-    public bool SetSecondHandIfWasSecondHand(Utility.FractionTemporaryValue<bool> secondHandTimer)
+    public bool SetSecondHandIfWasSecondHand(UtilityClasses.FractionTemporaryValue<bool> secondHandTimer)
     {
         if (_transitionState.Value == BaseActionTransitionsEnum.Action ||
             _transitionState.Value == BaseActionTransitionsEnum.ActionToBase)

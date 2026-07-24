@@ -64,6 +64,8 @@ public class AnimationAndRigManager : MonoBehaviour
             _graph = PlayableGraph.Create("DirectAnimationGraph");
         }
         
+        _graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
+        
         _layerMixer = AnimationLayerMixerPlayable.Create(_graph, inputCount);
         
         AnimationPlayableOutput output;
@@ -77,6 +79,7 @@ public class AnimationAndRigManager : MonoBehaviour
         }
         
         output.SetSourcePlayable(_layerMixer);
+        _graph.Play();
 
         if (TryGetComponent(out RigBuilder rigBuilder))
         {
@@ -84,7 +87,6 @@ public class AnimationAndRigManager : MonoBehaviour
         }
         
         
-        _graph.Play();
     }
 
     public AnimationLayerController GetAnimationLayer(HashSet<AnimationClip> uniqueClips, uint destinationPort, string name, bool additive = false)

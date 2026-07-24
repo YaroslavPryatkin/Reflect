@@ -26,7 +26,7 @@ public class PlayerDashController : MonoBehaviour
     
     
     
-    private Utility.FractionBlockingValueTimer<bool> isDashing = new(false);
+    private UtilityClasses.FractionBlockingValueTimer<bool> isDashing = new(false);
 
     
     public bool IsDashing => isDashing.Value;
@@ -102,7 +102,7 @@ public class PlayerDashController : MonoBehaviour
         Quaternion rotation = Quaternion.AngleAxis(angleUp, right);
         lookDir = rotation * lookDir;
 
-        var targetPosition = Utility.GetCapsuleRayCastPoint(
+        var targetPosition = UtilityFunctions.GetCapsuleRayCastPoint(
             transform.position, capsuleCenterToTop, capsuleRadius,
             lookDir, dashMaxDistance, layerMask);
 

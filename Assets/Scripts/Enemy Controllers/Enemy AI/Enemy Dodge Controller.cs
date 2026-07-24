@@ -2,7 +2,7 @@ using UnityEngine;
 using CustomAttributes;
 using UnityEngine.AI;
 using System.Collections.Generic;
-using BaseActionTransitionsEnum = Utility.BaseActionTransitionsEnum;
+using BaseActionTransitionsEnum = UtilityFunctions.BaseActionTransitionsEnum;
 
 public class EnemyDodgeController : MonoBehaviour
 {
@@ -27,23 +27,25 @@ public class EnemyDodgeController : MonoBehaviour
     private float dodgeDuration = 0.2f;
     [SerializeField, EnableIf("canDodgeBullets || canDodgeMelee")]
     private float dodgeRechargeTime = 0.5f;
-    
-    [Header("After dodge")]
+
+    [Header("After dodge")] 
     [SerializeField, EnableIf("canDodgeBullets || canDodgeMelee")]
     private float timeToTurnToPlayerAfterDodge = 0.2f;
     [SerializeField, EnableIf("canDodgeBullets || canDodgeMelee")]
-    private float telegraphTimeChangeDurationAfterDodge = 0.3f;
-    [SerializeField, EnableIf("canDodgeBullets || canDodgeMelee")]
+    private bool shouldShootAfterDodge = true;
+    [SerializeField, EnableIf("canDodgeBullets && shouldShootAfterDodge || canDodgeMelee && shouldShootAfterDodge")]
+    private float durationOfTelegraphTimeChange = 0.3f;
+    [SerializeField, EnableIf("canDodgeBullets && shouldShootAfterDodge || canDodgeMelee && shouldShootAfterDodge")]
     private float telegraphTimeAfterDodge = 0.1f;
-    [SerializeField, EnableIf("canDodgeBullets || canDodgeMelee")]
+    [SerializeField, EnableIf("canDodgeBullets && shouldShootAfterDodge || canDodgeMelee && shouldShootAfterDodge")]
     private float shootingAngleIncreaseAfterDodge = 15f;
     
     [Header("Speed curve")]
-    [SerializeField] private AnimationCurve dodgeCurve = AnimationCurve.EaseInOut(0f, 1.5f, 1f, 0f);
+    [SerializeField, EnableIf("canDodgeBullets || canDodgeMelee")] private AnimationCurve dodgeCurve = AnimationCurve.EaseInOut(0f, 1.5f, 1f, 0f);
     
     [Header("Animation")]
-    [SerializeField] private AnimationClip  dodgeClip;
-    [SerializeField] private float crossFadeDuration = 0.15f;
+    [SerializeField, EnableIf("canDodgeBullets || canDodgeMelee")] private AnimationClip  dodgeClip;
+    [SerializeField, EnableIf("canDodgeBullets || canDodgeMelee")] private float crossFadeDuration = 0.15f;
     
     
     private Rigidbody _rb;
@@ -63,14 +65,16 @@ public class EnemyDodgeController : MonoBehaviour
         Non, Dodging, Recharging
     }
     
-    private readonly Utility.FractionBlockingValueTimer<StateEnum> _state = StateEnum.Non;
-    private Utility.BaseActionAutomaticTransition _transitionState;
+    private readonly UtilityClasses.FractionBlockingValueTimer<StateEnum> _state = StateEnum.Non;
+    private UtilityClasses.BaseActionAutomaticTransition _transitionState;
     
     private Vector3 _direction;
     private float _curveSpeedMultiplier;
     
     private int _bulletsTaken=0;
     private int _hitsTaken=0;
+
+    private bool _tryingToSnapToNavMesh = false;
 
 
     private void Awake()
@@ -97,9 +101,10 @@ public class EnemyDodgeController : MonoBehaviour
 
         _animationLayerController = controller.GetAnimationLayer(clips, 6, "Enemy dodge");
         _animationLayerController.SetPlayableWeight(dodgeClip, 1f);
-        _animationLayerController.SetPlayableSpeed(dodgeClip, Utility.GetAnimationSpeed(dodgeClip, dodgeDuration));
+        _animationLayerController.SetPlayableSpeed(dodgeClip,
+            UtilityFunctions.GetAnimationSpeed(dodgeClip, dodgeDuration));
         
-        _curveSpeedMultiplier = 1f / (Utility.EvaluateCurveAverage(dodgeCurve) * dodgeDuration);
+        _curveSpeedMultiplier = 1f / (UtilityFunctions.EvaluateCurveAverage(dodgeCurve) * dodgeDuration);
 
         _transitionState = crossFadeDuration;
     }
@@ -157,26 +162,19 @@ public class EnemyDodgeController : MonoBehaviour
     private void FinishDodge()
     {
         _rb.linearVelocity = Vector3.zero;
-        _rb.isKinematic = true;
-        if (NavMesh.SamplePosition(transform.position, out var hit, 3.0f, NavMesh.AllAreas))
-        {
-            transform.position = hit.position;
-            Physics.SyncTransforms();
-            _agent.enabled = true;
-        }
-
-                    
-        _agent.ResetPath();
-        _enemyAI.ReturnControls();
-
+        _tryingToSnapToNavMesh = true;
+        
         if (_haveGunController)
         {
-            _enemyGunController.UseFastTelegraphTime(
-                telegraphTimeChangeDurationAfterDodge, 
+            _enemyGunController.StopInterruptingAiming();
+            
+            if(shouldShootAfterDodge)
+                _enemyGunController.UseFastTelegraphTime(
+                durationOfTelegraphTimeChange, 
                 telegraphTimeAfterDodge, 
                 shootingAngleIncreaseAfterDodge
                 );
-            _enemyGunController.StopInterruptingAiming();
+            
         }
 
         _enemyRotationController.FastRotate(timeToTurnToPlayerAfterDodge);
@@ -187,7 +185,21 @@ public class EnemyDodgeController : MonoBehaviour
 
     private void Update()
     {
-        _animationLayerController.SetLayerWeight(_transitionState.GetFraction(_state == StateEnum.Dodging));
+        if (_tryingToSnapToNavMesh)
+        {
+            if (NavMesh.SamplePosition(transform.position, out var hit, 2.0f, NavMesh.AllAreas))
+            {
+                transform.position = hit.position;
+                Physics.SyncTransforms();
+                _agent.enabled = true;
+                _rb.isKinematic = true;
+                _tryingToSnapToNavMesh = false;
+                _agent.ResetPath();
+                _enemyAI.ReturnControls();
+            }
+        }
+        
+        
         
         if (_state.CanBeChanged)
         {
@@ -202,6 +214,8 @@ public class EnemyDodgeController : MonoBehaviour
                     break;
             }
         }
+        
+        _animationLayerController.SetLayerWeight(_transitionState.GetFraction(_state == StateEnum.Dodging));
     }
 
     private void FixedUpdate()

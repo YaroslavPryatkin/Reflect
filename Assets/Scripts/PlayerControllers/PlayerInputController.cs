@@ -14,7 +14,7 @@ public class PlayerInputController : MonoBehaviour
     [SerializeField] private int parryBufferSize = 2;
     
     
-    private readonly Utility.TemporaryValue<bool> _jumpBuffer = new (false,true);
+    private readonly UtilityClasses.TemporaryValue<bool> _jumpBuffer = new (false,true);
     public void ConsumeJump(){_jumpBuffer.Deactivate();}
     public void ConsumeAttack(){
         _attackBuffer.Deactivate();
@@ -46,15 +46,15 @@ public class PlayerInputController : MonoBehaviour
 
     public bool IsAttackBufferActive => _attackBuffer.Value;
     
-    private Utility.MultipleTemporaryValue<bool> _attackBuffer;
+    private UtilityClasses.MultipleTemporaryValue<bool> _attackBuffer;
 
-    private readonly Utility.TemporaryValue<bool> _heavyAttackChargeAntiBuffer = new(true,false);
+    private readonly UtilityClasses.TemporaryValue<bool> _heavyAttackChargeAntiBuffer = new(true,false);
     
     public bool IsHeavyAttackCharging => _isAttackPressed && _heavyAttackChargeAntiBuffer.Value;
     
     public bool IsParryBufferActive => _parryBuffer.Value;
     
-    private Utility.MultipleTemporaryValue<bool> _parryBuffer;
+    private UtilityClasses.MultipleTemporaryValue<bool> _parryBuffer;
     
     public Vector3 InputMoveVector => inputMoveVector;
     public Vector3 NonZeroInputMoveVector { get; private set; } = Vector3.zero;
@@ -195,11 +195,11 @@ public class PlayerInputController : MonoBehaviour
     { 
         if (shouldFreezeLookDirection)
         {
-            inputMoveVector = Utility.FromLocalToGlobalByZX(freezeLookDirection, rawInputMoveVector);
+            inputMoveVector = UtilityFunctions.FromLocalToGlobalByZX(freezeLookDirection, rawInputMoveVector);
         }
         else if (_playerTargetLockController.IsLocked)
         {
-            inputMoveVector = Utility.FromLocalToGlobalByZX(_playerTargetLockController.NormalizedHorizontalDirectionToLockedTarget, rawInputMoveVector);
+            inputMoveVector = UtilityFunctions.FromLocalToGlobalByZX(_playerTargetLockController.NormalizedHorizontalDirectionToLockedTarget, rawInputMoveVector);
         }
         else
         {
@@ -209,7 +209,7 @@ public class PlayerInputController : MonoBehaviour
         inputMoveVector.y = 0f;
         
         
-        if (inputMoveVector.magnitude > 0.001f)
+        if (inputMoveVector.sqrMagnitude > 0.001f)
         {
             inputMoveVector.Normalize();
             NonZeroInputMoveVector = inputMoveVector;
@@ -217,7 +217,10 @@ public class PlayerInputController : MonoBehaviour
         }
         else
         {
-            NonZeroInputMoveVector = _playerSensors.NormalizedHorizontalVelocity;
+            if(_playerSensors.HorizontalSpeed > 0.01f)
+                NonZeroInputMoveVector = _playerSensors.NormalizedHorizontalVelocity;
+            else
+                NonZeroInputMoveVector = transform.forward;
             IsPlayerPressingWASD = false;
         }
         

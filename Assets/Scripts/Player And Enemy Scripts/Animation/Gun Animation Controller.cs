@@ -90,11 +90,21 @@ public class GunAnimationController : MonoBehaviour
     protected virtual void Update()
     {
         
-        if (GunController.GunStateValue == Utility.BaseActionTransitionsEnum.Base)
+        if (GunController.GunStateValue == UtilityFunctions.BaseActionTransitionsEnum.Base)
         {
             barrelToHandIkOffset.Weight = 0f;
             _headRawSource.Weight = 0f;
            
+            if (!turnHandOffWhileNotActive)
+            {
+                _handPassiveSource.Weight = 1f;
+            }
+            
+            if (!turnHeadOffWhileNotActive)
+            {
+                _headPassiveSource.Weight = 1f;
+            }
+            
             if (useBaseClip)
                 _animationLayerController.SetLayerWeight(0f);
             
@@ -117,7 +127,7 @@ public class GunAnimationController : MonoBehaviour
         var targetGunRot = Quaternion.LookRotation(GunController.TargetDirection);
         barrelToHandIkOffset.SetTarget(targetGunPos, targetGunRot);
         
-        var weight = Utility.GetTransitionFraction(GunController.GunState);
+        var weight = UtilityFunctions.GetTransitionFraction(GunController.GunState);
         barrelToHandIkOffset.Weight = weight;
         if (!turnHandOffWhileNotActive)
         {
@@ -136,6 +146,6 @@ public class GunAnimationController : MonoBehaviour
 
 
         if(useBaseClip)
-            _animationLayerController.SetLayerWeight(Utility.GetTransitionFraction(GunController.GunState));
+            _animationLayerController.SetLayerWeight(UtilityFunctions.GetTransitionFraction(GunController.GunState));
     }
 }

@@ -1,9 +1,5 @@
 using System.Collections.Generic;
-using System;
 using UnityEngine;
-using UnityEngine.Playables;
-using UnityEngine.Animations;
-using UnityEngine.Animations.Rigging;
 using Debug = UnityEngine.Debug;
 
 [DefaultExecutionOrder(100)]
@@ -73,7 +69,7 @@ public class PlayerAnimationController : MonoBehaviour
     [SerializeField] private float crossfadeDuration = 0.15f;
 
     // --- References ---
-    private Transform bodyTransform;
+    private Transform _bodyTransform;
     private PlayerSensors _playerSensors;
     private PlayerSlidingController _playerSlidingController;
     private PlayerForwardJumpingController _playerForwardJumpingController;
@@ -154,7 +150,7 @@ public class PlayerAnimationController : MonoBehaviour
         _animationLayerController = controller.GetAutomaticAnimationLayer(clips, 0, "Player base");
         _animationLayerController.SetLayerWeight(1f);
         
-        bodyTransform = body.GetComponent<Transform>();
+        _bodyTransform = body.GetComponent<Transform>();
         _playerSensors = GetComponent<PlayerSensors>();
         _playerSlidingController = GetComponent<PlayerSlidingController>();
         _playerForwardJumpingController = GetComponent<PlayerForwardJumpingController>();
@@ -166,7 +162,7 @@ public class PlayerAnimationController : MonoBehaviour
         _multidirectionalMovementController = GetComponent<MultidirectionalMovementController>();
         _playerFixedDirectionMovementController = GetComponent<PlayerFixedDirectionMovementController>();
         
-        _defaultBodyLocalRot = bodyTransform.localRotation;
+        _defaultBodyLocalRot = _bodyTransform.localRotation;
     }
     
 
@@ -174,25 +170,25 @@ public class PlayerAnimationController : MonoBehaviour
 
     private void Start()
     {
-        _cachedStandLandingSpeed = Utility.GetAnimationSpeed(standLandingClip, _playerLandingController.StandLandingDuration, crossfadeDuration);
-        _cachedRunLandingSpeed = Utility.GetAnimationSpeed(runLandingClip,  _playerLandingController.RunLandingDuration, crossfadeDuration);
-        _cachedRollLandingSpeed = Utility.GetAnimationSpeed(rollLandingClip, _playerLandingController.RollLandingDuration, crossfadeDuration);
+        _cachedStandLandingSpeed = UtilityFunctions.GetAnimationSpeed(standLandingClip, _playerLandingController.StandLandingDuration, crossfadeDuration);
+        _cachedRunLandingSpeed = UtilityFunctions.GetAnimationSpeed(runLandingClip,  _playerLandingController.RunLandingDuration, crossfadeDuration);
+        _cachedRollLandingSpeed = UtilityFunctions.GetAnimationSpeed(rollLandingClip, _playerLandingController.RollLandingDuration, crossfadeDuration);
         
         
-        _cachedStartingSlideSpeed = Utility.GetAnimationSpeed(startingSlideClip, _playerSlidingController.StartingSlideTime, crossfadeDuration);
-        _cachedEndingSlideSpeed = Utility.GetAnimationSpeed(endingSlideClip, _playerSlidingController.EndingSlideTime, crossfadeDuration);
-        _cachedForwardJumpLandingSpeed = Utility.GetAnimationSpeed(forwardJumpingLandingClip, _playerForwardJumpingController.LandingTime, crossfadeDuration);
-        _cachedStartingGroundStandJumpSpeed = Utility.GetAnimationSpeed(startingGroundStandJumpClip, _playerJumpController.StartingGroundStandJumpTime, crossfadeDuration);
-        _cachedContinuingGroundStandJumpSpeed = Utility.GetAnimationSpeed(continuingGroundStandJumpClip, _playerJumpController.ContinuingGroundStandJumpTime, crossfadeDuration);
-        _cachedStartingGroundRunJumpSpeed = Utility.GetAnimationSpeed(startingGroundRunJumpClip, _playerJumpController.StartingGroundRunJumpTime, crossfadeDuration);
-        _cachedContinuingGroundRunJumpSpeed = Utility.GetAnimationSpeed(continuingGroundRunJumpClip, _playerJumpController.ContinuingGroundRunJumpTime, crossfadeDuration);
-        _cachedStartingWallJumpSpeed = Utility.GetAnimationSpeed(startingWallJumpClip, _playerJumpController.StartingWallJumpTime, crossfadeDuration);
-        _cachedContinuingWallJumpSpeed = Utility.GetAnimationSpeed(continuingWallJumpClip, _playerJumpController.ContinuingWallJumpTime, crossfadeDuration);
-        _cachedStartingRailJumpSpeed = Utility.GetAnimationSpeed(startingRailJumpClip, _playerJumpController.StartingRailJumpTime, crossfadeDuration);
-        _cachedContinuingRailJumpSpeed = Utility.GetAnimationSpeed(continuingRailJumpClip, _playerJumpController.ContinuingRailJumpTime, crossfadeDuration);
+        _cachedStartingSlideSpeed = UtilityFunctions.GetAnimationSpeed(startingSlideClip, _playerSlidingController.StartingSlideTime, crossfadeDuration);
+        _cachedEndingSlideSpeed = UtilityFunctions.GetAnimationSpeed(endingSlideClip, _playerSlidingController.EndingSlideTime, crossfadeDuration);
+        _cachedForwardJumpLandingSpeed = UtilityFunctions.GetAnimationSpeed(forwardJumpingLandingClip, _playerForwardJumpingController.LandingTime, crossfadeDuration);
+        _cachedStartingGroundStandJumpSpeed = UtilityFunctions.GetAnimationSpeed(startingGroundStandJumpClip, _playerJumpController.StartingGroundStandJumpTime, crossfadeDuration);
+        _cachedContinuingGroundStandJumpSpeed = UtilityFunctions.GetAnimationSpeed(continuingGroundStandJumpClip, _playerJumpController.ContinuingGroundStandJumpTime, crossfadeDuration);
+        _cachedStartingGroundRunJumpSpeed = UtilityFunctions.GetAnimationSpeed(startingGroundRunJumpClip, _playerJumpController.StartingGroundRunJumpTime, crossfadeDuration);
+        _cachedContinuingGroundRunJumpSpeed = UtilityFunctions.GetAnimationSpeed(continuingGroundRunJumpClip, _playerJumpController.ContinuingGroundRunJumpTime, crossfadeDuration);
+        _cachedStartingWallJumpSpeed = UtilityFunctions.GetAnimationSpeed(startingWallJumpClip, _playerJumpController.StartingWallJumpTime, crossfadeDuration);
+        _cachedContinuingWallJumpSpeed = UtilityFunctions.GetAnimationSpeed(continuingWallJumpClip, _playerJumpController.ContinuingWallJumpTime, crossfadeDuration);
+        _cachedStartingRailJumpSpeed = UtilityFunctions.GetAnimationSpeed(startingRailJumpClip, _playerJumpController.StartingRailJumpTime, crossfadeDuration);
+        _cachedContinuingRailJumpSpeed = UtilityFunctions.GetAnimationSpeed(continuingRailJumpClip, _playerJumpController.ContinuingRailJumpTime, crossfadeDuration);
 
-        _cachedTargetLockClipSpeed = Utility.GetAnimationSpeed(targetLockIdleClip, targetLockClipDuration);
-        _cachedLineRideClipSpeed = Utility.GetAnimationSpeed(railLineRidingClip, railLineRidingClipDuration);
+        _cachedTargetLockClipSpeed = UtilityFunctions.GetAnimationSpeed(targetLockIdleClip, targetLockClipDuration);
+        _cachedLineRideClipSpeed = UtilityFunctions.GetAnimationSpeed(railLineRidingClip, railLineRidingClipDuration);
         
         _cachedRotationChangeSpeedForSlideStarting = 90.0f / Mathf.Max(0.001f, _playerSlidingController.StartingSlideTime);
         _cachedRotationChangeSpeedForSlideEnding = 90.0f / Mathf.Max(0.001f, _playerSlidingController.EndingSlideTime);
@@ -332,6 +328,9 @@ public class PlayerAnimationController : MonoBehaviour
             {
                 targetClip = endingSlideClip;
                 targetSpeed = _cachedEndingSlideSpeed;
+                _multidirectionalMovementController.ShouldUseMultiDirectionalAnimation = 
+                    _playerTargetLockController.IsLocked && currentSpeed > walkThreshold && 
+                    _meleeController.State != MeleeController.MeleeStateEnum.Combo;
             }
         }
         else if (_playerSensors.IsGrounded)
@@ -341,7 +340,8 @@ public class PlayerAnimationController : MonoBehaviour
                 targetClip = targetLockIdleClip;
                 targetSpeed = _cachedTargetLockClipSpeed;
                 _multidirectionalMovementController.ShouldUseMultiDirectionalAnimation = 
-                    currentSpeed > walkThreshold && _meleeController.State != MeleeController.MeleeStateEnum.Combo;
+                    currentSpeed > walkThreshold && 
+                    _meleeController.State != MeleeController.MeleeStateEnum.Combo;
                 //Debug.Log( currentSpeed + ", " + walkThreshold + ", "+_multidirectionalMovementController.ShouldUseMultiDirectionalAnimation);
             }
             else if (currentSpeed > runThreshold)
@@ -409,8 +409,8 @@ public class PlayerAnimationController : MonoBehaviour
 
 
         Quaternion targetRotation = _defaultBodyLocalRot * Quaternion.Euler(0, targetYAngle, 0);
-        bodyTransform.localRotation = Quaternion.RotateTowards(
-            bodyTransform.localRotation, 
+        _bodyTransform.localRotation = Quaternion.RotateTowards(
+            _bodyTransform.localRotation, 
             targetRotation, 
             rotationSpeed
         );

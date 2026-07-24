@@ -14,6 +14,7 @@ public class PlayerCameraController : MonoBehaviour
     [SerializeField] private float targetLockSideShift = 0.5f;
     [SerializeField] private float targetLockUpShift = 0.3f;
     [SerializeField] private float targetLockSmoothTime = 0.1f;
+    [SerializeField] private float minVelocityDotToChangeSide = 0.3f;
     [Header("Wall Settings")]
     [SerializeField] private float wallSideShift = 0.5f;
     [Header("Dash Settings")]
@@ -24,11 +25,18 @@ public class PlayerCameraController : MonoBehaviour
     [SerializeField] private float aimingCameraDistance = 1f;
     [SerializeField] private float aimingSideShift = 1f;
     [SerializeField] private float aimingUpShift = 1f;
+    [Header("Rail Settings")]
+    [SerializeField] private float railCameraDistance = 3f;
+    [SerializeField] private float railSideShiftCurveMultiplier = 4f;
+    [SerializeField] private float railUpShift = 0.4f;
+    [SerializeField] private AnimationCurve railSideShiftCurve =
+        new AnimationCurve(new Keyframe(-1f, 1f), new Keyframe(-0.1f, 0.5f),new Keyframe(0f, 0f),new Keyframe(0.1f, 0.5f), new Keyframe(1f, 1f));
     
     private PlayerSensors _playerSensors;
     private PlayerDashController _playerDashController;
     private PlayerGunController _playerGunController;
     private PlayerTargetLockController _playerTargetLockController;
+    private PlayerFixedDirectionMovementController _playerFixedDirectionMovementController;
 
     private float lastTargetLockSideShiftSign = 1f;
     private float targetLockSideShiftBase = 1f;
@@ -40,6 +48,7 @@ public class PlayerCameraController : MonoBehaviour
         _playerDashController = GetComponent<PlayerDashController>();
         _playerGunController = GetComponent<PlayerGunController>();
         _playerTargetLockController = GetComponent<PlayerTargetLockController>();
+        _playerFixedDirectionMovementController = GetComponent<PlayerFixedDirectionMovementController>();
     }
     
     void Update()
@@ -72,11 +81,20 @@ public class PlayerCameraController : MonoBehaviour
             wantedSideShift = dashSideShift;
             cameraTransformController.TargetUpShift = dashUpShift;
         }
-        else if (_playerGunController.GunStateValue!=Utility.BaseActionTransitionsEnum.Base)
+        else if (_playerGunController.GunStateValue!=UtilityFunctions.BaseActionTransitionsEnum.Base)
         {
             cameraTransformController.TargetCameraDistance = aimingCameraDistance;
             wantedSideShift = aimingSideShift;
             cameraTransformController.TargetUpShift = aimingUpShift;
+        }
+        else if (_playerFixedDirectionMovementController.State == PlayerFixedDirectionMovementController.StateEnum.Line)
+        {
+            var lookDir = GlobalLookDirectionManager.CurrentLookDirection;
+            var velocity = _playerSensors.NormalizedHorizontalVelocity;
+            var dot = Vector3.Dot(lookDir, Vector3.Cross(Vector3.up, velocity));
+            cameraTransformController.TargetCameraDistance = railCameraDistance;
+            wantedSideShift = railSideShiftCurveMultiplier * railSideShiftCurve.Evaluate(dot) * Mathf.Sign(dot);
+            cameraTransformController.TargetUpShift = railUpShift;
         }
         else if (_playerTargetLockController.IsLocked)
         {
@@ -85,7 +103,7 @@ public class PlayerCameraController : MonoBehaviour
             var velocity = _playerSensors.NormalizedHorizontalVelocity;
             var dir = _playerTargetLockController.NormalizedHorizontalDirectionToLockedTarget;
             var dot = Vector3.Dot(velocity, Vector3.Cross(dir, Vector3.up));
-            if (Mathf.Abs(dot) > 0.1f)
+            if (Mathf.Abs(dot) > minVelocityDotToChangeSide)
                 lastTargetLockSideShiftSign = Mathf.Sign(dot);
                 
             targetLockSideShiftBase = Mathf.SmoothDamp(targetLockSideShiftBase,lastTargetLockSideShiftSign , ref targetLockSideShiftVelocity,targetLockSmoothTime);
@@ -119,7 +137,7 @@ public class PlayerCameraController : MonoBehaviour
 
     private void ChangeFoWFromSpeed()
     {
-        if (_playerGunController.GunStateValue!=Utility.BaseActionTransitionsEnum.Base)
+        if (_playerGunController.GunStateValue!=UtilityFunctions.BaseActionTransitionsEnum.Base)
         {
             GlobalCameraManager.FoWController.SetSpeedFactor(0f);
         }

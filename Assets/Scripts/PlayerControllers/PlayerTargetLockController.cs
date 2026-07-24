@@ -86,7 +86,7 @@ public class PlayerTargetLockController : MonoBehaviour
 
             if (score < minScore)
             {
-                if (Utility.HasLineOfSight(camPos, collider, layerMask))
+                if (UtilityFunctions.HasLineOfSight(camPos, collider, layerMask))
                 {
                     minScore = score;
                     bestTarget = collider.transform;
@@ -165,7 +165,7 @@ public class PlayerTargetLockController : MonoBehaviour
 
             if (score < minScore)
             {
-                if (Utility.HasLineOfSight(camPos, collider, layerMask))
+                if (UtilityFunctions.HasLineOfSight(camPos, collider, layerMask))
                 {
                     minScore = score;
                     bestTarget = collider.transform;
@@ -235,14 +235,23 @@ public class PlayerTargetLockController : MonoBehaviour
                 IsLocked = false;
                 return;
             }
-
+            
             TargetPosition = targetTransform.position;
-            var tmpDir = TargetPosition - transform.position;
-            NormalizedHorizontalDirectionToLockedTarget = new Vector3(tmpDir.x, 0, tmpDir.z).normalized;
-
+            
             TargetCameraDirection = TargetPosition - GlobalCameraManager.GetPlayerCameraPosition();
             
-            if (_playerGunController.GunStateValue != Utility.BaseActionTransitionsEnum.Base)
+            
+            var tmpDir = TargetPosition - transform.position;
+            if (tmpDir.sqrMagnitude < 0.001f)
+            {
+                NormalizedHorizontalDirectionToLockedTarget=transform.forward;
+                return;
+            }
+            
+            NormalizedHorizontalDirectionToLockedTarget = new Vector3(tmpDir.x, 0, tmpDir.z).normalized;
+
+            
+            if (_playerGunController.GunStateValue != UtilityFunctions.BaseActionTransitionsEnum.Base)
                 return;
             
             var lookDir = GlobalLookDirectionManager.CurrentLookDirection;

@@ -4,11 +4,15 @@ using UnityEngine;
 
 public class PlayerSensors : Sensors
 {
+    [Header("Force slide ground")] 
+    [SerializeField] private float forceSlideCheckDistance = 1.2f;
+    [SerializeField] private float forceSlideCheckRadius = 0.4f;
+    [SerializeField] private LayerMask forceSlideGroundLayer;
+    
     [Header("Wall sensors for camera")]
-    [SerializeField]private float wallCheckDistance = 1.5f;
+    [SerializeField] private float wallCheckDistance = 1.5f;
     [SerializeField] private float wallMinimalAngle = 75f;
     [SerializeField] private LayerMask wallLayer;
-
     
     [Header("Wall sensors for wall run")]
     [SerializeField, Range(2, 10)] private int wallRunRayCount = 5;
@@ -39,7 +43,7 @@ public class PlayerSensors : Sensors
     [SerializeField] private float forceFrontGroundMinimalCheckDistance = 0.7f;
     [SerializeField] private float forceFrontGroundMaximalCheckDistance = 10f;
     
-    [Header("FrontGround Layer Masks")]
+    [Header("Layer Masks for front jumps")]
     [SerializeField] private LayerMask frontGroundLayer;
     [SerializeField] private LayerMask forceFrontGroundLayer;
     [SerializeField] private LayerMask blockingFrontGroundLayer;
@@ -81,7 +85,7 @@ public class PlayerSensors : Sensors
     public Vector3 LeftWallRunPoint { get; private set; }
     public Vector3 RightWallRunPoint { get; private set; }
 
-    
+    public bool IsForceSlide { get; private set; }
     
     
     public bool HasSomethingInTheCollider { get; private set; } = false;
@@ -144,6 +148,7 @@ public class PlayerSensors : Sensors
     protected override void Update()
     {
         base.Update();
+        GatherForceSlideSensors();
         GatherWallSensors();
         GatherWallRunSensors();
         GatherRailSensors();
@@ -157,6 +162,12 @@ public class PlayerSensors : Sensors
         return rb.linearVelocity;
     }
 
+    private void GatherForceSlideSensors()
+    {
+        var point = transform.position + Vector3.down * forceSlideCheckDistance;
+        IsForceSlide = Physics.CheckCapsule(transform.position, point, forceSlideCheckRadius, forceSlideGroundLayer, QueryTriggerInteraction.Collide); 
+    }
+    
     private void GatherInTheColliderSensors()
     {
         if (!_playerSlidingController.IsActiveSlidingPhase)
@@ -359,7 +370,7 @@ public class PlayerSensors : Sensors
 
         _inputForward = _playerInputController.InputMoveVector;
         
-        currentFrontGroundCheckDistance = Utility.ChangeMeasurementScaleFraction(HorizontalSpeed,
+        currentFrontGroundCheckDistance = UtilityFunctions.ChangeMeasurementScaleFraction(HorizontalSpeed,
             speedAtMinimalCheckDistance, speedToDistanceFraction, frontGroundMinimalCheckDistance,
             frontGroundMaximalCheckDistance);
 
@@ -435,7 +446,7 @@ public class PlayerSensors : Sensors
             frontGroundObstaclePoint = bestPoint;
         }
         
-        forceCurrentFrontGroundCheckDistance = Utility.ChangeMeasurementScaleFraction(HorizontalSpeed,
+        forceCurrentFrontGroundCheckDistance = UtilityFunctions.ChangeMeasurementScaleFraction(HorizontalSpeed,
             speedAtMinimalCheckDistance, forceSpeedToDistanceFraction, forceFrontGroundMinimalCheckDistance,
             forceFrontGroundMaximalCheckDistance);
 
@@ -494,7 +505,7 @@ public class PlayerSensors : Sensors
 
     public Vector3 GetForwardGroundEndPoint()
     {
-        var overshoot = Utility.ChangeMeasurementScaleFraction(HorizontalSpeed, speedAtMinOvershoot,
+        var overshoot = UtilityFunctions.ChangeMeasurementScaleFraction(HorizontalSpeed, speedAtMinOvershoot,
             speedToOvershootFraction, minOvershoot, maxOvershoot);
 
         var velocityOvershoot = NormalizedHorizontalVelocity * overshoot;

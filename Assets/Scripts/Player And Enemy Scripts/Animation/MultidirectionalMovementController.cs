@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System;
 using UnityEngine.Playables;
 using UnityEngine.Animations;
-using BaseActionTransitionsEnum = Utility.BaseActionTransitionsEnum;
+using BaseActionTransitionsEnum = UtilityFunctions.BaseActionTransitionsEnum;
 
 public class MultidirectionalMovementController : MonoBehaviour
 {
@@ -52,13 +52,13 @@ public class MultidirectionalMovementController : MonoBehaviour
         _multipliers[0] = 1f;
         for (var i = 1; i < _directionsCount; ++i)
         {
-            _multipliers[i] = Utility.GetSpeedFraction(multidirectionalMovement[i].animationClip, multidirectionalMovement[0].animationClip);
+            _multipliers[i] = UtilityFunctions.GetSpeedFraction(multidirectionalMovement[i].animationClip, multidirectionalMovement[0].animationClip);
         }
 
         _transitionState = crossFadeDuration;
     }
     
-    private Utility.BaseActionAutomaticTransition _transitionState;
+    private UtilityClasses.BaseActionAutomaticTransition _transitionState;
 
 
     private int _currentIndex1;

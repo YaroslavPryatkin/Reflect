@@ -3,7 +3,7 @@ using UnityEngine.Pool;
 
 public class BulletController : MonoBehaviour
 {
-    private const float MaxDistance = 100f;
+    private float _maxDistance;
     private float _speed;
     private float _traveledDistance;
     private int _destructionLayerMask;
@@ -20,8 +20,9 @@ public class BulletController : MonoBehaviour
         _pool = pool;
     }
     
-    public void Initialize(float speed, int destructionLayerMask, int targetLayerMask, float damage, float poiseDamage, Transform backTarget)
+    public void Initialize(float maxDistance, float speed, int destructionLayerMask, int targetLayerMask, float damage, float poiseDamage, Transform backTarget)
     {
+        _maxDistance = maxDistance;
         _speed = speed;
         _destructionLayerMask = destructionLayerMask | targetLayerMask;
         _enemyLayerMask = targetLayerMask;
@@ -81,7 +82,7 @@ public class BulletController : MonoBehaviour
         transform.position += transform.forward * step;
         _traveledDistance += step;
 
-        if (_traveledDistance >= MaxDistance)
+        if (_traveledDistance >= _maxDistance)
         {
             ReturnToPool();
         }

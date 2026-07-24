@@ -23,15 +23,17 @@ public class PlayerLandingController : MonoBehaviour
     
     private PlayerSensors _playerSensors;
     private PlayerJumpController _playerJumpController;
-    private PlayerForwardJumpingController _playerForwardJumpingController;
+    private PlayerManager _playerManager;
     private Rigidbody rb;
     
     
     /// <summary>
     /// 0 - not landing, 1 - standing landing, 2 - running landing, 3 - rolling landing
     /// </summary>
-    private Utility.TemporaryValue<int> landingState = 0;
+    private UtilityClasses.TemporaryValue<int> landingState = 0;
     private bool wasOnGround = true;
+
+    public bool IsStateNon => landingState == 0;
     
     /// <summary>
     /// 0 - not landing, 1 - standing landing, 2 - running landing, 3 - rolling landing
@@ -55,7 +57,7 @@ public class PlayerLandingController : MonoBehaviour
         else if (!wasOnGround)
         {
             wasOnGround =  true;
-            if (_playerForwardJumpingController.IsForwardJumping) return;
+            if (_playerManager.CanNotLanding) return;
             
             _playerJumpController.InterruptJump();
 
@@ -98,7 +100,7 @@ public class PlayerLandingController : MonoBehaviour
     {
         _playerSensors = GetComponent<PlayerSensors>();
         _playerJumpController = GetComponent<PlayerJumpController>();
-        _playerForwardJumpingController = GetComponent<PlayerForwardJumpingController>();
+        _playerManager = GetComponent<PlayerManager>();
         rb = GetComponent<Rigidbody>();
     }
 }

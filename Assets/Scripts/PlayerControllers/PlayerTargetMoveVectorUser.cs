@@ -33,12 +33,12 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
     private PlayerForwardJumpingController _playerForwardJumpingController;
     private PlayerTargetLockController _playerTargetLockController;
     private MeleeTransformController _meleeTransformController;
-    private Rigidbody rb;
+    private Rigidbody _rb;
 
     
-    private float currentHorizontalSpeed = 0f;
-    private float targetSpeed = 0f;
-    private Vector3 targetDir = Vector3.zero;
+    private float _currentHorizontalSpeed = 0f;
+    private float _targetSpeed = 0f;
+    private Vector3 _targetDir = Vector3.zero;
     
     private void Awake()
     {
@@ -48,14 +48,14 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
         _playerForwardJumpingController =  GetComponent<PlayerForwardJumpingController>();
         _playerTargetLockController = GetComponent<PlayerTargetLockController>();
         _meleeTransformController = GetComponent<MeleeTransformController>();
-        rb = GetComponent<Rigidbody>();
+        _rb = GetComponent<Rigidbody>();
     }
     
     private void FixedUpdate()
     {
-        currentHorizontalSpeed = _playerSensors.HorizontalSpeed;
-        targetSpeed = _playerManager.TargetMoveSpeed;
-        targetDir = _playerManager.TargetMoveDirection;
+        _currentHorizontalSpeed = _playerSensors.HorizontalSpeed;
+        _targetSpeed = _playerManager.TargetMoveSpeed;
+        _targetDir = _playerManager.TargetMoveDirection;
         
 
         
@@ -87,13 +87,14 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
             if (_playerSensors.IsGrounded && _playerSensors.FoundGroundNormal)
             {
                 var slopeRotation = Quaternion.FromToRotation(Vector3.up, _playerSensors.GroundNormal);
-                targetDir = slopeRotation * _playerManager.TargetMoveDirection;
+                _targetDir = slopeRotation * _playerManager.TargetMoveDirection;
             }
             
             newHorizontalVelocity = _playerSensors.VelocityAlignedWithGround;
 
             SmartVelocityChange(ref newHorizontalVelocity, groundAcceleration, groundDeceleration, groundAccelerationIfDotIsLow, groundLowDot);
 
+             
             if (_playerSensors.FoundGroundNormal)
             {
                 var normal = _playerSensors.GroundNormal;
@@ -109,7 +110,7 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
             if (!_playerFixedDirectionMovementController.IsStateNon)
             {
                 newHorizontalVelocity = _playerSensors.Velocity;
-                _playerFixedDirectionMovementController.SnapToPlace(targetSpeed, targetDir);
+                _playerFixedDirectionMovementController.SnapToPlace(_targetSpeed, _targetDir);
                 if(_playerFixedDirectionMovementController.State == PlayerFixedDirectionMovementController.StateEnum.Line)
                     SmartVelocityChange(ref newHorizontalVelocity, railLineAcceleration, railLineDeceleration);
                 else
@@ -121,14 +122,14 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
             {
                 newHorizontalVelocity = _playerSensors.HorizontalVelocity;
                 //Debug.Log("Air Acceleration " + targetSpeed);
-                if (targetDir != Vector3.zero)
+                if (_targetDir != Vector3.zero)
                 {
-                    if (currentHorizontalSpeed > 0.001f)
+                    if (_currentHorizontalSpeed > 0.001f)
                     {
-                        Vector3 currentDir = newHorizontalVelocity / currentHorizontalSpeed;
+                        Vector3 currentDir = newHorizontalVelocity / _currentHorizontalSpeed;
 
 
-                        float angleDeg = Vector3.Angle(currentDir, targetDir);
+                        float angleDeg = Vector3.Angle(currentDir, _targetDir);
                         float t = Mathf.Max(0f, angleDeg - airTurnDeadzone) / (180f - airTurnDeadzone);
                         float fraction = Mathf.Pow(t, airTurnPow);
                         float speedRetention = 1f - airTurnMaxLossPerFrame * fraction;
@@ -136,23 +137,23 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
                         newHorizontalVelocity =
                             Vector3.RotateTowards(
                                 currentDir,
-                                targetDir,
+                                _targetDir,
                                 (airAcceleration + fraction * additionalAirAccelerationIfAngleIsBig) *
                                 Time.fixedDeltaTime, 0f
                             ) *
-                            (currentHorizontalSpeed * speedRetention);
+                            (_currentHorizontalSpeed * speedRetention);
 
-                        float projectionOnTarget = Vector3.Dot(newHorizontalVelocity, targetDir);
-                        if (projectionOnTarget < targetSpeed)
+                        float projectionOnTarget = Vector3.Dot(newHorizontalVelocity, _targetDir);
+                        if (projectionOnTarget < _targetSpeed)
                         {
                             float speedToAdd = Mathf.Min(
-                                targetSpeed - projectionOnTarget,
+                                _targetSpeed - projectionOnTarget,
                                 airAcceleration * Time.fixedDeltaTime
                             );
-                            newHorizontalVelocity += targetDir * speedToAdd;
+                            newHorizontalVelocity += _targetDir * speedToAdd;
                         }
 
-                        float maxAllowedSpeed = Mathf.Max(currentHorizontalSpeed, targetSpeed);
+                        float maxAllowedSpeed = Mathf.Max(_currentHorizontalSpeed, _targetSpeed);
                         if (newHorizontalVelocity.magnitude > maxAllowedSpeed)
                             newHorizontalVelocity = newHorizontalVelocity.normalized * maxAllowedSpeed;
                     }
@@ -160,28 +161,28 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
                     {
                         newHorizontalVelocity = Vector3.MoveTowards(
                             newHorizontalVelocity,
-                            targetDir * targetSpeed,
+                            _targetDir * _targetSpeed,
                             groundAcceleration * Time.fixedDeltaTime
                         );
                     }
                 }
             }
         }
-        rb.linearVelocity = new Vector3(newHorizontalVelocity.x, newY, newHorizontalVelocity.z);
+        _rb.linearVelocity = new Vector3(newHorizontalVelocity.x, newY, newHorizontalVelocity.z);
     }
     
     private void SmartVelocityChange(ref Vector3 velocity, float acceleration, float deceleration)
     {
-        if (currentHorizontalSpeed > targetSpeed && currentHorizontalSpeed > 0.001f)
+        if (_currentHorizontalSpeed > _targetSpeed && _currentHorizontalSpeed > 0.001f)
         {
             var alignedVelocity = Vector3.MoveTowards(
                 velocity, 
-                targetDir * currentHorizontalSpeed, 
+                _targetDir * _currentHorizontalSpeed, 
                 acceleration * Time.fixedDeltaTime
             );
             var newSpeed = Mathf.MoveTowards(
-                currentHorizontalSpeed, 
-                targetSpeed, 
+                _currentHorizontalSpeed, 
+                _targetSpeed, 
                 deceleration * Time.fixedDeltaTime
             );
 
@@ -191,7 +192,7 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
         {
             velocity = Vector3.MoveTowards(
                 velocity,
-                targetDir * targetSpeed,
+                _targetDir * _targetSpeed,
                 acceleration * Time.fixedDeltaTime
             );
         }
@@ -199,11 +200,11 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
     
     private void SmartVelocityChange(ref Vector3 newHorizontalVelocity, float acceleration, float deceleration, float accelerationAtHighAngle, float lowDot)
     {
-        if (Vector3.Dot(_playerSensors.NormalizedHorizontalVelocity, targetDir) < lowDot)
+        if (Vector3.Dot(_playerSensors.NormalizedHorizontalVelocity, _targetDir) < lowDot)
         {
             newHorizontalVelocity = Vector3.MoveTowards(
                 newHorizontalVelocity,
-                targetDir * targetSpeed,
+                _targetDir * _targetSpeed,
                 accelerationAtHighAngle * Time.fixedDeltaTime
             );
         }
@@ -225,7 +226,7 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
         {
             targetLookDir = _playerSensors.HorizontalVelocity;;
         }
-        else if (targetDir != Vector3.zero)
+        else if (_targetDir != Vector3.zero)
         {
             targetLookDir =  _playerManager.TargetMoveDirection;
         }
@@ -235,7 +236,7 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
         if (targetLookDir != Vector3.zero)
         {
             Quaternion targetRotation = Quaternion.LookRotation(targetLookDir.normalized);
-            Quaternion deltaRotation = targetRotation * Quaternion.Inverse(rb.rotation);
+            Quaternion deltaRotation = targetRotation * Quaternion.Inverse(_rb.rotation);
             deltaRotation.ToAngleAxis(out float angle, out Vector3 axis);
         
             if (angle > 180f) angle -= 360f;
@@ -243,7 +244,7 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
             if (angle != 0f)
             {
                 var turnVelocity = axis * (angle * Mathf.Deg2Rad * turnTorque);
-                rb.AddTorque(turnVelocity - rb.angularVelocity, ForceMode.VelocityChange);
+                _rb.AddTorque(turnVelocity - _rb.angularVelocity, ForceMode.VelocityChange);
             }
         }
     }

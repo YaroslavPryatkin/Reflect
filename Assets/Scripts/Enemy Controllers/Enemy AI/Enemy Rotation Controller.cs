@@ -16,7 +16,7 @@ public class EnemyRotationController : MonoBehaviour
     private float _rotationSpeedWhileAimingRad;
     private Vector3 _currentRotation;
 
-    private Utility.TemporaryValue<bool> _fastRotation = new(false, true);
+    private UtilityClasses.TemporaryValue<bool> _fastRotation = new(false, true);
 
 
     private Vector3 _specificDirection;

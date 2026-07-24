@@ -1,7 +1,7 @@
 using System;
 using CustomAttributes;
 using UnityEngine;
-using BaseActionTransitionsEnum = Utility.BaseActionTransitionsEnum;
+using BaseActionTransitionsEnum = UtilityFunctions.BaseActionTransitionsEnum;
 using Random = UnityEngine.Random;
 using UnityEngine.Pool;
 
@@ -12,6 +12,7 @@ public abstract class GunController : MonoBehaviour
     [SerializeField] private float gunFromShoulderDistance = 0.4f;
     [Header("Bullet")]
     [SerializeField] private BulletController bulletPrefab;
+    [SerializeField] private float bulletMaxDistance = 100f;
     [SerializeField] protected float bulletSpeed = 10f;
     [SerializeField] private float bulletDamage = 40f;
     [SerializeField] private float bulletPoiseDamage = 40f;
@@ -45,9 +46,9 @@ public abstract class GunController : MonoBehaviour
 
     public BaseActionTransitionsEnum GunStateValue => GunState.Value;
     
-    public int CurrentAmountOfBullets => virtualCurrentAmountOfBullets + (isRechargingBullet ? 0 : 1);
-    public float RechargeFraction => isRechargingBullet ? isRechargingBullet.TimeFraction : 0;
-    public bool IsRechargingBullet => isRechargingBullet.Value;
+    public int CurrentAmountOfBullets => _virtualCurrentAmountOfBullets + (_isRechargingBullet ? 0 : 1);
+    public float RechargeFraction => _isRechargingBullet ? _isRechargingBullet.TimeFraction : 0;
+    public bool IsRechargingBullet => _isRechargingBullet.Value;
     
     protected bool IsAiming  = false;
     protected float AimAngleIncrease = 0f;
@@ -62,16 +63,18 @@ public abstract class GunController : MonoBehaviour
     public float TargetAngle { get; private set; } = 0f;
     public float RawTargetAngle { get; private set; } = 0f;
 
-    public  Utility.FractionBlockingValueTimer<BaseActionTransitionsEnum> GunState { get;  } = BaseActionTransitionsEnum.Base;
+    public  UtilityClasses.FractionBlockingValueTimer<BaseActionTransitionsEnum> GunState { get;  } = BaseActionTransitionsEnum.Base;
     
     protected Sensors _sensors;
 
 
-    private Utility.FractionTemporaryValue<bool> isRechargingBullet = new(false, true);
-    private Utility.FractionTemporaryValue<bool> canShootAfterPreviouseShot = new(true, false);
+    private readonly UtilityClasses.FractionTemporaryValue<bool> _isRechargingBullet = new(false, true);
+    private readonly UtilityClasses.FractionTemporaryValue<bool> _canShootAfterPreviousShot = new(true, false);
+
+    protected bool CanShootAfterPreviousShot => _canShootAfterPreviousShot.Value;
     
-    private int virtualMagazineCapacity;
-    private int virtualCurrentAmountOfBullets = -1;
+    private int _virtualMagazineCapacity;
+    private int _virtualCurrentAmountOfBullets = -1;
     
     protected int layerMask;
     
@@ -87,7 +90,7 @@ public abstract class GunController : MonoBehaviour
         }
         
         layerMask = _sensors.IgnoreMyLayerMask;
-        virtualMagazineCapacity = magazineCapacity - 1;
+        _virtualMagazineCapacity = magazineCapacity - 1;
         if (leftGunHorizontalAngle > rightGunHorizontalAngle)
         {
             Debug.Log("Left gun horizontal angle is greater than right");
@@ -171,15 +174,15 @@ public abstract class GunController : MonoBehaviour
     
     public int Shoot()
     {
-        if (GunStateValue == BaseActionTransitionsEnum.Action && canShootAfterPreviouseShot && CurrentAmountOfBullets > 0)
+        if (GunStateValue == BaseActionTransitionsEnum.Action && _canShootAfterPreviousShot && CurrentAmountOfBullets > 0)
         {
-            canShootAfterPreviouseShot.Activate(timeBetweenShots);
+            _canShootAfterPreviousShot.Activate(timeBetweenShots);
             SpendBullet();
             for (var i = 0; i < amountOfBulletsPerShot; ++i)
             {
                 var bullet = _bulletPool.Get();
                 bullet.transform.SetPositionAndRotation(GunPosition,  GetRandomShotgunDirection());
-                bullet.Initialize(bulletSpeed, layerMask, _sensors.EnemyLayer,
+                bullet.Initialize(bulletMaxDistance,bulletSpeed, layerMask, _sensors.EnemyLayer,
                     bulletDamage, bulletPoiseDamage, transform);
             }
 
@@ -205,34 +208,35 @@ public abstract class GunController : MonoBehaviour
 
     private void SpendBullet()
     {
-        if (isRechargingBullet)
+        if (_isRechargingBullet)
         {
-            virtualCurrentAmountOfBullets--;
+            _virtualCurrentAmountOfBullets--;
         }
-        isRechargingBullet.Activate(rechargeTime);
+        _isRechargingBullet.Activate(rechargeTime);
     }
     
     private void RechargeBullet()
     {
-        if (virtualCurrentAmountOfBullets < virtualMagazineCapacity && !isRechargingBullet)
+        if (_virtualCurrentAmountOfBullets < _virtualMagazineCapacity && !_isRechargingBullet)
         {
-            isRechargingBullet.Activate(rechargeTime);
-            virtualCurrentAmountOfBullets++;
+            _isRechargingBullet.Activate(rechargeTime);
+            _virtualCurrentAmountOfBullets++;
         }
     }
 
-    protected void GetBulletsAtLeast(int amount)
+    protected void GetImmediatelyReadyToShot(int minAmountOfBullets)
     {
-        if (CurrentAmountOfBullets >= amount) return;
+        _canShootAfterPreviousShot.Deactivate();
+        if (CurrentAmountOfBullets >= minAmountOfBullets) return;
 
-        if (amount >= magazineCapacity)
+        if (minAmountOfBullets >= magazineCapacity)
         {
-            virtualCurrentAmountOfBullets = virtualMagazineCapacity;
-            isRechargingBullet.Deactivate();
+            _virtualCurrentAmountOfBullets = _virtualMagazineCapacity;
+            _isRechargingBullet.Deactivate();
         }
         else
         {
-            virtualCurrentAmountOfBullets = amount;
+            _virtualCurrentAmountOfBullets = minAmountOfBullets;
         }
     }
 

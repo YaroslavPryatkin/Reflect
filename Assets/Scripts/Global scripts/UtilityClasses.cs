@@ -3,248 +3,96 @@ using NUnit.Framework;
 using UnityEngine;
 using System.Collections.Generic;
 
-public static class Utility
+public static class UtilityClasses
 {
-    
-    public interface IPlayable
-    {
-        public float ClipSpeed => 0f;   
-        public bool ClipIsNull  => true;
-        public AnimationClip Clip => null;
-        public bool ShouldUpdateCurrentPlayableAnyway => false;
-    }
-    public enum BaseActionTransitionsEnum { Base, BaseToAction, Action, ActionToBase }
-
-    public static float GetTransitionFraction(IFractionTimer<BaseActionTransitionsEnum> timer, float weightMultiplier = 1f)
-    {
-        return timer.Value switch
-        {
-            BaseActionTransitionsEnum.Action => weightMultiplier,
-            BaseActionTransitionsEnum.BaseToAction => Mathf.Clamp01(timer.TimeFraction) * weightMultiplier,
-            BaseActionTransitionsEnum.ActionToBase => (1f - Mathf.Clamp01(timer.TimeFraction)) * weightMultiplier,
-            _ => 0f
-        };
-    }
-    public static float GetAnimationSpeed(AnimationClip animationClip, float targetTime)
-    {
-        return animationClip.length / Mathf.Max(0.001f, targetTime);
-    }
-    
-    public static float GetAnimationSpeed(AnimationClip animationClip, float targetTime, float crossFadeDuration)
-    {
-        return animationClip.length / Mathf.Max(0.001f, animationClip.isLooping ? targetTime + crossFadeDuration : targetTime);
-    }
-
-    public static float GetSpeedFraction(AnimationClip target, AnimationClip origin)
-    {
-        return origin.length / Mathf.Max(0.001f, target.length);
-    }
-    
-    
-    public static Vector3 ProjectPointOnLine(Transform point, Transform line)
-    {
-        var toPoint = point.position - line.position;
-    
-        var t = Vector3.Dot(toPoint, line.forward);
-        
-        return line.position + line.forward * t;
-    }
-    
-    
-    private static float distancePrecision = 0.01f;
-    private static float fractionPrecision = 0.01f;
-    private static float stepFromHitPoint = 0.05f;
-    
-    public static Vector3 GetSphereRayCastPoint(Vector3 origin, Vector3 direction, float distance, float cameraRadius, LayerMask ignoreLayers)
-    {
-        direction.Normalize();
-        RaycastHit hit;
-        if (Physics.SphereCast(origin, cameraRadius, direction, out hit, distance, ~ignoreLayers))
-        {
-            return  origin + direction * hit.distance;
-        }
-    
-        return origin + direction * distance;
-    }
-    
-    public static bool HasLineOfSight(Vector3 origin, Collider target, int layerMask)
-    {
-        
-        if (Physics.Linecast(origin, target.bounds.center, out var hit, layerMask))
-        {
-            if (hit.collider == target)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-    
-    private readonly static Collider[] _colliders = new Collider[6];
-    public static bool HasLineOfSight(Vector3 origin, Vector3 target, int layerMask, int targetLayerMask)
-    {
-        var count = Physics.OverlapSphereNonAlloc(origin, 0.1f, _colliders, layerMask);
-        for(var i=0;i<count;++i)
-        {
-            if (((1<<_colliders[i].gameObject.layer) & targetLayerMask) == 0) 
-            {
-                return false;
-            }
-        }
-        
-        if (Physics.Linecast(origin, target, out var hit, layerMask))
-        {
-            if (((1<<hit.collider.gameObject.layer) & targetLayerMask) != 0) 
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-    
-
-    
-    public static float EvaluateCurveAverage(AnimationCurve curve)
-    {
-        var sum = 0f;
-        var samples = 100;
-        for (var i = 0; i < samples; i++)
-        {
-            var t = (float)i / (samples - 1);
-            sum += curve.Evaluate(t);
-        }
-        return sum / samples;
-    }
-    
-    public static Vector3 GetCapsuleRayCastPoint(Vector3 origin, Vector3 centerToTop, float capsuleRadius, Vector3 direction, float distance, LayerMask layerMask)
-    {
-        direction.Normalize();
-        
-        int iterations = 70;
-        var capsuleUp = centerToTop.normalized;
-
-        Vector3 result = origin;
-        //String resultCouse = "Origin";
-
-        var binSearchResPoint = Vector3.zero;
-        var binSearchResNormal = Vector3.zero;
-        
-        float distLeft = 0;
-        float distRight = distance;
-        while (distRight - distLeft > distancePrecision)
-        {
-            var distMid = (distLeft + distRight) / 2;
-
-
-            bool found = false;
-            //this internal binary search projects the point origin + direction * distMid onto the closest surface touched by capsule
-            float fracLeft = 0f;
-            float fracRight = 1f;
-            while (fracRight - fracLeft > fractionPrecision)
-            {
-                iterations--;
-                if (iterations <= 0)
-                    return result;
-                
-                
-                var fracMid = (fracRight + fracLeft) / 2;
-                var midCenterToTop = centerToTop * fracMid;
-                var midRadius = capsuleRadius * fracMid;
-
-
-                if (Physics.CapsuleCast(origin - midCenterToTop, origin + midCenterToTop, midRadius,
-                        direction, out RaycastHit hit, distMid, layerMask))
-                {
-                    //Debug.Log("Fraction checking: " + fracMid + " for dist mid = " + distMid + " === success");
-                    fracRight = fracMid;
-                    binSearchResPoint = hit.point;
-                    binSearchResNormal = hit.normal;
-                    found = true;
-                }
-                else
-                {
-                    //Debug.Log("Fraction checking: " + fracMid + " for dist mid = " + distMid + " === fail");
-                    fracLeft = fracMid;
-                }
-            }
-
-            if (found)
-            {
-                //some capsule touched some surface
-                Vector3 targetPos;
-
-                float dot = Vector3.Dot(binSearchResNormal, capsuleUp);
-
-                targetPos = binSearchResPoint + binSearchResNormal * (capsuleRadius + stepFromHitPoint);
-                if (dot > 0.01f)
-                {
-                    targetPos += centerToTop;
-                }
-                else if (dot < -0.01f)
-                {
-                    targetPos -= centerToTop;
-                }
-
-                if (!Physics.CheckCapsule(targetPos - centerToTop, targetPos + centerToTop, capsuleRadius,
-                        layerMask))
-                {
-                    //resultCouse = "Found by checking, ";
-                    result = targetPos;
-                    distLeft = distMid;
-                }
-                else
-                {
-                    //Debug.Log("Distance checking = " + distMid + " === making less");
-                    distRight = distMid;
-                }
-            }
-            else
-            {
-                //we are free to move to that position since no capsule touched anything
-                //Debug.Log("Distance checking = " + distMid + " === making more by free to move");
-                //resultCouse = "Free place";
-                result = origin + direction * distMid;
-                distLeft = distMid;
-            }
-
-        }
-        //Debug.Log(resultCouse);
-        return result;
-    }
-    
-    public static Vector3 FromLocalToGlobalByZX(Vector3 forward, Vector3 localVector)
-    {
-        var lookDirXZ = new Vector3(forward.x, 0f, forward.z).normalized;
-
-        if (lookDirXZ == Vector3.zero) 
-            return localVector;
-
-        var cameraGroundedRotation = Quaternion.LookRotation(lookDirXZ, Vector3.up);
-        
-        return cameraGroundedRotation * localVector;
-    }
-
-    public static float ChangeMeasurementScale(float valueA, float minA, float maxA, float minB, float maxB)
-    {
-        return Math.Clamp((valueA - minA) *
-            (maxB-minB)/(maxA-minA) + minB,
-            minB, maxB);
-    }
-    
-    ///<summary>
-    /// Fraction = (maxB-minB)/(maxA-minA)
-    ///</summary>
-    public static float ChangeMeasurementScaleFraction(float valueA, float minA, float fraction, float minB, float maxB)
-    {
-        return Math.Clamp((valueA - minA) *
-            fraction + minB,
-            minB, maxB);
-    }
-    
     public interface IFractionTimer<T>
     {
         public T Value { get; }
         public float TimeFraction { get; }
+    }
+
+    public struct ParabolaCurve
+    {
+        public Vector3 StartPos;
+        public Vector3 EndPos;
+        
+        public float MidPointX;
+        public float MidPointY;
+        public float Scale;
+
+        public float Length;
+        
+        public void MakeObstacleParabola(float obstacleHeight, float jumpHeigh)
+        {
+            MidPointY = Mathf.Max(StartPos.y, EndPos.y, obstacleHeight) + jumpHeigh;
+            var startToMidX = Mathf.Sqrt(MidPointY - StartPos.y);
+            var midToEndX = Mathf.Sqrt(MidPointY - EndPos.y);
+            var totalX = startToMidX + midToEndX;
+            MidPointX = startToMidX / totalX; 
+            Scale= totalX * totalX;
+        }
+
+        
+        public void MakeStartAngleParabola(float startAngleUp)
+        {
+            var dir = EndPos - StartPos;
+            var horizDist = new Vector2(dir.x, dir.z).magnitude;
+            horizDist = Mathf.Max(horizDist, 0.0001f);
+            var deltaY = dir.y;
+            
+            var baseAngle = Mathf.Atan2(deltaY, horizDist);
+            var totalAngle = baseAngle + startAngleUp * Mathf.Deg2Rad;
+            totalAngle = Mathf.Min(totalAngle, 89.9f * Mathf.Deg2Rad);
+            
+            var k0 = Mathf.Tan(totalAngle);
+            Scale = k0 * horizDist - deltaY;
+            
+            MidPointY = StartPos.y + (k0 * k0 * horizDist * horizDist) / (4f * Scale);
+            MidPointX = k0 * horizDist / (2f * Scale);
+        }
+        
+        public float GetParabolaY(float fraction)
+        {
+            var x = fraction - MidPointX; 
+            return MidPointY - Scale * x * x;
+        }
+
+        public Vector3 GetPosition(float fraction)
+        {
+            var p = Vector3.Lerp(StartPos, EndPos, fraction);
+            p.y = GetParabolaY(fraction);
+            return p;
+        }
+        
+        public void CalculateTotalLength()
+        {
+            var dir = EndPos - StartPos;
+            var horizDist = Mathf.Max(new Vector2(dir.x, dir.z).magnitude, 0.0001f);
+
+            if (Scale <= 0.0001f) 
+                Length = Vector3.Distance(StartPos, EndPos);
+
+            var factor = (2f * Scale) / horizDist;
+            var u0 = -MidPointX * factor;
+            var u1 = (1f - MidPointX) * factor;
+
+            var coeff = (horizDist * horizDist) / (2f * Scale);
+            Length = coeff * (H(u1) - H(u0));
+        }
+
+        private static float H(float u)
+        {
+            var sqrt = Mathf.Sqrt(1f + u * u);
+            return 0.5f * (u * sqrt + Mathf.Log(u + sqrt));
+        }
+        
+        public Vector3 GetPositionByTraveledDistance(float distance)
+        {
+            var fraction = Mathf.Clamp01(distance / Length);
+            var p = Vector3.Lerp(StartPos, EndPos, fraction);
+            p.y = GetParabolaY(fraction);
+            return p;
+        }
     }
     
     ///<summary>
@@ -261,7 +109,7 @@ public static class Utility
             targetTime = 0f;
         }
         
-        public bool Set(T value, float duration = 0)
+        public bool TrySet(T value, float duration = 0)
         {
             if (Time.time < targetTime) return false;
             
@@ -304,7 +152,7 @@ public static class Utility
             startTime = 0f;
         }
         
-        public bool Set(T value, float duration = 0)
+        public bool TrySet(T value, float duration = 0)
         {
             if (Time.time < targetTime) return false;
             
@@ -479,13 +327,13 @@ public static class Utility
 
     public class BaseActionAutomaticTransition
     {
-        private readonly FractionBlockingValueTimer<BaseActionTransitionsEnum> _timer;
+        private readonly FractionBlockingValueTimer<UtilityFunctions.BaseActionTransitionsEnum> _timer;
         public float CrossFadeDuration{get; set; }
         public float WeightMultiplier { get; set; }
 
-        public BaseActionTransitionsEnum Value => _timer.Value;
+        public UtilityFunctions.BaseActionTransitionsEnum Value => _timer.Value;
         
-        public BaseActionAutomaticTransition(BaseActionTransitionsEnum startingValue, float crossFadeDuration, float weightMultiplier = 1f)
+        public BaseActionAutomaticTransition(UtilityFunctions.BaseActionTransitionsEnum startingValue, float crossFadeDuration, float weightMultiplier = 1f)
         {
             _timer = startingValue;
             CrossFadeDuration = crossFadeDuration;
@@ -494,7 +342,7 @@ public static class Utility
 
         public BaseActionAutomaticTransition(float crossFadeDuration, float weightMultiplier = 1f)
         {
-            _timer = BaseActionTransitionsEnum.Base;
+            _timer = UtilityFunctions.BaseActionTransitionsEnum.Base;
             CrossFadeDuration = crossFadeDuration;
             WeightMultiplier =  weightMultiplier;
         }
@@ -502,44 +350,44 @@ public static class Utility
         public float GetFraction(bool shouldBeActive){
             switch (_timer.Value)
             {
-                case BaseActionTransitionsEnum.Base:
+                case UtilityFunctions.BaseActionTransitionsEnum.Base:
                     if(shouldBeActive)
-                        _timer.SetForce(BaseActionTransitionsEnum.BaseToAction, CrossFadeDuration);
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.BaseToAction, CrossFadeDuration);
                     break;
-                case BaseActionTransitionsEnum.BaseToAction:
+                case UtilityFunctions.BaseActionTransitionsEnum.BaseToAction:
                     if(!shouldBeActive)
-                        _timer.SetForce(BaseActionTransitionsEnum.ActionToBase, CrossFadeDuration, 1-_timer.TimeFraction);
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.ActionToBase, CrossFadeDuration, 1-_timer.TimeFraction);
                     if(_timer.CanBeChanged)
-                        _timer.SetForce(BaseActionTransitionsEnum.Action);
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.Action);
                     break;
-                case BaseActionTransitionsEnum.Action:
+                case UtilityFunctions.BaseActionTransitionsEnum.Action:
                     if(!shouldBeActive)
-                        _timer.SetForce(BaseActionTransitionsEnum.ActionToBase, CrossFadeDuration);
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.ActionToBase, CrossFadeDuration);
                     break;
-                case BaseActionTransitionsEnum.ActionToBase:
+                case UtilityFunctions.BaseActionTransitionsEnum.ActionToBase:
                     if(shouldBeActive)
-                        _timer.SetForce(BaseActionTransitionsEnum.BaseToAction, CrossFadeDuration, 1-_timer.TimeFraction);
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.BaseToAction, CrossFadeDuration, 1-_timer.TimeFraction);
                     if(_timer.CanBeChanged)
-                        _timer.SetForce(BaseActionTransitionsEnum.Base);
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.Base);
                     break;
             }
-            return GetTransitionFraction(_timer, WeightMultiplier);
+            return UtilityFunctions.GetTransitionFraction(_timer, WeightMultiplier);
         }
 
         public float GetRemainCurrentStateFraction()
         {
             switch (_timer.Value)
             {
-                case BaseActionTransitionsEnum.BaseToAction:
+                case UtilityFunctions.BaseActionTransitionsEnum.BaseToAction:
                     if(_timer.CanBeChanged)
-                        _timer.SetForce(BaseActionTransitionsEnum.Action);
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.Action);
                     break;
-                case BaseActionTransitionsEnum.ActionToBase:
+                case UtilityFunctions.BaseActionTransitionsEnum.ActionToBase:
                     if(_timer.CanBeChanged)
-                        _timer.SetForce(BaseActionTransitionsEnum.Base);
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.Base);
                     break;
             }
-            return GetTransitionFraction(_timer, WeightMultiplier);
+            return UtilityFunctions.GetTransitionFraction(_timer, WeightMultiplier);
         }
         
         public static implicit operator BaseActionAutomaticTransition(float crossFadeDuration)
@@ -547,7 +395,7 @@ public static class Utility
             return new BaseActionAutomaticTransition(crossFadeDuration);
         }
         
-        public static implicit operator BaseActionTransitionsEnum(BaseActionAutomaticTransition transition)
+        public static implicit operator UtilityFunctions.BaseActionTransitionsEnum(BaseActionAutomaticTransition transition)
         {
             return transition.Value;
         }
@@ -561,6 +409,8 @@ public static class Utility
         public bool Value => _setCounter > 0 && _holder.Value;
         public float TimeFraction => _setCounter > 0 ? _holder.TimeFraction : 1f;
 
+        public int Count => _setCounter;
+        
         public void Set(IFractionTimer<bool> holder)
         {
             _holder = holder;
@@ -793,8 +643,6 @@ public static class Utility
     }
     
     
-
-    
     public class DelayDurationValueTimer<T>
     {
         private float delayTime;
@@ -830,7 +678,6 @@ public static class Utility
             lastValue = Value; 
             delayTime = Time.time + delay;
             durationTime = Time.time + duration;
-            //Debug.Log("Current time = " + Time.time + ", delay time = " + delayTime + ", duration time = " + durationTime + ", new value = " + value);
             this.value = value;
         }
 
@@ -846,5 +693,8 @@ public static class Utility
             return timer.Value;
         }
     }
+    
+    
+    
     
 }

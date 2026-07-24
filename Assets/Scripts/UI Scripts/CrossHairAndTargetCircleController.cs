@@ -16,7 +16,7 @@ public class CrossHairAndTargetCircleController : MonoBehaviour
 
     private void Update()
     {
-        crosshair.SetShowing(_playerGunController.GunStateValue!=Utility.BaseActionTransitionsEnum.Base);
+        crosshair.SetShowing(_playerGunController.GunStateValue!=UtilityFunctions.BaseActionTransitionsEnum.Base);
         crosshair.WorldTarget = _playerGunController.TargetPoint;
         targetLockCircle.SetShowing(_playerTargetLockController.IsLocked);
         targetLockCircle.WorldTarget = _playerTargetLockController.TargetPosition;

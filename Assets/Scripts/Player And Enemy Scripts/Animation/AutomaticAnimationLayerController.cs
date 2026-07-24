@@ -4,7 +4,7 @@ using System;
 using UnityEngine.Playables;
 using UnityEngine.Animations;
 using UnityEngine.Assemblies;
-using BaseActionTransitionsEnum = Utility.BaseActionTransitionsEnum;
+using BaseActionTransitionsEnum = UtilityFunctions.BaseActionTransitionsEnum;
 
 public class AutomaticAnimationLayerController : CurrentPlayableAnimationLayerController
 {
@@ -18,7 +18,7 @@ public class AutomaticAnimationLayerController : CurrentPlayableAnimationLayerCo
         destinationLayerPort,  uniqueClips, avatarMask, name, additive)
     { }
     
-    private readonly Utility.FractionTemporaryValue<bool> _isTransitioning = new (false, true);
+    private readonly UtilityClasses.FractionTemporaryValue<bool> _isTransitioning = new (false, true);
 
     public void AutomaticUpdateCurrentPlayable(AnimationClip clip, float clipSpeed, float crossFadeDuration)
     {

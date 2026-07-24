@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class PlayerMeleeTransfromController : MeleeTransformController
+public class PlayerMeleeTransformController : MeleeTransformController
 {
     private PlayerTargetLockController _playerTargetLockController;
     private PlayerInputController _playerInputController;
@@ -23,7 +23,7 @@ public class PlayerMeleeTransfromController : MeleeTransformController
         return _playerTargetLockController.IsLocked;
     }
 
-    protected override void SetInputDirection(out Vector3 inputDirection)
+    protected override void SetTargetLookDirection(out Vector3 inputDirection)
     {
         if(_playerInputController.IsPlayerPressingWASD)
             inputDirection = _playerInputController.InputMoveVector;

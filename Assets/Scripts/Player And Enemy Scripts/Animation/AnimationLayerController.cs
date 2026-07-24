@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System;
 using UnityEngine.Playables;
 using UnityEngine.Animations;
-using BaseActionTransitionsEnum = Utility.BaseActionTransitionsEnum;
+using BaseActionTransitionsEnum = UtilityFunctions.BaseActionTransitionsEnum;
 
 public class AnimationLayerController
 {
@@ -38,8 +38,8 @@ public class AnimationLayerController
         }
         graph.Connect(AnimationMixer, 0, _layerMixer, _destinationLayerPort);
         _layerMixer.SetInputWeight(_destinationLayerPort, 0f);
-        LayerWeight = 0f;
         _layerMixer.SetLayerAdditive(_destinationLayerPortU, additive);
+        LayerWeight = 0f;
     }
     
     public AnimationLayerController(PlayableGraph graph, AnimationLayerMixerPlayable layerMixer, 

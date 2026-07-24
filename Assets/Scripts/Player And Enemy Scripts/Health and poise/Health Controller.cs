@@ -64,7 +64,14 @@ public class HealthController : MonoBehaviour
     public void ResetHealth()
     {
         CurrentHealth = maxHealth;
+        if(IsDead)
+            OnRevive();
         IsDead = false;
+    }
+
+    protected virtual void OnRevive()
+    {
+        
     }
     
     public void ChangeHealth(float change)

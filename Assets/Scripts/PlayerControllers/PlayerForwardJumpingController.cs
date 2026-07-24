@@ -19,8 +19,7 @@ public class PlayerForwardJumpingController : MonoBehaviour
     private CapsuleCollider capsuleCollider;
     private PlayerSensors  _playerSensors;
 
-    private Vector3 startPos;
-    private Vector3 endPos;
+
     private Vector3 endVelocity;
     private bool wasKinematic;
 
@@ -28,28 +27,36 @@ public class PlayerForwardJumpingController : MonoBehaviour
 
     public float TimeToJump { get; private set; } = 0f;
 
-    public bool IsInAir { get; private set; } = false;
-    private Utility.TemporaryValue<bool> isLanding = new(false, true);
-    public bool IsLanding => isLanding.Value;
+    private readonly UtilityClasses.FractionBlockingValueTimer<bool> _isInAir = false;
+    public bool IsInAir => _isInAir.Value;
+    private readonly UtilityClasses.TemporaryValue<bool> _isLanding = new(false, true);
+    public bool IsLanding => _isLanding.Value;
     public bool IsForwardJumping => IsInAir || IsLanding;
     public float LandingTime => landingTime;
     
-    private float jumpPercent = 0f;
-    private float midPointY = 0f;
-    private float midPointX = 0f;
-    private float scale = 0f;
-    private bool parabolaCalculationLerpMode;
+
+    private UtilityClasses.ParabolaCurve  _parabolaCurve;
 
     public void PerformForwardJump(Vector3 startPos, Vector3 endPos, float obstacleHeight)
     {
         var diff = endPos - startPos;
         var horizontalDiff = new Vector3(diff.x, 0f, diff.z);
         var horizontalDiffScalar = horizontalDiff.magnitude;
+        _parabolaCurve.StartPos =  startPos;
+        _parabolaCurve.EndPos = endPos;
+        _parabolaCurve.MakeObstacleParabola(obstacleHeight + capsuleCollider.height / 2, jumpHeigh);
         
-        this.endPos = endPos;
-        this.startPos = startPos;
-
-        CalculateParabola(obstacleHeight, horizontalDiffScalar);
+        var tangentPointX =  _parabolaCurve.MidPointX + maximalFallingSpeed / (2 * _parabolaCurve.Scale);
+        var horizontalSpeed = Mathf.Max(_playerSensors.HorizontalSpeed * speedMultiplier, minSpeed);
+        if (tangentPointX >= 1)
+        {
+            TimeToJump = horizontalDiffScalar / horizontalSpeed;
+        }
+        else
+        {
+            TimeToJump = horizontalDiffScalar * tangentPointX / horizontalSpeed + 
+                         (_parabolaCurve.GetParabolaY(tangentPointX) - endPos.y)/maximalFallingSpeed;
+        }
 
         var normal = Vector3.Cross(horizontalDiff, Vector3.up).normalized;
         
@@ -67,46 +74,18 @@ public class PlayerForwardJumpingController : MonoBehaviour
         wasKinematic = rb.isKinematic;
         rb.isKinematic = true; 
         
-        IsInAir = true;
-        jumpPercent = 0f;
+        _isInAir.SetForce(true, TimeToJump);
     }
 
-    private void CalculateParabola(float obstacleHeigh, float horizontalDiffScalar)
-    {
-        midPointY = Mathf.Max(startPos.y, endPos.y, obstacleHeigh + capsuleCollider.height / 2) + jumpHeigh;
-        var startToMidX = Mathf.Sqrt(midPointY - startPos.y);
-        var midToEndX = Mathf.Sqrt(midPointY - endPos.y);
-        parabolaCalculationLerpMode = (startToMidX + midToEndX <= 0f);
-        midPointX = startToMidX / (startToMidX + midToEndX); 
-        scale = (startToMidX + midToEndX) * (startToMidX + midToEndX);
-        var tangentPointX =  midPointX + maximalFallingSpeed / (2 * scale);
-        
-        var horizontalSpeed = Mathf.Max(_playerSensors.HorizontalSpeed * speedMultiplier, minSpeed);
-        if (tangentPointX >= 1)
-        {
-            TimeToJump = horizontalDiffScalar / horizontalSpeed;
-        }
-        else
-        {
-            TimeToJump = horizontalDiffScalar * tangentPointX / horizontalSpeed + 
-                         (GetParabolaY(tangentPointX) - endPos.y)/maximalFallingSpeed;
-        }
-    }
+
     
-    private float GetParabolaY(float t)
-    {
-        if (parabolaCalculationLerpMode) 
-            return Mathf.Lerp(startPos.y, endPos.y, t);
-        
-        var x = t - midPointX; 
-        return midPointY - scale * x * x;
-    }
+
     
 
     private void FinishForwardJump()
     {
-        IsInAir = false;
-        isLanding.Activate(landingTime);
+        _isInAir.SetForce(false);
+        _isLanding.Activate(landingTime);
         
         rb.isKinematic = wasKinematic;
         rb.linearVelocity = endVelocity;
@@ -115,21 +94,17 @@ public class PlayerForwardJumpingController : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (IsInAir)
+        if (_isInAir.Value)
         {
-            jumpPercent += Time.fixedDeltaTime / TimeToJump;
 
-            if (jumpPercent >= 1f)
+            if (_isInAir.CanBeChanged)
             {
-                rb.MovePosition(endPos);
+                rb.MovePosition(_parabolaCurve.EndPos);
                 FinishForwardJump();
             }
             else
             {
-                var targetPosition = Vector3.Lerp(startPos, endPos, jumpPercent);
-                targetPosition.y = GetParabolaY(jumpPercent);
-                
-                rb.MovePosition(targetPosition);
+                rb.MovePosition(_parabolaCurve.GetPosition(_isInAir.TimeFraction));
             }
         }
     }
@@ -138,15 +113,15 @@ public class PlayerForwardJumpingController : MonoBehaviour
     {
         if (IsInAir)
         {
-            IsInAir = false;
+            _isInAir.SetForce(false);
             rb.isKinematic = wasKinematic;
             rb.linearVelocity = endVelocity;
             rb.angularVelocity = Vector3.zero;
             _playerSensors.UpdateVelocity();
         }
-        else if (isLanding.Value)
+        else if (_isLanding.Value)
         {
-            isLanding.Deactivate();
+            _isLanding.Deactivate();
         }
     }
 

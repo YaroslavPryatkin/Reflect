@@ -4,7 +4,7 @@ using System;
 using CustomAttributes;
 using Unity.VisualScripting;
 using UnityEngine.Animations.Rigging;
-using BaseActionTransitionsEnum = Utility.BaseActionTransitionsEnum;
+using BaseActionTransitionsEnum = UtilityFunctions.BaseActionTransitionsEnum;
 
 [DefaultExecutionOrder(-50)]
 public class IkRigTargetController : MonoBehaviour

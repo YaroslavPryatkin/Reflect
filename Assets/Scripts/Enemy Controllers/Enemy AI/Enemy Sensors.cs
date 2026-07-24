@@ -22,8 +22,8 @@ public class EnemySensors : Sensors
     public bool IsDetectingPlayer { get; private set; } = false;
     
     public Vector3 MyPosition => transform.position;
-    public Vector3 HorizontalDirectionToPlayer{get; private set;} = Vector3.zero;
-    public Vector3 NormalizedHorizontalDirectionToPlayer { get; private set; } =Vector3.zero;
+    public Vector3 HorizontalDirectionToPlayer{get; private set;} = Vector3.forward;
+    public Vector3 NormalizedHorizontalDirectionToPlayer { get; private set; } =Vector3.forward;
     public float HorizontalDistanceToPlayer { get; private set; } = 0f;
     public float DistanceToPlayer{get; private set;}=0f;
 
@@ -73,7 +73,7 @@ public class EnemySensors : Sensors
         NormalizedHorizontalDirectionToPlayer = HorizontalDirectionToPlayer.normalized;
         
         IsDetectingPlayer = true;
-        CanShootToPlayer = Utility.HasLineOfSight(shoulderPoint.position, PlayerPosition,
+        CanShootToPlayer = UtilityFunctions.HasLineOfSight(shoulderPoint.position, PlayerPosition,
             IgnoreMyLayerMask, EnemyLayer);
     }
 
@@ -83,7 +83,7 @@ public class EnemySensors : Sensors
             Quaternion.LookRotation(NormalizedHorizontalDirectionToPlayer, transform.up);
         foreach (var shift in _shiftVectors)
         {
-            if (!Utility.HasLineOfSight(position + rot * shift, PlayerPosition,
+            if (!UtilityFunctions.HasLineOfSight(position + rot * shift, PlayerPosition,
                     IgnoreMyLayerMask, EnemyLayer))
                 return false;
         }

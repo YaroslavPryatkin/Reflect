@@ -51,7 +51,7 @@ public class CameraTransformController : MonoBehaviour
         var upShiftVector = Vector3.up * TargetUpShift;
         var realDirection = directionToCamera + sideShiftVector + upShiftVector;
 
-        var finalPosition = Utility.GetSphereRayCastPoint(target.position, realDirection, TargetCameraDistance, 
+        var finalPosition = UtilityFunctions.GetSphereRayCastPoint(target.position, realDirection, TargetCameraDistance, 
             _cameraFoWController.CurrentSphereCastRadius, ignoreLayers);
         if (Vector3.Distance(transform.position, finalPosition) > maxDistanceToSnap)
         {

@@ -60,7 +60,7 @@ namespace MeleeComponents
         {
             HasClip = clip != null;
             if(HasClip)
-                ClipSpeed = Utility.GetAnimationSpeed(clip, Duration);
+                ClipSpeed = UtilityFunctions.GetAnimationSpeed(clip, Duration);
         }
     }
     
@@ -135,7 +135,7 @@ namespace MeleeComponents
             }
         }
 
-        public void StartAdditionalActions(List<Utility.FractionTemporaryValue<bool>> additionalActivityTimers)
+        public void StartAdditionalActions(List<UtilityClasses.FractionTemporaryValue<bool>> additionalActivityTimers)
         {
             for (var i = 0; i < additionalActions.Count; ++i)
             {
@@ -149,7 +149,7 @@ namespace MeleeComponents
             }
         }
         
-        public void InterruptAdditionalActions(List<Utility.FractionTemporaryValue<bool>> additionalActivityTimers)
+        public void InterruptAdditionalActions(List<UtilityClasses.FractionTemporaryValue<bool>> additionalActivityTimers)
         {
             for (var i = 0; i < additionalActions.Count; ++i)
             {
@@ -158,7 +158,7 @@ namespace MeleeComponents
             }
         }
         
-        public void FinishAdditionalActions(List<Utility.FractionTemporaryValue<bool>> additionalActivityTimers)
+        public void FinishAdditionalActions(List<UtilityClasses.FractionTemporaryValue<bool>> additionalActivityTimers)
         {
             for (var i = 0; i < additionalActions.Count; ++i)
             {
@@ -169,12 +169,12 @@ namespace MeleeComponents
     }
     
     [Serializable, VisibleSubclass]
-    public class MeleePlayable : Utility.IPlayable
+    public class MeleePlayable : UtilityFunctions.IPlayable
     {
         [SerializeField] protected List<MeleePlayablePart> parts = new();
 
-        private List<Utility.FractionTemporaryValue<bool>> _additionalActionsActivityTimers;
-        private Utility.FractionBlockingValueTimer<int> _currentPart ;
+        private List<UtilityClasses.FractionTemporaryValue<bool>> _additionalActionsActivityTimers;
+        private UtilityClasses.FractionBlockingValueTimer<int> _currentPart ;
 
         public MeleePlayable()
         {
@@ -311,7 +311,7 @@ namespace MeleeComponents
             _currentPart = Length;
             _nextPartWithClip = Length;
 
-            _additionalActionsActivityTimers = new List<Utility.FractionTemporaryValue<bool>>(maxAddition);
+            _additionalActionsActivityTimers = new List<UtilityClasses.FractionTemporaryValue<bool>>(maxAddition);
 
             for (var i = 0; i < maxAddition; ++i)
             {
@@ -441,19 +441,31 @@ namespace MeleeComponents
         
         [Header("Movement")]
         [SerializeField] private float distanceToTravel = 0f;
-        [SerializeField] private float targetDistance = 0f;
         [SerializeField] private AnimationCurve speedCurve = new AnimationCurve(new Keyframe(0f, 0f),new Keyframe(0.1f,1f),new Keyframe(0.9f,1f), new Keyframe(1f, 0f));
-        public float TargetDistance => targetDistance;
-        public float DistanceToTravel => distanceToTravel;
-        public float CurveAverage { get;private set; }
+        public float DistanceByAverage { get;private set; }
         public AnimationCurve SpeedCurve => speedCurve;
         public float RotateByRad { get; private set; }
         public bool ForceLookToTarget => forceLookToTarget;
         
         public override void Awake()
         {
-            CurveAverage = Utility.EvaluateCurveAverage(speedCurve);
+            DistanceByAverage = distanceToTravel / UtilityFunctions.EvaluateCurveAverage(speedCurve);
             RotateByRad = rotateByDegrees * Mathf.Deg2Rad;
+        }
+    }
+    
+    [Serializable]
+    public class AdditionalStateInformationParabola : MeleeAdditionalStateInformation
+    {
+        [SerializeField] private float angleUp = 15f;
+        [SerializeField] private float distanceToTravel = 0f;
+        [SerializeField] private AnimationCurve speedCurve = new AnimationCurve(new Keyframe(0f, 0f),new Keyframe(0.1f,1f),new Keyframe(0.9f,1f), new Keyframe(1f, 0f));
+        public AnimationCurve DistanceCurve { get;private set; }
+        public float AngleUp => angleUp;
+        
+        public override void Awake()
+        {
+            DistanceCurve = UtilityFunctions.BakeDistanceCurve(speedCurve, distanceToTravel);
         }
     }
     
@@ -521,7 +533,7 @@ namespace MeleeComponents
             return false;
         }
 
-        public abstract void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer);
+        public abstract void Start(UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer);
 
         public virtual void Finish()
         {
@@ -540,8 +552,8 @@ namespace MeleeComponents
         [SerializeField] private AdditionalStateInformationParry settings;
         protected override MeleeAdditionalStateInformation StateInformation => settings;
         
-        private Utility.MultipleTemporaryValue<bool> _consecutiveParriesCounter;
-        private Utility.TemporaryValue<bool> _parrying = new(false, true);
+        private UtilityClasses.MultipleTemporaryValue<bool> _consecutiveParriesCounter;
+        private UtilityClasses.TemporaryValue<bool> _parrying = new(false, true);
 
 
         public override bool Awake(MeleeController meleeController, MeleePlayable thisMeleePlayable, float thisStateDuration)
@@ -573,16 +585,18 @@ namespace MeleeComponents
             {
                 _consecutiveParriesCounter.Deactivate();
             }
+            ThisMeleeController.OnParryEnd();
         }
 
         public override void Finish()
         {
             _parrying.Deactivate();
             ThisMeleeController.ClearParryingReferences();
+            ThisMeleeController.OnParryEnd();
         }
         
 
-        public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
+        public override void Start(UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
         {
             var parryDuration = Duration;
             if (settings.ParryTimeChanges)
@@ -593,7 +607,7 @@ namespace MeleeComponents
             }
             _parrying.Activate(parryDuration);
             ThisMeleeController.ActivateParrying(_parrying, thisActivityTimer, settings.OnSuccessfulParryPlayableIndex);
-            ThisMeleeController.OnParry();
+            
         }
         
         // public override MeleeAdditionalAction Clone()
@@ -614,12 +628,12 @@ namespace MeleeComponents
         public override void Interrupt(bool wasActive)
         {
             ThisMeleeController.MeleeHitboxController.FinishSwing();
+            ThisMeleeController.OnAttackEnd();
         }
 
-        public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
+        public override void Start(UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
         {
             ThisMeleeController.MeleeHitboxController.StartSwing(settings.Damage, settings.PoiseDamage);
-            ThisMeleeController.OnAttack();
         }
         // public override MeleeAdditionalAction Clone()
         // {
@@ -643,10 +657,9 @@ namespace MeleeComponents
         }
         
 
-        public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
+        public override void Start(UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
         {
             ThisMeleeController.TransformController.ActivateMoving(
-                settings.TargetDistance, 
                 _speedMultiplier,
                 settings.SpeedCurve,
                 _rotationSpeed, 
@@ -664,7 +677,7 @@ namespace MeleeComponents
             }
             else
             {
-                _speedMultiplier = settings.DistanceToTravel / (settings.CurveAverage * Duration);
+                _speedMultiplier = settings.DistanceByAverage / Duration;
                 _rotationSpeed = settings.RotateByRad / Duration;
             }
 
@@ -678,6 +691,33 @@ namespace MeleeComponents
         //     return clone;
         // }
     }
+    [Serializable, VisibleSubclass]
+    public class MoveByParabola : MeleeAdditionalAction
+    {
+        [SerializeField] private AdditionalStateInformationParabola settings;
+        protected override MeleeAdditionalStateInformation StateInformation => settings;
+        
+        public override void Interrupt(bool wasActive)
+        {
+            ThisMeleeController.TransformController.StopMovingAndClearReferences();
+        }
+        
+
+        public override void Start(UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
+        {
+            ThisMeleeController.TransformController.ActivateParabola(
+                settings.AngleUp,
+                settings.DistanceCurve,
+                thisActivityTimer);
+        }
+        // public override MeleeAdditionalAction Clone()
+        // {
+        //     var clone = new MoveToTarget();
+        //     clone.settings = settings;
+        //     return clone;
+        // }
+    }
+    
     
     [Serializable, VisibleSubclass]
     public class LookAtTarget : MeleeAdditionalAction
@@ -692,9 +732,9 @@ namespace MeleeComponents
         }
         
 
-        public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
+        public override void Start(UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
         {
-            ThisMeleeController.TransformController.ActivateStandingAndLooking(_rotationSpeed, settings.ForceLookToTarget, settings.StandInPlace, thisActivityTimer);
+            ThisMeleeController.TransformController.ActivateStanding(_rotationSpeed, settings.ForceLookToTarget, settings.StandInPlace, thisActivityTimer);
         }
 
         public override bool Awake(MeleeController meleeController, MeleePlayable thisMeleePlayable, float thisStateDuration)
@@ -738,7 +778,7 @@ namespace MeleeComponents
         }
         
 
-        public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
+        public override void Start(UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
         {
             if (settings.Type)
             {
@@ -767,9 +807,29 @@ namespace MeleeComponents
         }
         
 
-        public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
+        public override void Start(UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
         {
             ThisMeleeController.ActivateDontAnimateLegs(thisActivityTimer);
+        }
+
+    }
+    
+    [Serializable, VisibleSubclass]
+    public class InterruptIfNotOnGround : MeleeAdditionalAction
+    {
+        private AdditionalStateInformationDummy _settings = new();
+        //[SerializeField] private AdditionalStateInformationUseSecondHand settings = new();
+        protected override MeleeAdditionalStateInformation StateInformation => _settings;
+
+        public override void Interrupt(bool wasActive)
+        {
+            ThisMeleeController.StopInterruptIfNotOnGround();
+        }
+        
+
+        public override void Start(UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
+        {
+            ThisMeleeController.ActivateInterruptIfNotOnGround(thisActivityTimer);
         }
 
     }
@@ -786,7 +846,7 @@ namespace MeleeComponents
         }
         
 
-        public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
+        public override void Start(UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
         {
             ThisMeleeController.GettingHitController.ActivateHyperArmor(thisActivityTimer);
         }
@@ -823,7 +883,7 @@ namespace MeleeComponents
             //do nothing
         }
 
-        public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
+        public override void Start(UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
         {
             ThisMeleePlayable.SetLoopMark();
         }
@@ -853,7 +913,7 @@ namespace MeleeComponents
             ThisMeleePlayable.ReturnToLoopMark();
         }
 
-        public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
+        public override void Start(UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
         {
             
         }
@@ -891,7 +951,7 @@ namespace MeleeComponents
             ThisMeleeController.PlayCombo(settings.Combo);
         }
 
-        public override void Start(Utility.FractionTemporaryValue<bool> thisActivityTimer)
+        public override void Start(UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
         {
             
         }

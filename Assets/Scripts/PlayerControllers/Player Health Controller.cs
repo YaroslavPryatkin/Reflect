@@ -7,7 +7,7 @@ public class PlayerHealthController : HealthController
     [SerializeField] private float regenerationRate = 20f;
     [SerializeField] private float canNotHealAfterTakingDamageTime = 2f;
     
-    private Utility.TemporaryValue<bool> canRegenerate = new(true, false);
+    private UtilityClasses.TemporaryValue<bool> canRegenerate = new(true, false);
 
     private PlayerInputController _playerInputController;
 

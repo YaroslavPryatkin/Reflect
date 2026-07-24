@@ -4,7 +4,7 @@ using UnityEngine.Playables;
 using UnityEngine.Animations;
 using UnityEngine.Animations.Rigging;
 using Debug = UnityEngine.Debug;
-using BaseActionTransitionsEnum = Utility.BaseActionTransitionsEnum;
+using BaseActionTransitionsEnum = UtilityFunctions.BaseActionTransitionsEnum;
 
 public class EnemyAnimationController : MonoBehaviour
 {

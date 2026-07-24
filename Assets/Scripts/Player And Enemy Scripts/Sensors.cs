@@ -68,7 +68,6 @@ public abstract class Sensors : MonoBehaviour
             VelocityAlignedWithGround = HorizontalVelocity;
         }
     }
-
     private void GatherGroundSensors()
     {
         var point = transform.position + Vector3.down * groundCheckDistance;

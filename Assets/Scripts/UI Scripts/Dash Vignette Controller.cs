@@ -10,7 +10,7 @@ public class DashVignetteController : MonoBehaviour
     [SerializeField] private float fadeOutTime = 0.1f;
     [SerializeField] private Image image;
     
-    private Utility.FractionBlockingValueTimer<bool> isShowing = false;
+    private UtilityClasses.FractionBlockingValueTimer<bool> isShowing = false;
 
 
     private void Awake()

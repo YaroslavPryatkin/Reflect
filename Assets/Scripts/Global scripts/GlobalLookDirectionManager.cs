@@ -78,17 +78,17 @@ public class GlobalLookDirectionManager : MonoBehaviour
 
     private float GetAimingMouseSensitivityScale()
     {
-        return playerGunController.GunStateValue!=Utility.BaseActionTransitionsEnum.Base ? baseAimingMouseSensitivity * mouseSensSliderAiming.Value : 1;
+        return playerGunController.GunStateValue!=UtilityFunctions.BaseActionTransitionsEnum.Base ? baseAimingMouseSensitivity * mouseSensSliderAiming.Value : 1;
     }
     
     public static Vector3 FromCameraLocalToGlobalByZX(Vector3 localVector)
     {
-        return Utility.FromLocalToGlobalByZX(CurrentLookDirection, localVector);
+        return UtilityFunctions.FromLocalToGlobalByZX(CurrentLookDirection, localVector);
     }
     public static Vector3 FromCameraLocalToGlobalByZX(Vector2 localVector)
     {
         var localVector3 = new Vector3(localVector.x, 0f, localVector.y);
-        return Utility.FromLocalToGlobalByZX(CurrentLookDirection, localVector3);
+        return UtilityFunctions.FromLocalToGlobalByZX(CurrentLookDirection, localVector3);
     }
 
     public static float CurrentYaw => Instance.currentYaw;

@@ -1,3 +1,4 @@
+using Unity.VisualScripting;
 using UnityEngine;
 using FixedMovementStateEnum = PlayerFixedDirectionMovementController.StateEnum;
 
@@ -30,12 +31,12 @@ public class PlayerManager : MonoBehaviour
     private PlayerForwardJumpingController _playerForwardJumpingController;
     private PlayerJumpController _playerJumpController;
     private PlayerLandingController _playerLandingController;
-    private PlayerTargetMoveVectorUser _playerTargetMoveVectorUser;
     private GettingHitController _gettingHitController;
     private PlayerFixedDirectionMovementController _playerFixedDirectionMovementController;
     private PlayerSlidingController _playerSlidingController;
     private PlayerMeleeController _playerMeleeController;
     private PlayerTargetLockController _playerTargetLockController;
+    private PlayerMeleeTransformController _playerMeleeTransformController;
     private Rigidbody rb;
 
     private void Awake()
@@ -45,7 +46,6 @@ public class PlayerManager : MonoBehaviour
         _playerInputController = GetComponent<PlayerInputController>();
         _playerDashController = GetComponent<PlayerDashController>();
         _playerForwardJumpingController = GetComponent<PlayerForwardJumpingController>();
-        _playerTargetMoveVectorUser = GetComponent<PlayerTargetMoveVectorUser>();
         _playerJumpController = GetComponent<PlayerJumpController>();
         _playerLandingController = GetComponent<PlayerLandingController>();
         _gettingHitController = GetComponent<GettingHitController>();
@@ -53,6 +53,7 @@ public class PlayerManager : MonoBehaviour
         _playerSlidingController = GetComponent<PlayerSlidingController>();
         _playerMeleeController =  GetComponent<PlayerMeleeController>();
         _playerTargetLockController = GetComponent<PlayerTargetLockController>();
+        _playerMeleeTransformController = GetComponent<PlayerMeleeTransformController>();
     }
 
     public Vector3 TargetMoveDirection { get; private set; } = Vector3.zero;
@@ -64,9 +65,11 @@ public class PlayerManager : MonoBehaviour
     public bool CanAim { get; private set; } = false;
     public bool CanJump { get; private set; } = false;
     public bool CanHoldSword { get; private set; } = false;
-    public bool CanUseSword { get; private set; } = false;
+    public bool CanNotUseSword { get; private set; } = false;
     public bool UseGroundPhysics { get;private set; } = false;
     public bool LookToLockedTarget { get; private set; } = false;
+
+    public bool CanNotLanding { get; private set; } = true;
 
     private void Update()
     {
@@ -84,11 +87,13 @@ public class PlayerManager : MonoBehaviour
         
         _gettingHitController.CanGetStunned = CanGetStunned =
             _playerFixedDirectionMovementController.IsStateNon &&
-            _playerSlidingController.IsStateNon;
+            _playerSlidingController.IsStateNon &&
+            !_playerForwardJumpingController.IsForwardJumping;
 
         CanFixedMovement = !_playerForwardJumpingController.IsForwardJumping &&
                            _playerLandingController.CanBeInterrupted &&
-                           _playerSlidingController.IsStateNon;
+                           _playerSlidingController.IsStateNon &&
+                           _playerMeleeController.State != MeleeController.MeleeStateEnum.Combo;
         
         CanAim = (
                      _playerFixedDirectionMovementController.IsStateNon ||
@@ -110,11 +115,12 @@ public class PlayerManager : MonoBehaviour
                    !_playerForwardJumpingController.IsForwardJumping &&
                    _playerLandingController.CanBeInterrupted;
         
-        CanUseSword = _playerSlidingController.IsActiveSlidingPhase;
+        CanNotUseSword = _playerSlidingController.IsActiveSlidingPhase;
 
         UseGroundPhysics = _playerSensors.IsGrounded && !_playerJumpController.ShouldSuppressGroundFriction;
 
-        
+        CanNotLanding = _playerSensors.IsForceSlide || _playerForwardJumpingController.IsForwardJumping || _playerMeleeTransformController.IsActive;
+
     }
 
     private void SetTargetMoveVector()
@@ -134,31 +140,66 @@ public class PlayerManager : MonoBehaviour
             rb.useGravity = true;
             if (_playerSensors.IsGrounded)
             {
-                if (_playerJumpController.ShouldSuppressGroundFriction)
+                if (_playerJumpController.ShouldSuppressGroundFriction || _playerJumpController.State == PlayerJumpController.StateEnum.Starting)
                 {
-                    MakeSlidingTargetMoveVector(0, 0,0, groundSpeedHardCap);
+                    MakeFrictionTargetSpeed(0, 0, groundSpeedHardCap);
+                    MakeNonZeroTargetMoveDirection(0f);
                 }
                 else if (_playerSlidingController.IsActiveSlidingPhase)
                 {
-                    if (_playerSensors.HasSomethingInTheCollider)
-                        MakeSlidingTargetMoveVector(slideFriction, slideDrag, slideAngleSpeed,
-                            _playerSlidingController.SlideSpeedHardCap, _playerSlidingController.MinSlideSpeedIfCanNotStandUp);
+                    if (_playerSensors.IsForceSlide)
+                    {
+                        
+                        TargetMoveDirection = _playerInputController.NonZeroInputMoveVector.normalized;
+
+                        if (_playerSensors.FoundGroundNormal)
+                        {
+                            var horizontalNormal = new Vector3(_playerSensors.GroundNormal.x, 0f,
+                                _playerSensors.GroundNormal.z);
+                            if (horizontalNormal.sqrMagnitude > 0.01f)
+                            {
+                                horizontalNormal = horizontalNormal.normalized;
+                                var curAngle = Vector3.SignedAngle(horizontalNormal, TargetMoveDirection, Vector3.up);
+                                var clampedAngle = Mathf.Clamp(curAngle, -_playerSlidingController.MaxAngleFromDown,
+                                    _playerSlidingController.MaxAngleFromDown);
+                                TargetMoveDirection = Quaternion.AngleAxis(clampedAngle, Vector3.up) * horizontalNormal;
+                            }
+                        }
+                        
+                        MakeFrictionTargetSpeed(slideFriction, slideDrag,
+                            _playerSlidingController.SlideSpeedHardCap, _playerSlidingController.MinForceSlideSpeed);
+
+                    }
+                    else if (_playerSensors.HasSomethingInTheCollider)
+                    {
+                        MakeFrictionTargetSpeed(slideFriction, slideDrag,
+                            _playerSlidingController.SlideSpeedHardCap,
+                            _playerSlidingController.MinSlideSpeedIfCanNotStandUp);
+                        MakeNonZeroTargetMoveDirection(slideAngleSpeed);
+                    }
                     else
-                        MakeSlidingTargetMoveVector(slideFriction, slideDrag, slideAngleSpeed, _playerSlidingController.SlideSpeedHardCap);
+                    {
+                        MakeFrictionTargetSpeed(slideFriction, slideDrag, _playerSlidingController.SlideSpeedHardCap);
+                        MakeNonZeroTargetMoveDirection(slideAngleSpeed);
+                    }
+
                 }
                 else if (_playerLandingController.LandingState == 3)
                 {
-                    MakeSlidingTargetMoveVector(landingRollFriction, landingRollDrag, landingRollAngleSpeed, groundSpeedHardCap, _playerLandingController.RollLandingMinimalSpeed);
+                    MakeFrictionTargetSpeed(landingRollFriction, landingRollDrag, groundSpeedHardCap, _playerLandingController.RollLandingMinimalSpeed);
+                    MakeNonZeroTargetMoveDirection(landingRollAngleSpeed);
                 }
                 else if (_playerForwardJumpingController.IsLanding)
                 {
-                    MakeSlidingTargetMoveVector(forwardJumpLandingFriction, forwardJumpLandingDrag, forwardJumpLandingAngleSpeed, groundSpeedHardCap);
+                    MakeFrictionTargetSpeed(forwardJumpLandingFriction, forwardJumpLandingDrag, groundSpeedHardCap);
+                    MakeNonZeroTargetMoveDirection(forwardJumpLandingAngleSpeed);
                 }
                 else
                 {
                     TargetMoveDirection = _playerInputController.InputMoveVector;
                     TargetMoveSpeed = groundSpeed;
-                    LookToLockedTarget = _playerTargetLockController.IsLocked;
+                    if(_playerJumpController.IsStateNon && _playerLandingController.IsStateNon && _playerSlidingController.IsStateNon)
+                        LookToLockedTarget = _playerTargetLockController.IsLocked;
                     //Debug.Log("Ground " + counter++);
                 }
             }
@@ -174,10 +215,15 @@ public class PlayerManager : MonoBehaviour
         TargetMoveDirection = TargetMoveDirection.normalized;
     }
 
-    private void MakeSlidingTargetMoveVector(float friction, float drag, float angleSpeed, float maximalSpeed = Mathf.Infinity, float minimalSpeed = 0)
+    private void MakeFrictionTargetSpeed(float friction, float drag, float maximalSpeed = Mathf.Infinity, float minimalSpeed = 0)
     {
         var currentSpeed = _playerSensors.SpeedAlignedWithGround;
+        
         TargetMoveSpeed = Mathf.Clamp( Mathf.MoveTowards(currentSpeed, 0, (friction + drag*currentSpeed*currentSpeed)*Time.deltaTime ), minimalSpeed,maximalSpeed);
-        TargetMoveDirection = Vector3.RotateTowards(TargetMoveDirection, _playerInputController.NonZeroInputMoveVector, angleSpeed*Time.deltaTime, 0.0f);
+    }
+
+    private void MakeNonZeroTargetMoveDirection(float angleSpeed)
+    {
+        TargetMoveDirection = Vector3.RotateTowards(TargetMoveDirection, _playerInputController.NonZeroInputMoveVector, angleSpeed*Time.deltaTime, 1f);
     }
 }

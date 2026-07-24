@@ -1,3 +1,4 @@
+using CustomAttributes;
 using Unity.VisualScripting;
 using UnityEngine;
 
@@ -8,19 +9,27 @@ public class EnemyGunController : GunController
     [SerializeField] private int minimalCurrentBulletsToOpenFire = 1;
     [SerializeField] private float angleLeftToOpenFire = -45;
     [SerializeField] private float angleRightToOpenFire = 45;
+
     
-    [Header("Bursts")]
-    [SerializeField] private int bulletsInOneBurst = 1;
-    [SerializeField] private float timeBetweenBursts = 0.3f;
-    [SerializeField] private float burstTelegraphTime = 0.3f;
+    [Header("Getting hit")] 
+    [SerializeField] private bool interruptAimingWhenStunned = true;
     
+    [Header("Telegraph")]
+    [SerializeField] private float telegraphTime = 1f;
+
+    [Header("Bursts")] 
+    [SerializeField] private bool shootInBursts = false;
+    [SerializeField, EnableIf("shootInBursts")] private int bulletsInOneBurst = 1;
+    [SerializeField, EnableIf("shootInBursts")] private float timeBetweenBursts = 0.3f;
     [Header("Auto aim")]
     [SerializeField] private bool autoAim = true;
     [SerializeField] private float playerMaxSpeedToAutoAim = 9f;
+
+
+    private GettingHitController _gettingHitController;
     
-    
-    private enum FireStateEnum{Non, Telegraph, Burst}
-    private Utility.FractionBlockingValueTimer<FireStateEnum> fireState = FireStateEnum.Non;
+    private enum FireStateEnum{Non, Telegraph, Shooting}
+    private UtilityClasses.FractionBlockingValueTimer<FireStateEnum> fireState = FireStateEnum.Non;
     private int bulletsShotInThisBurst = 0;
     
     public bool IsTelegraphingAttack => fireState.Value ==  FireStateEnum.Telegraph;
@@ -42,7 +51,7 @@ public class EnemyGunController : GunController
     }
 
 
-    private Utility.TemporaryValue<bool> _useFastTelegraphTime = new(false, true);
+    private UtilityClasses.TemporaryValue<bool> _useFastTelegraphTime = new(false, true);
     private float _fastTelegraphTime;
     private float _fastTelegraphAngleIncrease;
 
@@ -52,7 +61,7 @@ public class EnemyGunController : GunController
         _useFastTelegraphTime.Activate(duration);
         _fastTelegraphTime=telegraphTime;
         fireState.SetForce(FireStateEnum.Non);
-        GetBulletsAtLeast(minimalCurrentBulletsToOpenFire);
+        GetImmediatelyReadyToShot(minimalCurrentBulletsToOpenFire);
     }
 
     private EnemySensors _enemySensors;
@@ -65,6 +74,8 @@ public class EnemyGunController : GunController
         _enemyAI = GetComponent<EnemyAI>();
         _openFireLeftRad = angleLeftToOpenFire * Mathf.Deg2Rad;
         _openFireRightRad = angleRightToOpenFire * Mathf.Deg2Rad;
+        if(interruptAimingWhenStunned)
+            _gettingHitController = GetComponent<GettingHitController>();
     }
 
     protected override void SetWantedTargetPoint()
@@ -134,43 +145,54 @@ public class EnemyGunController : GunController
         switch (fireState.Value)
         {
             case FireStateEnum.Non:
-                if (fireState.CanBeChanged && CanStartBurst() && IsAiming)
+                if (fireState.CanBeChanged && CanOpenFire() && IsAiming)
                 {
                     if (_useFastTelegraphTime)
                     {
                         fireState.SetForce(FireStateEnum.Telegraph, _fastTelegraphTime);
                     }
                     else{
-                        fireState.SetForce(FireStateEnum.Telegraph, burstTelegraphTime);
+                        fireState.SetForce(FireStateEnum.Telegraph, telegraphTime);
                     }
                 }
 
                 break;
             case FireStateEnum.Telegraph:
-                if (!CanStartBurst()  || !IsAiming)
+                if (!CanOpenFire() || !IsAiming)
+                {
                     fireState.SetForce(FireStateEnum.Non, 0);
-                
-                
-                if (fireState.CanBeChanged)
+                }
+                else if (fireState.CanBeChanged)
                 {
                     bulletsShotInThisBurst = 0;
-                    fireState.SetForce(FireStateEnum.Burst, 0);
+                    fireState.SetForce(FireStateEnum.Shooting, 0);
                 }
                 break;
-            case FireStateEnum.Burst:
-                bulletsShotInThisBurst += Shoot();
-                if(bulletsShotInThisBurst >= bulletsInOneBurst || CurrentAmountOfBullets <=0 || !IsAiming)
-                    fireState.SetForce(FireStateEnum.Non, timeBetweenBursts);
+            case FireStateEnum.Shooting:
+                
+                if (shootInBursts)
+                {
+                    bulletsShotInThisBurst += Shoot();
+                    if (bulletsShotInThisBurst >= bulletsInOneBurst || CurrentAmountOfBullets <= 0 || !IsAiming)
+                        fireState.SetForce(FireStateEnum.Non, timeBetweenBursts);
+                }
+                else
+                {
+                    if(Shoot()>0)
+                        fireState.SetForce(FireStateEnum.Non, 0f);
+                }
                 break;
         }
         
     }
 
-    private bool CanStartBurst()
+    private bool CanOpenFire()
     {
-        var res = RawTargetAngle >= _openFireLeftRad && 
-                   RawTargetAngle <= _openFireRightRad && 
-               CurrentAmountOfBullets >= minimalCurrentBulletsToOpenFire;
+        var res = CanShootAfterPreviousShot &&
+                  (!interruptAimingWhenStunned || !_gettingHitController.IsActivelyStunned) &&
+                  RawTargetAngle >= _openFireLeftRad && 
+                  RawTargetAngle <= _openFireRightRad && 
+                  CurrentAmountOfBullets >= minimalCurrentBulletsToOpenFire;
         //Debug.Log("Can start burst = " + res + ", target angle = " + TargetAngle);
         return res;
     }

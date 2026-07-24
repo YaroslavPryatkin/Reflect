@@ -6,10 +6,9 @@ using UnityEngine;
 using UnityEngine.AI;
 using Random = UnityEngine.Random;
 
+
 public class EnemyAI : MonoBehaviour
-{
-     [SerializeField] private Transform marker;
-    
+{ 
     [Header("Distances")] 
     [SerializeField] private float shootingDistance = 20f;
     [SerializeField] private float preferredDistanceMax = 14;
@@ -17,10 +16,8 @@ public class EnemyAI : MonoBehaviour
     [SerializeField] private float wanderingDistance = 10f;
     [SerializeField] private float retreatDistance = 6f;
 
-    [Header("Target calculating")]
-    [SerializeField] private float calculatingTargetDuration = 1f;
-    [SerializeField] private float directionsStep = 5f;
-    [SerializeField] private float distanceStep = 0.5f;
+     private const float DirectionsStep = 10f;
+     private const float DistancePresicion = 0.5f;
     
     [Header("Speeds")] 
     [SerializeField] private float traversalSpeed = 6f;
@@ -56,6 +53,7 @@ public class EnemyAI : MonoBehaviour
     [SerializeField]
     private float directionTimerMaxDuration = 5f;
 
+
     public bool IsMoving { get; private set; } = false;
     public bool IsAiming { get; private set; } = false;
     public float ShootingConeAngleIncrease { get; private set; } = 0f;
@@ -63,21 +61,28 @@ public class EnemyAI : MonoBehaviour
     private EnemySensors _enemySensors;
     private NavMeshAgent _agent;
     private EnemyGunController _enemyGunController;
-    
+
+    public int Index { get; set; }
     
     private int _movementDirection = 0;
     
-    private readonly Utility.TemporaryValue<bool> _orbitingDirectionTimer = new(false, true);
-    private readonly Utility.TemporaryValue<bool> _calculatingTargetTime = new(false, true);
+    private readonly UtilityClasses.TemporaryValue<bool> _orbitingDirectionTimer = new(false, true);
     private readonly float _orbitingAheadHalfAngle = 5f;
     private float _orbitingChord;
 
     private int _directionsToCheck;
     private float _preferredDistanceMid;
-    private bool _goingToMid=true;
+    
+    private bool _goingToPosition=true;
     private readonly List<float> _directions = new ();
-    private readonly List<float> _distances = new ();
-
+    //private readonly List<float> _distances = new ();
+    
+    private bool _lookingForPosition = false;
+    private int _currentCheckedDirection;
+    private Vector3 _currentTargetNavMeshPos;
+    private NavMeshPath _cachedPath;
+    private float _hMin, _hPref, _hMax;
+    
     private int _controlsMovementAndShooting = 0;
 
     public void TakeControls()
@@ -99,9 +104,12 @@ public class EnemyAI : MonoBehaviour
         //_changeDirectionApproachDistance = approachDiagonallySpeed * approachChangeDirectionInterval;
         _orbitingChord = Mathf.Sin(_orbitingAheadHalfAngle * Mathf.Deg2Rad)*2;
         
-        _directionsToCheck = (int)Math.Floor(360f / directionsStep);
+        _directionsToCheck = (int)Math.Floor(360f / DirectionsStep);
         _preferredDistanceMid = (preferredDistanceMax + preferredDistanceMin) / 2;
+        _cachedPath = new();
+        GlobalEnemyComputingTimeOptimizer.AddEnemy(this);
     }
+
     
     private void MakeRandomMovementDirection()
     {
@@ -123,7 +131,6 @@ public class EnemyAI : MonoBehaviour
     
     private void Retreat()
     {
-        _calculatingTargetTime.Deactivate();
         var targetPos = transform.position - _enemySensors.NormalizedHorizontalDirectionToPlayer * 1f;
         SetAgentDestination(targetPos);
         ChangeState(shootingRetreatSpeed, retreatSpeed, shootWhileRetreating && shootWhileMoving, shootAngleIncreaseWhileRetreating);
@@ -153,19 +160,48 @@ public class EnemyAI : MonoBehaviour
         }
     }
     
+    
     private void TryToShoot()
     {
-        if (!_calculatingTargetTime)
+        var distToPlayer = _enemySensors.DistanceToPlayer;
+        if (!_goingToPosition &&
+            _enemySensors.CanShootToPlayer && 
+            distToPlayer >= preferredDistanceMin &&
+            distToPlayer <= preferredDistanceMax)
         {
-            _calculatingTargetTime.Activate(calculatingTargetDuration);
+            if (shouldOrbit)
+            {
+                Orbit(distToPlayer, orbitingSpeed);
+            }
+            else
+            {
+                ChangeState(0f, 0f, shootWhileMoving, shootAngleIncreaseWhileMoving);
+            }
+            return;
+        }
+        
+        if(!_lookingForPosition && _goingToPosition)
+            _goingToPosition = Vector3.Distance(_enemySensors.MyPosition, _currentTargetNavMeshPos) > 1.5f;
+
+        
+        if (GlobalEnemyComputingTimeOptimizer.CanStartCalculation(Index))
+        {
+            StartFindShootingPosition();
+        }
+
+        if (_lookingForPosition)
+        {
             FindShootingPosition();
+            if (_currentCheckedDirection == _directionsToCheck)
+            {
+               _lookingForPosition = false;
+                ExecuteFallbacks();
+            }
         }
     }
-    
-    private void FindShootingPosition()
-    {
-        var path = new NavMeshPath();
 
+    private void StartFindShootingPosition()
+    { 
         var deltaY = Mathf.Abs(_enemySensors.PlayerPosition.y - _enemySensors.MyPosition.y);
 
         if (deltaY > shootingDistance)
@@ -173,102 +209,199 @@ public class EnemyAI : MonoBehaviour
             ExecuteFallbacks();
             return;
         }
-
-        var distToPlayer = _enemySensors.DistanceToPlayer;
-        if (!_goingToMid &&
-             _enemySensors.CanShootToPlayer && 
-             distToPlayer >= preferredDistanceMin &&
-             distToPlayer <= preferredDistanceMax)
-        {
-            if (shouldOrbit)
-            {
-                //Debug.Log("orbit");
-                Orbit(distToPlayer, orbitingSpeed);
-            }
-            else
-            {
-                
-                ChangeState(0f, 0f, shootWhileMoving, shootAngleIncreaseWhileMoving);
-            }
-            return;
-        }
-
         
-        _goingToMid = true;
-        
-        var hMax = Mathf.Sqrt(shootingDistance * shootingDistance - deltaY * deltaY);
-        
-        var hPref = 0f;
-        if (_preferredDistanceMid > deltaY)
-        {
-            hPref = Mathf.Sqrt(_preferredDistanceMid * _preferredDistanceMid - deltaY * deltaY);
-        }
-        hPref = Mathf.Min(hMax, Mathf.Max(hPref, 4f));
-
-        var hMin = 0f;
+        _hMax = Mathf.Sqrt(shootingDistance * shootingDistance - deltaY * deltaY);
+        _hMin = 0f;
         if (retreatDistance > deltaY)
         {
-            hMin = Mathf.Sqrt(retreatDistance * retreatDistance - deltaY * deltaY);
+            _hMin = Mathf.Sqrt(retreatDistance * retreatDistance - deltaY * deltaY);
         }
         
-        var baseDir = -_enemySensors.HorizontalDirectionToPlayer;
-        if (baseDir.sqrMagnitude < 0.001f) baseDir = Vector3.forward;
-        baseDir.Normalize();
+        var distToPlayer = _enemySensors.DistanceToPlayer;
+        if (distToPlayer < preferredDistanceMin || distToPlayer > preferredDistanceMax)
+        {
+            _hPref = 0f;
+            if (_preferredDistanceMid > deltaY)
+            {
+                _hPref = Mathf.Sqrt(_preferredDistanceMid * _preferredDistanceMid - deltaY * deltaY);
+            }
 
-
+            _hPref = Mathf.Min(_hMax, Mathf.Max(_hPref, 4f));
+        }
+        else
+        {
+            _hPref = Math.Clamp(_enemySensors.HorizontalDirectionToPlayer.magnitude, _hMin, _hMax);
+        }
+        
         _directions.Clear();
-        _distances.Clear();
+       // _distances.Clear();
 
         
         for (var i = 0; i < _directionsToCheck; i++)
         {
             var multiplier = (i % 2 == 0) ? -(i / 2) : (i / 2) + 1;
             if (i == 0) multiplier = 0;
-            var angle = multiplier * directionsStep;
+            var angle = multiplier * DirectionsStep;
             _directions.Add(angle);
         }
 
         
-        var distancesToCheck = Math.Max(1,(int)Math.Floor((hMax-hMin) / distanceStep));
+        // var distancesToCheck = Math.Max(1,(int)Math.Floor((hMax-hMin) / DistanceStep));
+        //
+        // for (var i = 1; i <= distancesToCheck; i++)
+        // {
+        //     _distances.Add(hMin + i * DistanceStep);
+        // }
+        // _distances.Sort((a, b) => Mathf.Abs(a - hPref).CompareTo(Mathf.Abs(b - hPref)));
 
-        for (var i = 1; i <= distancesToCheck; i++)
-        {
-            _distances.Add(hMin + i * distanceStep);
-        }
-        _distances.Sort((a, b) => Mathf.Abs(a - hPref).CompareTo(Mathf.Abs(b - hPref)));
+        _lookingForPosition = true;
+        _currentCheckedDirection = 0;
+    }
+
+    private struct SearchSegment
+    {
+        public float Min;
+        public float Max;
+        public float Mid;
+    }
+    
+    private readonly PriorityQueue.PriorityQueue<SearchSegment, float> _segmentsPool = new ();
+
+    private bool CheckDirectionBestFirst(in Vector3 start, in Vector3 dir)
+    {
+        _segmentsPool.Clear();
         
-        
-        foreach (var angle in _directions)
+        var initialMid = (_hMin + _hMax) * 0.5f;
+        _segmentsPool.Enqueue(new SearchSegment
         {
-            foreach (var dist in _distances)
+            Min = _hMin,
+            Max = _hMax,
+            Mid = initialMid
+        }, Mathf.Abs(initialMid - _hPref));
+
+        while (_segmentsPool.Count > 0)
+        {
+            var current = _segmentsPool.Dequeue();
+
+            var halfLen = (current.Max - current.Min) * 0.5f;
+            var radius = Mathf.Sqrt(halfLen * halfLen + 4f);
+            
+            var midPoint = start + dir * current.Mid;
+
+            if (NavMesh.SamplePosition(midPoint, out var hit, radius, NavMesh.AllAreas))
             {
-                var dir = Quaternion.Euler(0, angle, 0) * baseDir;
-                var targetPos = _enemySensors.PlayerPosition + dir * dist;
-                targetPos.y = _enemySensors.MyPosition.y;
-
-                if (_enemySensors.HasLineOfSightToPlayer(targetPos))
+                if (current.Max - current.Min <= DistancePresicion)
                 {
-                    if (NavMesh.SamplePosition(targetPos, out var hit, 2f, NavMesh.AllAreas))
+                    if (_enemySensors.HasLineOfSightToPlayer(midPoint)) 
                     {
-                        if (NavMesh.CalculatePath(_enemySensors.MyPosition, hit.position, NavMesh.AllAreas, path) &&
-                            path.status == NavMeshPathStatus.PathComplete)
+                        if (NavMesh.CalculatePath(_enemySensors.MyPosition, hit.position, NavMesh.AllAreas, _cachedPath) &&
+                            _cachedPath.status == NavMeshPathStatus.PathComplete)
                         {
-                            //Debug.Log("Found position: angle =  " + angle + ", dist = " + dist);
-                            //marker.position = targetPos;
-                            _goingToMid =  Vector3.Distance(_enemySensors.MyPosition, targetPos) > distanceStep * 1.2f;
-                            //Debug.Log("Going, dist = " + rawDist + ", dist to player " + distToPlayer + ", hMax " + hMax  + ", hPref " + hPref + ", hMin " + hMin + ", dist count " + distancesCount);
-                            _agent.SetPath(path);
-                            _calculatingTargetTime.Deactivate();
-                            ChangeState(shootingMovingSpeed, traversalSpeed, shootWhileMoving, shootAngleIncreaseWhileMoving);
-                            return;
+                            _currentTargetNavMeshPos = hit.position; 
+                            _agent.SetPath(_cachedPath);
+                            return true; 
                         }
                     }
+                }
+                else
+                {
+                    var leftMid = (current.Min + current.Mid) * 0.5f;
+                    var leftDist = Mathf.Abs(leftMid - _hPref);
+                    _segmentsPool.Enqueue(new SearchSegment
+                    {
+                        Min = current.Min,
+                        Max = current.Mid,
+                        Mid = leftMid
+                    }, leftDist);
+
+                    var rightMid = (current.Mid + current.Max) * 0.5f;
+                    var rightDist = Mathf.Abs(rightMid - _hPref);
+                    _segmentsPool.Enqueue(new SearchSegment
+                    {
+                        Min = current.Mid,
+                        Max = current.Max,
+                        Mid = rightMid
+                    }, rightDist);
                 }
             }
         }
 
-        ExecuteFallbacks();
+        return false;
+    } 
+    
+    private void FindShootingPosition()
+    {
+        
+        var baseDir = -_enemySensors.HorizontalDirectionToPlayer;
+        if (baseDir.sqrMagnitude < 0.001f) baseDir = Vector3.forward;
+        baseDir.Normalize();
+    
+        var end = Math.Min(
+            _currentCheckedDirection + 5 + Mathf.CeilToInt(
+                _directionsToCheck / GlobalEnemyComputingTimeOptimizer.CalculatingTargetDuration * Time.deltaTime), 
+            _directionsToCheck);
+        var startPos = _enemySensors.PlayerPosition;
+        startPos.y = _enemySensors.MyPosition.y;
+        for (; _currentCheckedDirection < end; ++_currentCheckedDirection)
+        {
+            var dir = Quaternion.Euler(0, _directions[_currentCheckedDirection], 0) * baseDir;
+
+            if (CheckDirectionBestFirst(startPos, dir))
+            {
+                _lookingForPosition = false;
+                _goingToPosition = true;
+                ChangeState(shootingMovingSpeed, traversalSpeed, shootWhileMoving, shootAngleIncreaseWhileMoving);
+                return;
+            }
+        }
     }
+    
+    
+    
+    // private void FindShootingPosition()
+    // {
+    //     
+    //     var baseDir = -_enemySensors.HorizontalDirectionToPlayer;
+    //     if (baseDir.sqrMagnitude < 0.001f) baseDir = Vector3.forward;
+    //     baseDir.Normalize();
+    //
+    //     var end = Math.Min(
+    //         _currentCheckedDirection + 5 + Mathf.CeilToInt(
+    //                            _directionsToCheck / GlobalEnemyComputingTimeOptimizer.CalculatingTargetDuration * Time.deltaTime), 
+    //         _directionsToCheck);
+    //     for (; _currentCheckedDirection < end; ++_currentCheckedDirection)
+    //     {
+    //         foreach (var dist in _distances)
+    //         {
+    //             var dir = Quaternion.Euler(0, _directions[_currentCheckedDirection], 0) * baseDir;
+    //             var targetPos = _enemySensors.PlayerPosition + dir * dist;
+    //             targetPos.y = _enemySensors.MyPosition.y;
+    //
+    //             if (NavMesh.SamplePosition(targetPos, out var hit, 2f, NavMesh.AllAreas))
+    //             {
+    //                 if (_enemySensors.HasLineOfSightToPlayer(targetPos))
+    //                 {
+    //                     if (NavMesh.CalculatePath(_enemySensors.MyPosition, hit.position, NavMesh.AllAreas, _cachedPath) &&
+    //                         _cachedPath.status == NavMeshPathStatus.PathComplete)
+    //                     {
+    //                         _currentTargetPos = targetPos;
+    //                         _agent.SetPath(_cachedPath);
+    //                         ChangeState(shootingMovingSpeed, traversalSpeed, shootWhileMoving, shootAngleIncreaseWhileMoving);
+    //                         //Debug.Log("Found position, attempts = " + checkedAmount + ", has line of sight = " + checkedHasLine + ", have path = " + checkedCanGetTo);
+    //                         _lookingForPosition = false;
+    //                         _goingToPosition = true;
+    //                         //Debug.Log("Found, checked =  " + checkedAmount);
+    //                         
+    //                         Debug.Log("Successfully found, checked = " + _checkedPoints + ",  successful nav mesh snap = " + _successfullMeshSnap);
+    //                         return;
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    
+
 
     private void ExecuteFallbacks()
     {

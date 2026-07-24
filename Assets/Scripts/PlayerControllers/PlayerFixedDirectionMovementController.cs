@@ -35,7 +35,7 @@ public class PlayerFixedDirectionMovementController : MonoBehaviour
     public StateEnum State => _state.Value;
     public bool IsStateNon => _state.Value == StateEnum.Non;
     
-    private readonly Utility.BlockingValueTimer<StateEnum> _state = StateEnum.Non;
+    private readonly UtilityClasses.BlockingValueTimer<StateEnum> _state = StateEnum.Non;
 
     private bool _shouldStopBecauseOfSpeed = true;
 
@@ -159,7 +159,7 @@ public class PlayerFixedDirectionMovementController : MonoBehaviour
     {
         return _state.Value switch
         {
-            StateEnum.Line => Utility.ProjectPointOnLine(transform, _playerSensors.RailLine),
+            StateEnum.Line => UtilityFunctions.ProjectPointOnLine(transform, _playerSensors.RailLine),
             StateEnum.LeftWall => _playerSensors.LeftWallRunPoint,
             StateEnum.RightWall => _playerSensors.RightWallRunPoint,
             _ => Vector3.zero
