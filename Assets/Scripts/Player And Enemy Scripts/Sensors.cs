@@ -13,6 +13,8 @@ public abstract class Sensors : MonoBehaviour
     [SerializeField] private LayerMask myLayer;
     [SerializeField] private LayerMask enemyLayer;
 
+    public const QueryTriggerInteraction QueryTriggerInteractionShooting = QueryTriggerInteraction.Collide;
+    
     protected abstract Vector3 GetVelocity();
     
     public bool IsGrounded { get; private set; }
@@ -26,24 +28,42 @@ public abstract class Sensors : MonoBehaviour
     public Vector3 HorizontalVelocity { get; private set; } =  Vector3.zero;
     public Vector3 NormalizedHorizontalVelocity { get; private set; } =  Vector3.zero;
     public float HorizontalSpeed { get; private set; } = 0f;
+    
+    
+    
+    public CapsuleCollider ThisCollider { get; private set; } = null;
+    public float ColliderRadius { get; private set; } = 0f;
+    public float ColliderHeight { get; private set; } = 0f;
+    public float ColliderHalfHeight { get; private set; } = 0f;
+    public float ColliderCenterToTopDistance { get; private set; } = 0f;
+    public Vector3 ColliderCenterToTop { get; private set; } = Vector3.zero;
+    
+    public Vector3 ColliderHalfHeightVector {get; private set;} = Vector3.up;
 
     public int MyLayerMask => myLayer;
     public int IgnoreMyLayerMask { get; private set; } = 0;
-
+    
     public int EnemyLayer => enemyLayer;
 
     protected virtual void Awake()
     {
-        IgnoreMyLayerMask = ~myLayer;
+        IgnoreMyLayerMask = ~(myLayer | (2 << 1)) ;
+        ThisCollider = GetComponent<CapsuleCollider>();
+        ColliderRadius =  ThisCollider.radius;
+        ColliderHeight =  ThisCollider.height;
+        ColliderHalfHeight = ColliderHeight / 2;
+        ColliderCenterToTopDistance = ColliderHalfHeight - ColliderRadius;
+        ColliderCenterToTop = ColliderCenterToTopDistance * Vector3.up;
+        ColliderHalfHeightVector = ColliderHalfHeight * Vector3.up;
     }
 
-    protected virtual void Update()
+    public virtual void Update()
     {
         GatherGroundSensors();
         UpdateVelocity();
     }
     
-    private void FixedUpdate()
+    protected virtual void FixedUpdate()
     {
         UpdateVelocity();
     }

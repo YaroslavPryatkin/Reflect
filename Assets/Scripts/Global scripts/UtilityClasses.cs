@@ -2,6 +2,7 @@ using System;
 using NUnit.Framework;
 using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine.Pool;
 
 public static class UtilityClasses
 {
@@ -10,7 +11,8 @@ public static class UtilityClasses
         public T Value { get; }
         public float TimeFraction { get; }
     }
-
+    
+    
     public struct ParabolaCurve
     {
         public Vector3 StartPos;
@@ -166,7 +168,7 @@ public static class UtilityClasses
             startTime = Time.time - duration * fraction;
             targetTime = Time.time + duration * (1-fraction);
         }
-
+        
         public bool CanBeChanged => Time.time >= targetTime;
         public float TimeFraction => Mathf.Abs(targetTime - startTime) <= 0.0001f ? 1 : (Time.time-startTime)/(targetTime - startTime);
         
@@ -176,6 +178,48 @@ public static class UtilityClasses
         }
         
         public static implicit operator T(FractionBlockingValueTimer<T> timer)
+        {
+            return timer.Value;
+        }
+    }
+    
+    public class FractionBlockingValueTimerUnscaled<T> : IFractionTimer<T>
+    {
+        private float targetTime;
+        private float startTime;
+        public T Value { get; private set; }
+
+        public FractionBlockingValueTimerUnscaled(T initialVal)
+        {
+            Value = initialVal;
+            targetTime = 0f;
+            startTime = 0f;
+        }
+        
+        public bool TrySet(T value, float duration = 0)
+        {
+            if (Time.unscaledTime < targetTime) return false;
+            
+            SetForce(value, duration);
+            return true;
+        }
+
+        public void SetForce(T value, float duration = 0, float fraction = 0)
+        {
+            Value = value;
+            startTime = Time.unscaledTime - duration * fraction;
+            targetTime = Time.unscaledTime + duration * (1-fraction);
+        }
+        
+        public bool CanBeChanged => Time.unscaledTime >= targetTime;
+        public float TimeFraction => Mathf.Abs(targetTime - startTime) <= 0.0001f ? 1 : (Time.unscaledTime-startTime)/(targetTime - startTime);
+        
+        public static implicit operator FractionBlockingValueTimerUnscaled<T>(T value)
+        {
+            return new FractionBlockingValueTimerUnscaled<T>(value);
+        }
+        
+        public static implicit operator T(FractionBlockingValueTimerUnscaled<T> timer)
         {
             return timer.Value;
         }
@@ -214,6 +258,54 @@ public static class UtilityClasses
         }
         
         public static implicit operator T(DelayedValueTimer<T> timer)
+        {
+            return timer.Value;
+        }
+    }
+    
+    public class FractionDelayedValueTimer<T> : IFractionTimer<T>
+    {
+        private float targetTime;
+        private float startTime;
+        private T lastValue;
+        private T value;
+
+        public FractionDelayedValueTimer(T value)
+        {
+            this.value = value;
+            lastValue = value;
+            startTime = 0f;
+            targetTime = 0f;
+        }
+
+        public T Value => Time.time < targetTime ? lastValue : value;
+
+        public float TimeFraction => Mathf.Abs(targetTime - startTime) <= 0.0001f ? 1 : (Time.time-startTime)/(targetTime - startTime);
+
+        public bool CanBeChanged => Time.time >= targetTime;
+        
+        public T RealValue => value;
+        
+        public void Set(T value, float delay = 0, float fraction=0)
+        {
+            lastValue = Value;
+            startTime = Time.time - delay * fraction;
+            targetTime = Time.time + delay * (1-fraction);
+            this.value = value;
+        }
+
+        public void ResetTime(float delay = 0, float fraction = 0)
+        {
+            startTime = Time.time - delay * fraction;
+            targetTime = Time.time + delay * (1-fraction);
+        }
+        
+        public static implicit operator FractionDelayedValueTimer<T>(T value)
+        {
+            return new FractionDelayedValueTimer<T>(value);
+        }
+        
+        public static implicit operator T(FractionDelayedValueTimer<T> timer)
         {
             return timer.Value;
         }
@@ -324,11 +416,43 @@ public static class UtilityClasses
             return tmpValue.Value;
         }
     }
+    
+    public class FractionTimer
+    {
+        private float lastTime;
+        private float unitTime;
+        private float startTime;
+        
+        
+        public float TimeFraction => GetTimeFraction(Time.time);
+        public int IntegersSinceLastTime => (int)GetTimeFraction(Time.time) - (int)GetTimeFraction(lastTime);
+        public void UpdateLastTime() => lastTime = Time.time;
+        public float TimeFractionSinceLastTime => (Time.time - lastTime) / unitTime;
+        
+        public void Set(float unitDuration, float timeShift=0f, float fraction = 0f)
+        {
+            lastTime = Time.time;
+            startTime = Time.time - unitDuration * fraction + timeShift;
+            unitTime = unitDuration;
+            if (Mathf.Abs(unitTime) <= 0.0001f)
+            {
+                Debug.LogError("UnitTime is zero");
+                unitTime = 1f;
+            }
+        }
 
+        private float GetTimeFraction(float time)
+        {
+            return (time - startTime) / unitTime;
+        }
+    }
+    
+    
     public class BaseActionAutomaticTransition
     {
         private readonly FractionBlockingValueTimer<UtilityFunctions.BaseActionTransitionsEnum> _timer;
-        public float CrossFadeDuration{get; set; }
+        public float FadeInTime { get; set; }
+        public float FadeOutTime { get; set; }
         public float WeightMultiplier { get; set; }
 
         public UtilityFunctions.BaseActionTransitionsEnum Value => _timer.Value;
@@ -336,15 +460,23 @@ public static class UtilityClasses
         public BaseActionAutomaticTransition(UtilityFunctions.BaseActionTransitionsEnum startingValue, float crossFadeDuration, float weightMultiplier = 1f)
         {
             _timer = startingValue;
-            CrossFadeDuration = crossFadeDuration;
+            FadeInTime = crossFadeDuration;
+            FadeOutTime = crossFadeDuration;
             WeightMultiplier =  weightMultiplier;
         }
 
-        public BaseActionAutomaticTransition(float crossFadeDuration, float weightMultiplier = 1f)
+        public BaseActionAutomaticTransition(float crossFadeDuration = 1f, float weightMultiplier = 1f)
         {
             _timer = UtilityFunctions.BaseActionTransitionsEnum.Base;
-            CrossFadeDuration = crossFadeDuration;
+            FadeInTime = crossFadeDuration;
+            FadeOutTime = crossFadeDuration;
             WeightMultiplier =  weightMultiplier;
+        }
+
+        public void SetFadeTimes(float fadeInTime, float fadeOutTime)
+        {
+            FadeInTime = fadeInTime;
+            FadeOutTime = fadeOutTime;
         }
         
         public float GetFraction(bool shouldBeActive){
@@ -352,21 +484,21 @@ public static class UtilityClasses
             {
                 case UtilityFunctions.BaseActionTransitionsEnum.Base:
                     if(shouldBeActive)
-                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.BaseToAction, CrossFadeDuration);
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.BaseToAction, FadeInTime);
                     break;
                 case UtilityFunctions.BaseActionTransitionsEnum.BaseToAction:
                     if(!shouldBeActive)
-                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.ActionToBase, CrossFadeDuration, 1-_timer.TimeFraction);
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.ActionToBase, FadeOutTime, 1-_timer.TimeFraction);
                     if(_timer.CanBeChanged)
                         _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.Action);
                     break;
                 case UtilityFunctions.BaseActionTransitionsEnum.Action:
                     if(!shouldBeActive)
-                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.ActionToBase, CrossFadeDuration);
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.ActionToBase, FadeOutTime);
                     break;
                 case UtilityFunctions.BaseActionTransitionsEnum.ActionToBase:
                     if(shouldBeActive)
-                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.BaseToAction, CrossFadeDuration, 1-_timer.TimeFraction);
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.BaseToAction, FadeInTime, 1-_timer.TimeFraction);
                     if(_timer.CanBeChanged)
                         _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.Base);
                     break;
@@ -396,6 +528,91 @@ public static class UtilityClasses
         }
         
         public static implicit operator UtilityFunctions.BaseActionTransitionsEnum(BaseActionAutomaticTransition transition)
+        {
+            return transition.Value;
+        }
+    }
+    
+    public class BaseActionAutomaticTransitionUnscaled
+    {
+        private readonly FractionBlockingValueTimerUnscaled<UtilityFunctions.BaseActionTransitionsEnum> _timer;
+        public float FadeInTime { get; set; }
+        public float FadeOutTime { get; set; }
+        public float WeightMultiplier { get; set; }
+
+        public UtilityFunctions.BaseActionTransitionsEnum Value => _timer.Value;
+        
+        public BaseActionAutomaticTransitionUnscaled(UtilityFunctions.BaseActionTransitionsEnum startingValue, float crossFadeDuration, float weightMultiplier = 1f)
+        {
+            _timer = startingValue;
+            FadeInTime = crossFadeDuration;
+            FadeOutTime = crossFadeDuration;
+            WeightMultiplier =  weightMultiplier;
+        }
+
+        public BaseActionAutomaticTransitionUnscaled(float crossFadeDuration = 1f, float weightMultiplier = 1f)
+        {
+            _timer = UtilityFunctions.BaseActionTransitionsEnum.Base;
+            FadeInTime = crossFadeDuration;
+            FadeOutTime = crossFadeDuration;
+            WeightMultiplier =  weightMultiplier;
+        }
+
+        public void SetFadeTimes(float fadeInTime, float fadeOutTime)
+        {
+            FadeInTime = fadeInTime;
+            FadeOutTime = fadeOutTime;
+        }
+        
+        public float GetFraction(bool shouldBeActive){
+            switch (_timer.Value)
+            {
+                case UtilityFunctions.BaseActionTransitionsEnum.Base:
+                    if(shouldBeActive)
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.BaseToAction, FadeInTime);
+                    break;
+                case UtilityFunctions.BaseActionTransitionsEnum.BaseToAction:
+                    if(!shouldBeActive)
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.ActionToBase, FadeOutTime, 1-_timer.TimeFraction);
+                    if(_timer.CanBeChanged)
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.Action);
+                    break;
+                case UtilityFunctions.BaseActionTransitionsEnum.Action:
+                    if(!shouldBeActive)
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.ActionToBase, FadeOutTime);
+                    break;
+                case UtilityFunctions.BaseActionTransitionsEnum.ActionToBase:
+                    if(shouldBeActive)
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.BaseToAction, FadeInTime, 1-_timer.TimeFraction);
+                    if(_timer.CanBeChanged)
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.Base);
+                    break;
+            }
+            return UtilityFunctions.GetTransitionFraction(_timer, WeightMultiplier);
+        }
+
+        public float GetRemainCurrentStateFraction()
+        {
+            switch (_timer.Value)
+            {
+                case UtilityFunctions.BaseActionTransitionsEnum.BaseToAction:
+                    if(_timer.CanBeChanged)
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.Action);
+                    break;
+                case UtilityFunctions.BaseActionTransitionsEnum.ActionToBase:
+                    if(_timer.CanBeChanged)
+                        _timer.SetForce(UtilityFunctions.BaseActionTransitionsEnum.Base);
+                    break;
+            }
+            return UtilityFunctions.GetTransitionFraction(_timer, WeightMultiplier);
+        }
+        
+        public static implicit operator BaseActionAutomaticTransitionUnscaled(float crossFadeDuration)
+        {
+            return new BaseActionAutomaticTransitionUnscaled(crossFadeDuration);
+        }
+        
+        public static implicit operator UtilityFunctions.BaseActionTransitionsEnum(BaseActionAutomaticTransitionUnscaled transition)
         {
             return transition.Value;
         }
@@ -643,14 +860,15 @@ public static class UtilityClasses
     }
     
     
-    public class DelayDurationValueTimer<T>
+    public class FractionDelayDurationValueTimer<T>
     {
+        private float startTime;
         private float delayTime;
         private float durationTime;
         private T lastValue;
         private T value;
 
-        public DelayDurationValueTimer(T value)
+        public FractionDelayDurationValueTimer(T value)
         {
             this.value = value;
             lastValue = value;
@@ -661,11 +879,18 @@ public static class UtilityClasses
         public T Value => Time.time < delayTime ? lastValue : value;
 
         public T RealValue => value;
-        
-        public float DelayTime => Math.Max(delayTime - Time.time, 0f);
-        public float DurationTime => Math.Max(durationTime - Time.time, 0f);
 
-        public bool Set(T value, float delay = 0, float duration = 0)
+        public float DelayTimeFraction => 
+            Mathf.Abs(delayTime - startTime) <= 0.0001f
+            ? 1
+            : (Time.time - startTime) / (delayTime - startTime);
+        
+        public float DurationTimeFraction => 
+            Mathf.Abs(durationTime - startTime) <= 0.0001f
+            ? 1
+            : (Time.time - startTime) / (durationTime - startTime);
+
+        public bool TrySet(T value, float delay = 0, float duration = 0)
         {
             if (Time.time < durationTime) return false;
             
@@ -675,7 +900,8 @@ public static class UtilityClasses
         
         public void SetForce(T value, float delay = 0, float duration = 0)
         {
-            lastValue = Value; 
+            lastValue = Value;
+            startTime = Time.time;
             delayTime = Time.time + delay;
             durationTime = Time.time + duration;
             this.value = value;
@@ -683,12 +909,12 @@ public static class UtilityClasses
 
         public bool CanBeChanged => Time.time >= durationTime;
         
-        public static implicit operator DelayDurationValueTimer<T>(T value)
+        public static implicit operator FractionDelayDurationValueTimer<T>(T value)
         {
-            return new DelayDurationValueTimer<T>(value);
+            return new FractionDelayDurationValueTimer<T>(value);
         }
         
-        public static implicit operator T(DelayDurationValueTimer<T> timer)
+        public static implicit operator T(FractionDelayDurationValueTimer<T> timer)
         {
             return timer.Value;
         }

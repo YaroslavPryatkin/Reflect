@@ -102,7 +102,7 @@ public class EnemyDodgeController : MonoBehaviour
         _animationLayerController = controller.GetAnimationLayer(clips, 6, "Enemy dodge");
         _animationLayerController.SetPlayableWeight(dodgeClip, 1f);
         _animationLayerController.SetPlayableSpeed(dodgeClip,
-            UtilityFunctions.GetAnimationSpeed(dodgeClip, dodgeDuration));
+            UtilityFunctions.GetAnimationSpeed(dodgeClip, dodgeDuration, crossFadeDuration));
         
         _curveSpeedMultiplier = 1f / (UtilityFunctions.EvaluateCurveAverage(dodgeCurve) * dodgeDuration);
 
@@ -133,7 +133,6 @@ public class EnemyDodgeController : MonoBehaviour
                     var dir = Random.value > 0.5f ? 1 : -1;
                     StartDodge(dodgeDistanceFromBullets, Vector3.Cross(_enemySensors.NormalizedHorizontalDirectionToPlayer, Vector3.up) * dir);
                 }
-
                 break;
         }
     }
@@ -145,13 +144,13 @@ public class EnemyDodgeController : MonoBehaviour
         {
             _bulletsTaken=0;
             _hitsTaken=0;
-            _rb.isKinematic = false;
+            //_rb.isKinematic = false;
             _agent.enabled = false;
             _enemyAI.TakeControls();
             _state.SetForce(StateEnum.Dodging, dodgeDuration);
             _direction = direction * (distance * _curveSpeedMultiplier);
             _enemyRotationController.UseSpecificDirection(direction);
-            _animationLayerController.ResetPlayableTime(dodgeClip);
+            _animationLayerController.SetPlayableTime(dodgeClip);
             _healthController.GrantIFrames();
             
             if(_haveGunController)
@@ -161,7 +160,7 @@ public class EnemyDodgeController : MonoBehaviour
 
     private void FinishDodge()
     {
-        _rb.linearVelocity = Vector3.zero;
+        //_rb.linearVelocity = Vector3.zero;
         _tryingToSnapToNavMesh = true;
         
         if (_haveGunController)
@@ -192,7 +191,7 @@ public class EnemyDodgeController : MonoBehaviour
                 transform.position = hit.position;
                 Physics.SyncTransforms();
                 _agent.enabled = true;
-                _rb.isKinematic = true;
+                //_rb.isKinematic = true;
                 _tryingToSnapToNavMesh = false;
                 _agent.ResetPath();
                 _enemyAI.ReturnControls();
@@ -222,7 +221,12 @@ public class EnemyDodgeController : MonoBehaviour
     {
         if (_state == StateEnum.Dodging)
         {
-            _rb.linearVelocity = dodgeCurve.Evaluate(_state.TimeFraction) * _direction;
+            var nextPos = transform.position + _direction * (Time.fixedDeltaTime * dodgeCurve.Evaluate(_state.TimeFraction));
+            if (NavMesh.SamplePosition(nextPos, out var hit, 2.0f, NavMesh.AllAreas))
+            {
+                _rb.MovePosition(hit.position + _enemySensors.ColliderHalfHeightVector);
+                Physics.SyncTransforms();
+            }
         }
     }
     

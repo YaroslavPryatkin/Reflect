@@ -20,12 +20,14 @@ public class PlayerMeleeTransformController : MeleeTransformController
 
     protected override bool DoesHaveTarget()
     {
-        return _playerTargetLockController.IsLocked;
+        return _playerTargetLockController.IsLocked || _playerTargetLockController.IsMeleeLocked;
     }
 
     protected override void SetTargetLookDirection(out Vector3 inputDirection)
     {
-        if(_playerInputController.IsPlayerPressingWASD)
+        if (!_playerTargetLockController.IsLocked && _playerTargetLockController.IsMeleeLocked)
+            inputDirection = _playerTargetLockController.NormalizedHorizontalDirectionToLockedTarget;
+        else if(_playerInputController.IsPlayerPressingWASD)
             inputDirection = _playerInputController.InputMoveVector;
         else if (_playerTargetLockController.IsLocked)
             inputDirection = _playerTargetLockController.NormalizedHorizontalDirectionToLockedTarget;

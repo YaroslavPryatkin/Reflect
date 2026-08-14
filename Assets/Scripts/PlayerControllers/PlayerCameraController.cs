@@ -96,7 +96,7 @@ public class PlayerCameraController : MonoBehaviour
             wantedSideShift = railSideShiftCurveMultiplier * railSideShiftCurve.Evaluate(dot) * Mathf.Sign(dot);
             cameraTransformController.TargetUpShift = railUpShift;
         }
-        else if (_playerTargetLockController.IsLocked)
+        else if (_playerTargetLockController.IsLocked || _playerTargetLockController.IsMeleeLocked)
         {
             cameraTransformController.TargetCameraDistance = targetLockCameraDistance;
             cameraTransformController.TargetUpShift = targetLockUpShift;

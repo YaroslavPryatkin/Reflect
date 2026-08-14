@@ -99,12 +99,12 @@ public class AnimationLayerController
         }
     }
 
-    public void ResetPlayableTime(AnimationClip clip)
+    public void SetPlayableTime(AnimationClip clip, float timeInSeconds=0f)
     {
         if (ClipToPort.TryGetValue(clip, out var port))
         {
             var playable = AnimationMixer.GetInput(port);
-            if(playable.IsValid()) playable.SetTime(0f);
+            if(playable.IsValid()) playable.SetTime(timeInSeconds);
         }
     }
     

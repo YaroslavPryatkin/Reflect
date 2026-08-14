@@ -1,5 +1,6 @@
 using UnityEngine;
 
+[DefaultExecutionOrder(50)]
 public class PlayerTargetMoveVectorUser : MonoBehaviour
 {
     [Header("Acceleration")]
@@ -12,6 +13,7 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
     [Header("Air")]
     [SerializeField] private float airAcceleration = 4f;
     [SerializeField] private float additionalAirAccelerationIfAngleIsBig = 10f;
+    [SerializeField] private float maximalFallSpeed = 15f;
     [Header("Wall")]
     [SerializeField] private float wallRunAcceleration = 70f;
     [SerializeField] private float wallRunDeceleration = 15f;
@@ -59,7 +61,7 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
         
 
         
-        if (!_playerForwardJumpingController.IsInAir)
+        if (_playerManager.CanUseTargetMoveVector)
         {
             if(!_meleeTransformController.IsActive || !_meleeTransformController.IsControllingMovement)
                 ChangeVelocityVectorToMatchTargetMoveVector();
@@ -77,9 +79,6 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
     
     private void ChangeVelocityVectorToMatchTargetMoveVector()
     {
-        
-        
-        
         Vector3 newHorizontalVelocity;
         var newY = _playerSensors.Velocity.y;
         if (_playerManager.UseGroundPhysics)
@@ -121,7 +120,7 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
             else
             {
                 newHorizontalVelocity = _playerSensors.HorizontalVelocity;
-                //Debug.Log("Air Acceleration " + targetSpeed);
+                newY = Mathf.Max(newY, -maximalFallSpeed);
                 if (_targetDir != Vector3.zero)
                 {
                     if (_currentHorizontalSpeed > 0.001f)

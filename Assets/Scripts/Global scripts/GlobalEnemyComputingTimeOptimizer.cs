@@ -35,16 +35,16 @@ public class GlobalEnemyComputingTimeOptimizer : MonoBehaviour
     private bool _haveEnemies=false;
     private bool _returnedTrue = false;
 
-    public static void AddEnemy(EnemyAI enemy)
+    public static int AddEnemy(EnemyAI enemy)
     {
-        Instance.AddEnemyInstance(enemy);
+        return Instance.AddEnemyInstance(enemy);
     }
     
-    private void AddEnemyInstance(EnemyAI enemy)
+    private int AddEnemyInstance(EnemyAI enemy)
     {
         _enemies.Add(enemy);
-        enemy.Index = _enemies.Count - 1;
         UpdateTime();
+        return _enemies.Count - 1;
     }
 
     public static void DeleteEnemy(int index)
@@ -57,7 +57,7 @@ public class GlobalEnemyComputingTimeOptimizer : MonoBehaviour
         _enemies.RemoveAt(index);
         for (; index < _enemies.Count; ++index)
         {
-            _enemies[index].Index = index;
+            _enemies[index].ChangeComputingIndex(index);
         }
         UpdateTime();
     }

@@ -20,14 +20,14 @@ namespace CustomAttributes
         }
     }
     
-    [AttributeUsage(AttributeTargets.Field, Inherited = true, AllowMultiple = false)]
-    public class EnableIfNotAttribute : PropertyAttribute
+    [AttributeUsage(AttributeTargets.Field)]
+    public class CurveRangeAttribute : PropertyAttribute
     {
-        public string ConditionFieldName { get; private set; }
+        public Rect Bounds { get; }
 
-        public EnableIfNotAttribute(string conditionFieldName)
+        public CurveRangeAttribute(float minX, float minY, float maxX, float maxY)
         {
-            ConditionFieldName = conditionFieldName;
+            Bounds = new Rect(minX, minY, maxX - minX, maxY - minY);
         }
     }
 }

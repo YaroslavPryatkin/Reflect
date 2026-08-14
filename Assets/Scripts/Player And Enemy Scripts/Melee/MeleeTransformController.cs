@@ -53,7 +53,7 @@ public abstract class MeleeTransformController : MonoBehaviour
         if (IsActive)
         {
             //Debug.Log("<color="+GetColor()+">Ending previous " + _type + "</color>");
-            FinishMove();
+            InterruptMove();
         }
         
         _isActiveTimer.Set(moveRequest);
@@ -79,7 +79,7 @@ public abstract class MeleeTransformController : MonoBehaviour
         if (IsActive)
         {
             //Debug.Log("<color="+GetColor()+">Ending previous " + _type + "</color>");
-            FinishMove();
+            InterruptMove();
         }
         
         _isActiveTimer.Set(moveRequest);
@@ -100,7 +100,7 @@ public abstract class MeleeTransformController : MonoBehaviour
         if (IsActive)
         {
             //Debug.Log("<color="+GetColor()+">Ending previous " + _type + "</color>");
-            FinishMove();
+            InterruptMove();
         }
         
         
@@ -130,15 +130,15 @@ public abstract class MeleeTransformController : MonoBehaviour
         //Debug.Log("<color="+GetColor()+">Starting parabola</color>");
     }
 
-    private string GetColor()
-    {
-        return _type switch
-        {
-            TypeEnum.Parabola => "red",
-            TypeEnum.Moving => "green",
-            TypeEnum.Standing => "cyan"
-        };
-    }
+    // private string GetColor()
+    // {
+    //     return _type switch
+    //     {
+    //         TypeEnum.Parabola => "red",
+    //         TypeEnum.Moving => "green",
+    //         TypeEnum.Standing => "cyan"
+    //     };
+    // }
     
     public void StopMovingAndClearReferences()
     {
@@ -152,13 +152,13 @@ public abstract class MeleeTransformController : MonoBehaviour
         if (!_isActiveTimer.Value)
         {
             //Debug.Log("<color="+GetColor()+">Ending for timer ran out</color>");
-            FinishMove();
+            InterruptMove();
             return;
         }
 
         if (!_sensors.IsGrounded && _type == TypeEnum.Moving)
         { 
-            FinishMove();
+            InterruptMove();
             return;
         }
 
@@ -167,7 +167,7 @@ public abstract class MeleeTransformController : MonoBehaviour
             case TypeEnum.Parabola:
                 if (!DoesHaveTarget())
                 {
-                    FinishMove();
+                    InterruptMove();
                     return;
                 }
                 SetTargetPositionAndDirection(out _targetPosition, out _targetDirection);
@@ -194,18 +194,21 @@ public abstract class MeleeTransformController : MonoBehaviour
         }
     }
 
-    private void FinishMove()
+    public void InterruptMove()
     {
-        _rb.isKinematic = _wasKinematic;
-        _wasKinematic = false;
-        IsActive = false;
-        if(_type == TypeEnum.Moving)
-            _rb.linearVelocity = Vector3.zero;
+        if (IsActive)
+        {
+            _rb.isKinematic = _wasKinematic;
+            _wasKinematic = false;
+            IsActive = false;
+            if (_type == TypeEnum.Moving)
+                _rb.linearVelocity = Vector3.zero;
+        }
     }
     
     private void Move()
     {
-        Vector3 endPos = Vector3.zero;
+        var endPos = Vector3.zero;
 
         switch (_type)
         {
@@ -214,7 +217,7 @@ public abstract class MeleeTransformController : MonoBehaviour
                 if (Vector3.Distance(transform.position, endPos) < 0.1f || 
                     Vector3.Distance(transform.position, _targetPosition) < targetDistanceToTarget)
                 {
-                    FinishMove();
+                    InterruptMove();
                     return;
                 }
                

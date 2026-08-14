@@ -2,11 +2,9 @@ using UnityEngine;
 using System.Collections.Generic;
 using System;
 using CustomAttributes;
-using Unity.VisualScripting;
-using UnityEngine.Animations.Rigging;
-using BaseActionTransitionsEnum = UtilityFunctions.BaseActionTransitionsEnum;
 
 [DefaultExecutionOrder(-50)]
+[RequireComponent(typeof(AnimationAndRigManager))]
 public class IkRigTargetController : MonoBehaviour
 {
     [Header("Settings")]
@@ -15,29 +13,31 @@ public class IkRigTargetController : MonoBehaviour
     [SerializeField] private Transform controlledObject;
     [SerializeField] private int index;
     
-    [Header("Sources")]
-    [SerializeField] private int sourcesArrayCount = 2;
-    
     [Header("Speeds")]
     [SerializeField] private float movementSpeed;
     [SerializeField] private float rotationSpeed;
     
+    [Header("Clip")]
+    [SerializeField] private bool haveClip = false;
+    [SerializeField, EnableIf("haveClip")]
+    private uint animationLayer = 3;
+    [SerializeField,  EnableIf("haveClip")] 
+    private AnimationClip clip;
+    [SerializeField,  EnableIf("haveClip")] 
+    private AvatarMask layerMask;
+    
+    private AnimationLayerController _animationLayerController;
+    
     public int Index => index;
-    private float _totalWeight;
-
-    public void ChangeTotalWeight(float delta)
-    {
-        _totalWeight += delta;
-    }
-
+    
     [Serializable]
     public abstract class PositionAndRotationSource
     {
         protected abstract Vector3 PositionInternal { get; }
         protected abstract Quaternion RotationInternal { get; }
 
-        public Vector3 Position => Origin.InverseTransformPoint(PositionInternal);
-        public Quaternion Rotation => Quaternion.Inverse(Origin.rotation) * RotationInternal;
+        public Vector3 GetPosition(Transform origin) => origin.InverseTransformPoint(PositionInternal);
+        public Quaternion GetRotation(Transform origin) => Quaternion.Inverse(origin.rotation) * RotationInternal;
 
         private float _weight = 0f;
         public float Weight
@@ -46,18 +46,12 @@ public class IkRigTargetController : MonoBehaviour
             set
             {
                 value = Mathf.Clamp01(value);
-                _controller.ChangeTotalWeight(value - _weight);
                 _weight = value;
             }
         }
 
-        protected Transform Origin;
-        private IkRigTargetController _controller;
-
-        public virtual void Initialize(IkRigTargetController controller, Transform origin)
+        public virtual void Initialize()
         {
-            Origin = origin;
-            _controller = controller;
         }
     }
     
@@ -82,12 +76,11 @@ public class IkRigTargetController : MonoBehaviour
         protected override Vector3 PositionInternal => _position;
         protected override Quaternion RotationInternal =>  _rotation;
         
-        public override void Initialize(IkRigTargetController controller, Transform origin)
+        public override void Initialize()
         {
-            base.Initialize(controller, origin);
             if (input == null || output == null)
             {
-                Debug.LogError("OffsetRigSource: Input or Output transform is missing!", origin);
+                Debug.LogError("OffsetRigSource: Input or Output transform is missing!");
                 return;
             }
             _posOffset = output.InverseTransformPoint(input.position);
@@ -129,20 +122,27 @@ public class IkRigTargetController : MonoBehaviour
         protected override Vector3 PositionInternal => source.position;
         protected override Quaternion RotationInternal => source.rotation;
 
-        public override void Initialize(IkRigTargetController controller, Transform origin)
+        public override void Initialize()
         {
-            base.Initialize(controller, origin);
             if (source == null)
             {
-                Debug.LogError("TransformRigSource: Source transform is missing!", origin);
+                Debug.LogError("TransformRigSource: Source transform is missing!");
             }
         }
     }
     
-    public class PositionAndRotation
+    
+    
+    private class PositionAndRotation
     {
         public Vector3 Position { get; set; } = Vector3.zero;
         public Quaternion Rotation{ get; set; } = Quaternion.identity;
+        private readonly Transform _origin;
+
+        public PositionAndRotation(Transform origin)
+        {
+            _origin = origin;
+        }
         
         public void MoveTowards(PositionAndRotation target, float movementSpeed, float rotationSpeed)
         {
@@ -150,11 +150,45 @@ public class IkRigTargetController : MonoBehaviour
             Position = Vector3.MoveTowards(Position, target.Position,  movementSpeed*Time.deltaTime);
         }
 
-        public void UseSource(PositionAndRotationSource target,  float blendWeight)
+        public void UseSource(PositionAndRotationSource target,  float blendWeight, ref Vector4 rotationAccumulator)
         {
             var weight = Mathf.Clamp01(blendWeight);
-            Position = Vector3.Lerp(Position, target.Position, weight);
-            Rotation = Quaternion.Slerp(Rotation, target.Rotation, weight);
+            Position += target.GetPosition(_origin) * weight;
+            
+            var targRot = target.GetRotation(_origin);
+            
+            var qTarget = new Vector4(targRot.x, targRot.y, targRot.z, targRot.w);
+
+            if (Vector4.Dot(rotationAccumulator, qTarget) < 0f)
+            {
+                qTarget = -qTarget;
+            }
+
+            rotationAccumulator += qTarget * weight;
+        }
+        
+        public void ApplyBlendedRotation(ref Vector4 rotationAccumulator)
+        {
+            float mag = rotationAccumulator.magnitude;
+            if (mag > 0.0001f)
+            {
+                Rotation = new Quaternion(
+                    rotationAccumulator.x / mag,
+                    rotationAccumulator.y / mag,
+                    rotationAccumulator.z / mag,
+                    rotationAccumulator.w / mag
+                );
+            }
+            else
+            {
+                Rotation = Quaternion.identity;
+            }
+        }
+
+        public void UseSourceRaw(PositionAndRotationSource target)
+        {
+            Position = target.GetPosition(_origin);
+            Rotation = target.GetRotation(_origin);
         }
 
         public void Reset()
@@ -163,12 +197,13 @@ public class IkRigTargetController : MonoBehaviour
             Rotation = Quaternion.identity;
         }
     }
-    
-    private readonly PositionAndRotation _current = new ();
-    private readonly PositionAndRotation _target = new();
-    private PositionAndRotationSource[] _sources;
 
+    private PositionAndRotation _current;
+    private PositionAndRotation _target;
     private TransformSource _controlledObjectSource;
+    
+    private readonly List<PositionAndRotationSource> _sources = new();
+
     
     private void Awake()
     {
@@ -182,31 +217,62 @@ public class IkRigTargetController : MonoBehaviour
             enabled = false;
             return;
         }
-        _sources = new PositionAndRotationSource[sourcesArrayCount];
+
+        if (haveClip && clip == null)
+        {
+            Debug.LogError("No grab clip found!", this);
+            enabled = false;
+            return;
+        }
+        
+        _current = new (transform);
+        _target = new (transform);
         _controlledObjectSource = new TransformSource(controlledObject);
-        _controlledObjectSource.Initialize(this, transform);
+        
+        
+        if (haveClip)
+        {
+            var clips = new HashSet<AnimationClip> { clip };
+            _animationLayerController = controller.GetAnimationLayer(clips, animationLayer, layerMask, "Grab clip");
+            _animationLayerController.SetPlayableWeight(clip, 1f);
+        }
     }
     
 
     private void Update()
     {
-        if (_totalWeight < 0.01f)
+        var totalWeight = 0f;
+        
+        foreach (var src in _sources)
         {
+            totalWeight += src.Weight;
+        }
+        
+        if (totalWeight < 0.01f)
+        {
+            if (haveClip)
+                _animationLayerController.SetLayerWeight(0f);
+            
             SetRigWeight(0f);
-            _current.UseSource(_controlledObjectSource, 1f);
+            _current.UseSourceRaw(_controlledObjectSource);
             return;
         }
         
         _target.Reset();
-        for (var i = 0; i < _sources.Length; i++)
+        var rotationAccumulator = Vector4.zero;
+        foreach (var src in _sources)
         {
-            var src = _sources[i];
-            
-            if (src == null) continue; 
-            _target.UseSource(src, src.Weight/_totalWeight);
+            _target.UseSource(src, src.Weight/totalWeight, ref rotationAccumulator);
         }
+        _target.ApplyBlendedRotation(ref rotationAccumulator);
         
-        SetRigWeight(_totalWeight);
+        
+        
+        SetRigWeight(totalWeight);
+        
+        if (haveClip)
+            _animationLayerController.SetLayerWeight(totalWeight);
+        
         _current.MoveTowards(_target, movementSpeed, rotationSpeed);
         ikTarget.position = transform.TransformPoint(_current.Position);
         ikTarget.rotation = transform.rotation * _current.Rotation;
@@ -221,29 +287,15 @@ public class IkRigTargetController : MonoBehaviour
         }
     }
     
-    public void SetSource(PositionAndRotationSource source, int sourceIndex)
+    public void SetSource(PositionAndRotationSource source)
     {
-        if (sourceIndex < 0 || sourceIndex >= _sources.Length)
-        {
-            Debug.LogError($"Source index {sourceIndex} out of bounds! Array size is {sourcesArrayCount}", this);
-            return;
-        }
-
-        if (_sources[sourceIndex] != null)
-        {
-            Debug.LogError($"Source index {sourceIndex} is already taken!", this);
-            return;
-        }
-        source.Initialize(this, transform);
-        _sources[sourceIndex] = source;
+        if (!_sources.Contains(source)) _sources.Add(source);
+        source.Initialize();
     }
     
-    public void RemoveSource(int sourceIndex)
+    public void RemoveSource(PositionAndRotationSource source)
     {
-        if (sourceIndex >= 0 && sourceIndex < _sources.Length)
-        {
-            _sources[sourceIndex] = null;
-        }
+        _sources.Remove(source);
     }
     
 }

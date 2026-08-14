@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class InputSlider : MonoBehaviour
+public class InputSlider : MonoBehaviour, UIManager.IInitializable
 {
     [SerializeField] private Slider slider;
     [SerializeField] private TextMeshProUGUI valueShower;
@@ -13,14 +13,10 @@ public class InputSlider : MonoBehaviour
 
     private string format;
     
-    private void Awake()
+    public void Initialize()
     {
         slider.onValueChanged.AddListener(OnValueChanged);
         format = "F" + (digitsAfterDot > 0 ? digitsAfterDot.ToString() : "0");
-    }
-    
-    private void Start()
-    {
         OnValueChanged(slider.value);
     }
     

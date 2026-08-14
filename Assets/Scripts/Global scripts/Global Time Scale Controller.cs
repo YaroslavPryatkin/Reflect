@@ -3,43 +3,48 @@ using System.Collections.Generic;
 
 public static class GlobalTimeScaleController
 {
-    private static Dictionary<object, float> _timeScales = new ();
-    private static float currentTimeScale = 1;
-    
+    private static readonly Dictionary<object, float> TimeScales = new ();
+    private static float _baseFixedDeltaTime = -1f; 
+
     public static void ChangeTimePace(object caller, float scale)
     {
-        if (_timeScales.TryGetValue(caller, out var previousScale))
-        {
-            _timeScales[caller] = scale * previousScale;
-        }
-        else
-        {
-            _timeScales.Add(caller, scale);
-        }
-        currentTimeScale *= scale;
-        SwitchTimeScale();
+        InitializeIfNeeded();
+        
+        TimeScales[caller] = scale;
+        
+        RecalculateAndApply();
     }
 
     public static void ReturnTimePace(object caller)
     {
-        if (!_timeScales.Remove(caller, out var scale)) return;
-        
-        if (_timeScales.Count == 0)
+        if (TimeScales.Remove(caller))
         {
-            currentTimeScale = 1;
+            RecalculateAndApply();
         }
-        else
-        {
-            currentTimeScale /= scale;
-        }
-
-        SwitchTimeScale();
     }
 
-    private static void SwitchTimeScale()
+    private static void RecalculateAndApply()
     {
-        Time.timeScale = currentTimeScale;
-        Time.fixedDeltaTime = 0.02f * currentTimeScale;
+        var totalScale = 1f;
+        
+        foreach (var scale in TimeScales.Values)
+        {
+            totalScale *= scale;
+        }
+
+        totalScale = Mathf.Max(0f, totalScale);
+
+        Time.timeScale = totalScale;
+        
+        Time.fixedDeltaTime = _baseFixedDeltaTime * totalScale;
+    }
+
+    private static void InitializeIfNeeded()
+    {
+        if (_baseFixedDeltaTime < 0f)
+        {
+            _baseFixedDeltaTime = Time.fixedDeltaTime;
+        }
     }
 
 }

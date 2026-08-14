@@ -12,7 +12,7 @@ public class EnemyGunController : GunController
 
     
     [Header("Getting hit")] 
-    [SerializeField] private bool interruptAimingWhenStunned = true;
+    [SerializeField] private bool interruptTelegraphingWhenStunned = true;
     
     [Header("Telegraph")]
     [SerializeField] private float telegraphTime = 1f;
@@ -29,11 +29,12 @@ public class EnemyGunController : GunController
     private GettingHitController _gettingHitController;
     
     private enum FireStateEnum{Non, Telegraph, Shooting}
-    private UtilityClasses.FractionBlockingValueTimer<FireStateEnum> fireState = FireStateEnum.Non;
-    private int bulletsShotInThisBurst = 0;
+    private readonly UtilityClasses.FractionBlockingValueTimer<FireStateEnum> _fireState = FireStateEnum.Non;
+    private int _bulletsShotInThisBurst = 0;
     
-    public bool IsTelegraphingAttack => fireState.Value ==  FireStateEnum.Telegraph;
-    public float TelegraphFraction => fireState.TimeFraction;
+    public bool IsStateNon => _fireState.Value == FireStateEnum.Non;
+    public bool IsTelegraphingAttack => _fireState.Value ==  FireStateEnum.Telegraph;
+    public float TelegraphFraction => _fireState.TimeFraction;
 
     private float _openFireLeftRad;
     private float _openFireRightRad;
@@ -51,7 +52,8 @@ public class EnemyGunController : GunController
     }
 
 
-    private UtilityClasses.TemporaryValue<bool> _useFastTelegraphTime = new(false, true);
+    private readonly UtilityClasses.TemporaryValue<bool> _useFastTelegraphTime = new(false, true);
+    public bool IsUsingFastTelegraphTime => _useFastTelegraphTime.Value;
     private float _fastTelegraphTime;
     private float _fastTelegraphAngleIncrease;
 
@@ -60,8 +62,8 @@ public class EnemyGunController : GunController
         _fastTelegraphAngleIncrease = angleIncrease;
         _useFastTelegraphTime.Activate(duration);
         _fastTelegraphTime=telegraphTime;
-        fireState.SetForce(FireStateEnum.Non);
-        GetImmediatelyReadyToShot(minimalCurrentBulletsToOpenFire);
+        _fireState.SetForce(FireStateEnum.Non);
+        SetBulletsAtLeast(minimalCurrentBulletsToOpenFire);
     }
 
     private EnemySensors _enemySensors;
@@ -70,67 +72,118 @@ public class EnemyGunController : GunController
     protected override void Awake()
     {
         base.Awake();
-        _enemySensors = (EnemySensors) _sensors;
+        _enemySensors = (EnemySensors) Sensors;
         _enemyAI = GetComponent<EnemyAI>();
         _openFireLeftRad = angleLeftToOpenFire * Mathf.Deg2Rad;
         _openFireRightRad = angleRightToOpenFire * Mathf.Deg2Rad;
-        if(interruptAimingWhenStunned)
+        if(interruptTelegraphingWhenStunned)
             _gettingHitController = GetComponent<GettingHitController>();
     }
 
-    protected override void SetWantedTargetPoint()
+    // protected override void SetWantedTargetPoint()
+    // {
+    //     if (!autoAim)
+    //     {
+    //         WantedTargetPoint = _enemySensors.PlayerPosition;
+    //         return;
+    //     }
+    //
+    //
+    //     var playerPos = _enemySensors.PlayerPosition;
+    //     var rawVelocity = _enemySensors.PlayerVelocity;
+    //
+    //     var clampedVelocity = Vector3.ClampMagnitude(rawVelocity, playerMaxSpeedToAutoAim);
+    //
+    //     var distanceVector = playerPos - GunPosition;
+    //
+    //     var a = clampedVelocity.sqrMagnitude - _sqrBulletSpeed;
+    //     var b = 2f * Vector3.Dot(distanceVector, clampedVelocity);
+    //     var c = distanceVector.sqrMagnitude;
+    //     var discriminant = b * b - 4f * a * c;
+    //
+    //     if (discriminant < 0f)
+    //     {
+    //         WantedTargetPoint = playerPos;
+    //         return;
+    //     }
+    //
+    //     var sqrtDiscriminant = Mathf.Sqrt(discriminant);
+    //     var t1 = (-b - sqrtDiscriminant) / (2f * a);
+    //     var t2 = (-b + sqrtDiscriminant) / (2f * a);
+    //
+    //     var timeToIntercept = 0f;
+    //
+    //     if (t1 > 0f && t2 > 0f)
+    //         timeToIntercept = Mathf.Min(t1, t2);
+    //     else if (t1 > 0f)
+    //         timeToIntercept = t1;
+    //     else if (t2 > 0f)
+    //         timeToIntercept = t2;
+    //     else
+    //     {
+    //         WantedTargetPoint = playerPos;
+    //         return;
+    //     }
+    //
+    //     WantedTargetPoint = playerPos + (clampedVelocity * timeToIntercept);
+    //     
+    // }
+    
+    
+    protected override void SetWantedTargetPoint(out Vector3 wantedTargetPoint)
     {
         if (!autoAim)
         {
-            WantedTargetPoint = _enemySensors.PlayerPosition;
+            wantedTargetPoint = _enemySensors.PlayerPosition;
+            return; 
         }
 
+        var playerPos = _enemySensors.PlayerPosition;
+        var rawVelocity = _enemySensors.PlayerVelocity;
+        var clampedVelocity = Vector3.ClampMagnitude(rawVelocity, playerMaxSpeedToAutoAim);
+        var distanceVector = playerPos - GunPosition;
 
-        Vector3 playerPos = _enemySensors.PlayerPosition;
-        Vector3 rawVelocity = _enemySensors.PlayerVelocity;
+        var v0 = barrelController.BulletInitialSpeed;
+        var a = barrelController.BulletAcceleration;
 
-        Vector3 clampedVelocity = Vector3.ClampMagnitude(rawVelocity, playerMaxSpeedToAutoAim);
+        // C4*t^4 + C3*t^3 + C2*t^2 + C1*t + C0 = 0
+        var c4 = 0.25f * a * a;
+        var c3 = v0 * a;
+        var c2 = (v0 * v0) - clampedVelocity.sqrMagnitude;
+        var c1 = -2f * Vector3.Dot(distanceVector, clampedVelocity);
+        var c0 = -distanceVector.sqrMagnitude;
 
-        Vector3 distanceVector = playerPos - GunPosition;
+        var t = distanceVector.magnitude / Mathf.Max(v0, 0.1f);
 
-        float a = clampedVelocity.sqrMagnitude - (bulletSpeed * bulletSpeed);
-        float b = 2f * Vector3.Dot(distanceVector, clampedVelocity);
-        float c = distanceVector.sqrMagnitude;
-        float discriminant = b * b - 4f * a * c;
-
-        if (discriminant < 0f)
+        for (var i = 0; i < 5; i++)
         {
-            WantedTargetPoint = playerPos;
+            var f = c4 * (t * t * t * t) + c3 * (t * t * t) + c2 * (t * t) + c1 * t + c0;
+            
+            var df = 4f * c4 * (t * t * t) + 3f * c3 * (t * t) + 2f * c2 * t + c1;
+
+            if (Mathf.Abs(df) < 0.0001f)
+                break;
+
+            t = t - (f / df);
+
+            if (t < 0f)
+                t = 0f;
+        }
+
+        if (t <= 0.05f || float.IsNaN(t))
+        {
+            wantedTargetPoint = playerPos;
             return;
         }
 
-        float sqrtDiscriminant = Mathf.Sqrt(discriminant);
-        float t1 = (-b - sqrtDiscriminant) / (2f * a);
-        float t2 = (-b + sqrtDiscriminant) / (2f * a);
-
-        float timeToIntercept = 0f;
-
-        if (t1 > 0f && t2 > 0f)
-            timeToIntercept = Mathf.Min(t1, t2);
-        else if (t1 > 0f)
-            timeToIntercept = t1;
-        else if (t2 > 0f)
-            timeToIntercept = t2;
-        else
-        {
-            WantedTargetPoint = playerPos;
-            return;
-        }
-
-        WantedTargetPoint = playerPos + (clampedVelocity * timeToIntercept);
-        
+        wantedTargetPoint = playerPos + (clampedVelocity * t);
     }
 
-    protected override void ChangeIsAimingAndAimingAngleIncrease()
+    protected override void SetIsAimingAndAimingAngleIncrease(out bool isAiming, out float aimAngleIncrease)
     {
-        IsAiming = _enemyAI.IsAiming;
+        isAiming = _enemyAI.IsAiming;
         
-        AimAngleIncrease = _useFastTelegraphTime ?_fastTelegraphAngleIncrease : _enemyAI.ShootingConeAngleIncrease;
+        aimAngleIncrease = _useFastTelegraphTime ?_fastTelegraphAngleIncrease : _enemyAI.ShootingConeAngleIncrease;
     }
 
     protected override bool ShouldInterruptAiming()
@@ -142,44 +195,50 @@ public class EnemyGunController : GunController
     {
         base.Update();
         
-        switch (fireState.Value)
+        switch (_fireState.Value)
         {
             case FireStateEnum.Non:
-                if (fireState.CanBeChanged && CanOpenFire() && IsAiming)
+                if (_fireState.CanBeChanged && CanOpenFire() && _enemyAI.IsAiming)
                 {
                     if (_useFastTelegraphTime)
                     {
-                        fireState.SetForce(FireStateEnum.Telegraph, _fastTelegraphTime);
+                        _fireState.SetForce(FireStateEnum.Telegraph, _fastTelegraphTime);
                     }
                     else{
-                        fireState.SetForce(FireStateEnum.Telegraph, telegraphTime);
+                        _fireState.SetForce(FireStateEnum.Telegraph, telegraphTime);
                     }
                 }
 
                 break;
             case FireStateEnum.Telegraph:
-                if (!CanOpenFire() || !IsAiming)
+                if (!CanOpenFire() || !_enemyAI.IsAiming)
                 {
-                    fireState.SetForce(FireStateEnum.Non, 0);
+                    _fireState.SetForce(FireStateEnum.Non, 0);
                 }
-                else if (fireState.CanBeChanged)
+                else if (_fireState.CanBeChanged)
                 {
-                    bulletsShotInThisBurst = 0;
-                    fireState.SetForce(FireStateEnum.Shooting, 0);
+                    _bulletsShotInThisBurst = 0;
+                    _fireState.SetForce(FireStateEnum.Shooting, 0);
                 }
                 break;
             case FireStateEnum.Shooting:
                 
                 if (shootInBursts)
                 {
-                    bulletsShotInThisBurst += Shoot();
-                    if (bulletsShotInThisBurst >= bulletsInOneBurst || CurrentAmountOfBullets <= 0 || !IsAiming)
-                        fireState.SetForce(FireStateEnum.Non, timeBetweenBursts);
+                    _bulletsShotInThisBurst += Shoot();
+                    if (_bulletsShotInThisBurst >= bulletsInOneBurst || CurrentAmountOfBullets <= 0 || !_enemyAI.IsAiming)
+                    {
+                        _useFastTelegraphTime.Deactivate();
+                        _fireState.SetForce(FireStateEnum.Non, timeBetweenBursts);
+                    }
                 }
                 else
                 {
-                    if(Shoot()>0)
-                        fireState.SetForce(FireStateEnum.Non, 0f);
+                    if (Shoot() > 0)
+                    {
+                        _useFastTelegraphTime.Deactivate();
+                        _fireState.SetForce(FireStateEnum.Non, 0f);
+                    }
                 }
                 break;
         }
@@ -189,7 +248,7 @@ public class EnemyGunController : GunController
     private bool CanOpenFire()
     {
         var res = CanShootAfterPreviousShot &&
-                  (!interruptAimingWhenStunned || !_gettingHitController.IsActivelyStunned) &&
+                  (!interruptTelegraphingWhenStunned || !_gettingHitController.IsActivelyStunned) &&
                   RawTargetAngle >= _openFireLeftRad && 
                   RawTargetAngle <= _openFireRightRad && 
                   CurrentAmountOfBullets >= minimalCurrentBulletsToOpenFire;

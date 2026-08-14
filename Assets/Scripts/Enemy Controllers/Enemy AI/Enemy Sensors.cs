@@ -8,7 +8,7 @@ public class EnemySensors : Sensors
     [SerializeField] private Transform shoulderPoint;
     [SerializeField] private List<Transform> seePoints;
     [SerializeField] private float seeDistance;
-
+    
     private GameObject _player;
     private PlayerHitBoxController _playerHitBoxController;
     private PlayerSensors _playerSensors;
@@ -45,7 +45,7 @@ public class EnemySensors : Sensors
         }
     }
 
-    protected override void Update()
+    public override void Update()
     {
         base.Update();
         ChangeSeePlayer();
@@ -74,7 +74,7 @@ public class EnemySensors : Sensors
         
         IsDetectingPlayer = true;
         CanShootToPlayer = UtilityFunctions.HasLineOfSight(shoulderPoint.position, PlayerPosition,
-            IgnoreMyLayerMask, EnemyLayer);
+            IgnoreMyLayerMask, EnemyLayer, QueryTriggerInteractionShooting);
     }
 
     public bool HasLineOfSightToPlayer(Vector3 position)
@@ -84,7 +84,7 @@ public class EnemySensors : Sensors
         foreach (var shift in _shiftVectors)
         {
             if (!UtilityFunctions.HasLineOfSight(position + rot * shift, PlayerPosition,
-                    IgnoreMyLayerMask, EnemyLayer))
+                    IgnoreMyLayerMask, EnemyLayer, QueryTriggerInteractionShooting))
                 return false;
         }
         // Debug.Log("Has line of sight was called " + res);

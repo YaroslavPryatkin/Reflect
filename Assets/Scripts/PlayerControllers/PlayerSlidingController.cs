@@ -1,7 +1,6 @@
 using UnityEngine;
 using Vector3 = UnityEngine.Vector3;
 
-[DefaultExecutionOrder(50)]
 public class PlayerSlidingController : MonoBehaviour
 {
     [Header("Sliding")]

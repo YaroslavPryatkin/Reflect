@@ -11,6 +11,7 @@ public class EnemyRotationController : MonoBehaviour
     private EnemyAI _enemyAI;
     private NavMeshAgent _agent;
     private GunController _gunController;
+    private HealthController _healthController;
 
     private float _fastRotationSpeedRad;
     private float _rotationSpeedWhileAimingRad;
@@ -41,6 +42,7 @@ public class EnemyRotationController : MonoBehaviour
         _enemySensors = GetComponent<EnemySensors>();
         _enemyAI = GetComponent<EnemyAI>();
         _agent = GetComponent<NavMeshAgent>();
+        _healthController = GetComponent<HealthController>();
         _agent.angularSpeed = rotationSpeed;
     }
 
@@ -54,6 +56,12 @@ public class EnemyRotationController : MonoBehaviour
     
     private void Update()
     {
+        if (_healthController.IsDead)
+        {
+            _agent.updateRotation = false;
+            return;
+        }
+        
         if (_useSpecificDirection)
         {
             _agent.updateRotation = false;

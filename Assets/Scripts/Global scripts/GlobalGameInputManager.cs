@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -22,6 +23,12 @@ public class GlobalGameInputManager : MonoBehaviour
     public event System.Action OnParryReleaseEvent;
     public event System.Action OnAimPressEvent;
     public event System.Action OnAimReleaseEvent;
+    
+    
+    [SerializeField] private string gameInputMapName = "Player";
+    [SerializeField] private string uiInputMapName = "UI";
+    
+    private PlayerInput _playerInput;
 
     private void Awake()
     {
@@ -32,7 +39,16 @@ public class GlobalGameInputManager : MonoBehaviour
         else
         {
             Destroy(gameObject);
+            return;
         }
+
+        _playerInput = GetComponent<PlayerInput>();
+    }
+
+    private void Start()
+    {
+        _playerInput.SwitchCurrentActionMap(gameInputMapName);//to immediately disable it
+        SwitchInputMapInternal(InputMaps.UI);
     }
 
     public void OnMove(InputAction.CallbackContext context) 
@@ -115,5 +131,25 @@ public class GlobalGameInputManager : MonoBehaviour
     {
         if (context.started)
             OnTargetLockEvent?.Invoke();
+    }
+
+    public enum InputMaps
+    {
+        UI, Game
+    }
+
+
+    public static void SwitchInputMap(InputMaps map) => Instance.SwitchInputMapInternal(map);
+    
+    private void SwitchInputMapInternal(InputMaps map)
+    {
+        var mapName = map switch
+        {
+            InputMaps.Game => gameInputMapName,
+            _ => uiInputMapName
+        };
+        _playerInput.currentActionMap.Disable();
+        _playerInput.SwitchCurrentActionMap(mapName);
+        _playerInput.currentActionMap.Enable();
     }
 }

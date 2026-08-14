@@ -35,6 +35,7 @@ public class PlayerInputController : MonoBehaviour
         _parryBuffer.DeactivateAll(); 
         _jumpBuffer.Deactivate();
         _heavyAttackChargeAntiBuffer.Deactivate();
+        _playerMeleeController.ResetCurrentAction();
     }
     public bool IsJumpBufferActive => _jumpBuffer.Value;
     public bool IsDashPressed { get; private set; } = false;
@@ -76,6 +77,7 @@ public class PlayerInputController : MonoBehaviour
     private PlayerSensors _playerSensors;
     private PlayerTargetLockController _playerTargetLockController;
     private MeleeTransformController _meleeTransformController;
+    private PlayerMeleeController _playerMeleeController;
 
     private void Awake()
     {
@@ -83,6 +85,7 @@ public class PlayerInputController : MonoBehaviour
         _playerSensors = GetComponentInChildren<PlayerSensors>();
         _playerTargetLockController = GetComponent<PlayerTargetLockController>();
         _meleeTransformController = GetComponent<MeleeTransformController>();
+        _playerMeleeController = GetComponent<PlayerMeleeController>();
         _attackBuffer = new(false, true, attackBufferTime, attackBufferSize);
         _parryBuffer = new (false, true, parryBufferTime, parryBufferSize);
     }
@@ -217,10 +220,7 @@ public class PlayerInputController : MonoBehaviour
         }
         else
         {
-            if(_playerSensors.HorizontalSpeed > 0.01f)
-                NonZeroInputMoveVector = _playerSensors.NormalizedHorizontalVelocity;
-            else
-                NonZeroInputMoveVector = transform.forward;
+            NonZeroInputMoveVector = transform.forward;
             IsPlayerPressingWASD = false;
         }
         

@@ -55,6 +55,11 @@ public class PlayerFixedDirectionMovementController : MonoBehaviour
         HandleWallRunLogic();
     }
 
+    public void Interrupt()
+    {
+        _state.SetForce(StateEnum.Non, 0);
+    }
+
     private void HandleWallRunLogic()
     {
         if (!_playerManager.CanFixedMovement)
@@ -185,11 +190,22 @@ public class PlayerFixedDirectionMovementController : MonoBehaviour
     
     public void SnapToPlace(float targetSpeed, Vector3 targetDir)
     {
-        var targetPos = GetOriginPoint() + LastNormal * _targetDistance;
-        if (Vector3.Distance(transform.position, targetPos) > distanceError)
+        switch (_state.Value)
         {
-            //Debug.Log("Snapping distance, dist = " + dist + ", target dist = " + _targetDistance + ", error = " + Mathf.Abs(dist - _targetDistance) +" / "+ maxError);
-            transform.position = targetPos;
+            case StateEnum.Line:
+                _playerSensors.GatherRailSensors();
+                break;
+            case StateEnum.LeftWall or StateEnum.RightWall:
+                _playerSensors.GatherWallRunSensors();
+                break;
+        }
+        
+        
+        var targetPos = GetOriginPoint() + LastNormal * _targetDistance;
+        var dist = Vector3.Distance(_rb.position, targetPos);
+        if (dist > distanceError)
+        {
+            _rb.MovePosition(targetPos);
         }
         
         if ( targetSpeed > 0.001f && 

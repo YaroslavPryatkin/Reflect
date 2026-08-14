@@ -7,10 +7,13 @@ public class PlayerMeleeController : MeleeController
     private PlayerManager _playerManager;
     private PlayerTargetLockController _playerTargetLockController;
     private PlayerSensors _playerSensors;
-    
-    
+    private PlayerHealthController _playerHealthController;
+
+    public bool ShouldBlockChangeTargetLock => _currentAction == 2 || _currentAction == 7;
     
     private int _currentAction = -1;
+    
+    public void ResetCurrentAction(){_currentAction = -1;}
     
     private void ChangeFlags()
     {
@@ -47,7 +50,7 @@ public class PlayerMeleeController : MeleeController
                 return;
             }
             if (_playerInputController.IsHeavyAttackCharging &&
-                _playerTargetLockController.IsLocked && 
+                (_playerTargetLockController.IsLocked || _playerTargetLockController.IsMeleeLocked) && 
                 _playerTargetLockController.TargetPosition.y < transform.position.y && 
                 Vector3.Distance(transform.position, _playerTargetLockController.TargetPosition) <= 11f)
             {
@@ -61,7 +64,7 @@ public class PlayerMeleeController : MeleeController
             }
         }
         
-        if (_currentAction == 2 || _currentAction == 5)
+        if (_currentAction == 2 || _currentAction == 7)
             _currentAction = -1;
     }
 
@@ -72,6 +75,7 @@ public class PlayerMeleeController : MeleeController
         _playerManager= GetComponent<PlayerManager>();
         _playerTargetLockController = GetComponent<PlayerTargetLockController>();
         _playerSensors = GetComponent<PlayerSensors>();
+        _playerHealthController = GetComponent<PlayerHealthController>();
     }
 
     protected override void Update()
@@ -82,35 +86,6 @@ public class PlayerMeleeController : MeleeController
     
     protected override int WhatComboToPlay()
     {
-        // if (_playerManager.CanUseSword)
-        // {
-        //     return  -1;
-        // }
-        //
-        // if (_playerInputController.IsParryBufferActive)
-        // {
-        //     return 0;
-        // }
-        // if (_playerSensors.IsGrounded)
-        // {
-        //     if (_playerInputController.IsHeavyAttackCharging)
-        //     {
-        //         return 2;
-        //     }
-        //     if (_playerInputController.IsAttackBufferActive)
-        //     {
-        //         return 3;
-        //     }
-        // }
-        // else
-        // {
-        //     if (_playerInputController.IsHeavyAttackCharging)
-        //     {
-        //         return  5;
-        //     }
-        // }
-        //
-        // return -1;
         return _currentAction;
     }
 
@@ -130,7 +105,7 @@ public class PlayerMeleeController : MeleeController
 
     protected override bool ShouldHold()
     {
-        return _playerTargetLockController.IsLocked;
+        return _playerTargetLockController.IsLocked || _playerHealthController.ShouldHoldSwordOnArena;
     }
 
     protected override bool ShouldInterrupt()

@@ -8,13 +8,16 @@ public class GunAnimationController : MonoBehaviour
     [SerializeField] private int handRigIndex = 1;
     [SerializeField] private IkRigTargetController.OffsetSource barrelToHandIkOffset;
     
-    [SerializeField] private bool turnHandOffWhileNotActive = false;
-    [SerializeField,  EnableIf("turnHandOffWhileNotActive")] 
-    private GameObject pocketGun;
-    [SerializeField,  EnableIf("turnHandOffWhileNotActive")] 
+    [SerializeField] private bool switchGunWhileNotActive = false;
+    [SerializeField] private bool switchGunWhileDead = false;
+    [SerializeField,  EnableIf("switchGunWhileNotActive || switchGunWhileDead")] 
     private GameObject handGun;
+    [SerializeField,  EnableIf("switchGunWhileNotActive")] 
+    private GameObject pocketGun;
+    [SerializeField, EnableIf("switchGunWhileDead")] 
+    private GameObject deadGun;
 
-    [SerializeField, EnableIfNot("turnHandOffWhileNotActive")]
+    [SerializeField, EnableIf("!switchGunWhileNotActive")]
     private Transform gunPassiveTarget;
     
     [Header("Head")]
@@ -22,15 +25,10 @@ public class GunAnimationController : MonoBehaviour
     [SerializeField] private Transform headPoint;
     [SerializeField] private bool turnHeadOffWhileNotActive=true;
 
-    [SerializeField, EnableIfNot("turnHeadOffWhileNotActive")]
+    [SerializeField, EnableIf("!turnHeadOffWhileNotActive")]
     private Transform headPassiveTarget;
     
-    [Header("Clip")]
-    [SerializeField] private bool useBaseClip = false;
-    [SerializeField,  EnableIf("useBaseClip")] private AnimationClip baseClip;
-    [SerializeField,  EnableIf("useBaseClip")] private AvatarMask baseMask;
-    
-    private AnimationLayerController _animationLayerController;
+
     private IkRigTargetController _ikRigTargetControllerHand;
     private IkRigTargetController _ikRigTargetControllerHead;
     protected GunController GunController;
@@ -39,6 +37,7 @@ public class GunAnimationController : MonoBehaviour
     private IkRigTargetController.TransformSource _headPassiveSource;
     private readonly IkRigTargetController.RawSource _headRawSource = new();
     
+    private HealthController _healthController;
 
     protected virtual void Awake()
     {
@@ -50,52 +49,70 @@ public class GunAnimationController : MonoBehaviour
         }
 
         GunController = GetComponent<GunController>();
-
-        if (useBaseClip)
-        {
-            var clips = new HashSet<AnimationClip>();
-            clips.Add(baseClip);
-            _animationLayerController = controller.GetAnimationLayer(clips, 3, baseMask, "Gun animation");
-            _animationLayerController.SetPlayableWeight(baseClip, 1f);
-        }
-        
+        _healthController = GetComponent<HealthController>();
         
         _ikRigTargetControllerHead = controller.GetRig(headRigIndex);
-        _ikRigTargetControllerHead.SetSource(_headRawSource, 1);
+        _ikRigTargetControllerHead.SetSource(_headRawSource);
         if (!turnHeadOffWhileNotActive)
         {
             _headPassiveSource = new (headPassiveTarget);
-            _ikRigTargetControllerHead.SetSource(_headPassiveSource, 0);
+            _ikRigTargetControllerHead.SetSource(_headPassiveSource);
         }
         
         
         
         _ikRigTargetControllerHand = controller.GetRig(handRigIndex);
-        _ikRigTargetControllerHand.SetSource(barrelToHandIkOffset, 1);
-        if (!turnHandOffWhileNotActive)
+        _ikRigTargetControllerHand.SetSource(barrelToHandIkOffset);
+        
+        if (!switchGunWhileNotActive)
         {
             _handPassiveSource = new (gunPassiveTarget);
-            _ikRigTargetControllerHand.SetSource(_handPassiveSource, 0);
+            _ikRigTargetControllerHand.SetSource(_handPassiveSource);
         }
-    
-        
-        
-        if (turnHandOffWhileNotActive)
+
+        if (switchGunWhileNotActive)
         {
-            handGun.SetActive(false);
             pocketGun.SetActive(true);
+            handGun.SetActive(false);
+        }
+        else
+        {
+            handGun.SetActive(true);
+        }
+        
+        if (switchGunWhileDead)
+        {
+            deadGun.SetActive(false);
         }
     }
     
     protected virtual void Update()
     {
-        
+        if (_healthController.IsDead)
+        {
+            barrelToHandIkOffset.Weight = 0f;
+            _headRawSource.Weight = 0f;
+            if (switchGunWhileDead)
+            {
+                deadGun.SetActive(true);
+                handGun.SetActive(false);
+                if(switchGunWhileNotActive)
+                    pocketGun.SetActive(false);
+            }
+            else if (switchGunWhileNotActive)
+            {
+                handGun.SetActive(false);
+                pocketGun.SetActive(true);
+            }
+            return;
+        }
+
         if (GunController.GunStateValue == UtilityFunctions.BaseActionTransitionsEnum.Base)
         {
             barrelToHandIkOffset.Weight = 0f;
             _headRawSource.Weight = 0f;
            
-            if (!turnHandOffWhileNotActive)
+            if (!switchGunWhileNotActive)
             {
                 _handPassiveSource.Weight = 1f;
             }
@@ -105,23 +122,12 @@ public class GunAnimationController : MonoBehaviour
                 _headPassiveSource.Weight = 1f;
             }
             
-            if (useBaseClip)
-                _animationLayerController.SetLayerWeight(0f);
-            
-            if (turnHandOffWhileNotActive)
-            {
-                handGun.SetActive(false);
-                pocketGun.SetActive(true);
-            }
+            SetUndeadGun(false);
             
             return;
         }
 
-        if (turnHandOffWhileNotActive)
-        {
-            handGun.SetActive(true);
-            pocketGun.SetActive(false);
-        }
+        SetUndeadGun(true);
 
         var targetGunPos = GunController.GunPosition;
         var targetGunRot = Quaternion.LookRotation(GunController.TargetDirection);
@@ -129,7 +135,7 @@ public class GunAnimationController : MonoBehaviour
         
         var weight = UtilityFunctions.GetTransitionFraction(GunController.GunState);
         barrelToHandIkOffset.Weight = weight;
-        if (!turnHandOffWhileNotActive)
+        if (!switchGunWhileNotActive)
         {
             _handPassiveSource.Weight = 1f - weight;
         }
@@ -143,9 +149,23 @@ public class GunAnimationController : MonoBehaviour
         {
             _headPassiveSource.Weight = 1f - weight;
         }
+    }
 
-
-        if(useBaseClip)
-            _animationLayerController.SetLayerWeight(UtilityFunctions.GetTransitionFraction(GunController.GunState));
+    private void SetUndeadGun(bool isActive)
+    {
+        if (switchGunWhileDead)
+        {
+            deadGun.SetActive(false);
+            if (!switchGunWhileNotActive)
+            {
+                handGun.SetActive(true);
+            }
+        }
+        
+        if (switchGunWhileNotActive)
+        {
+            handGun.SetActive(isActive);
+            pocketGun.SetActive(!isActive);
+        }
     }
 }

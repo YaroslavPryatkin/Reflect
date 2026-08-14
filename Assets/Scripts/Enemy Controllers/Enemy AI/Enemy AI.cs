@@ -30,11 +30,15 @@ public class EnemyAI : MonoBehaviour
     [SerializeField, EnableIf("shootWhileMoving && shouldOrbit")]
     private float orbitingSpeed = 2f;
 
+    [Header("Interrupt active shooting by movement")] 
+    [SerializeField]
+    private bool shouldInterruptActiveShootingByMovement = true;
+    
     [Header("Shooting")] 
     [SerializeField] private bool shootWhileMoving = true;
     [SerializeField, EnableIf("shootWhileMoving")] 
     private float shootAngleIncreaseWhileMoving;
-    [SerializeField, EnableIfNot("shootWhileMoving")] 
+    [SerializeField, EnableIf("!shootWhileMoving")] 
     private float shootingSpeedThreshold = 0.2f;
 
     [Header("Retreating")] 
@@ -54,6 +58,8 @@ public class EnemyAI : MonoBehaviour
     private float directionTimerMaxDuration = 5f;
 
 
+    private bool _isActive = false;
+
     public bool IsMoving { get; private set; } = false;
     public bool IsAiming { get; private set; } = false;
     public float ShootingConeAngleIncrease { get; private set; } = 0f;
@@ -61,8 +67,9 @@ public class EnemyAI : MonoBehaviour
     private EnemySensors _enemySensors;
     private NavMeshAgent _agent;
     private EnemyGunController _enemyGunController;
+    private EnemyRotationController _enemyRotationController;
 
-    public int Index { get; set; }
+    private int _computingIndex;
     
     private int _movementDirection = 0;
     
@@ -100,6 +107,7 @@ public class EnemyAI : MonoBehaviour
         _enemySensors = GetComponent<EnemySensors>();
         _agent = GetComponent<NavMeshAgent>();
         _enemyGunController = GetComponent<EnemyGunController>();
+        _enemyRotationController = GetComponent<EnemyRotationController>();
 
         //_changeDirectionApproachDistance = approachDiagonallySpeed * approachChangeDirectionInterval;
         _orbitingChord = Mathf.Sin(_orbitingAheadHalfAngle * Mathf.Deg2Rad)*2;
@@ -107,9 +115,33 @@ public class EnemyAI : MonoBehaviour
         _directionsToCheck = (int)Math.Floor(360f / DirectionsStep);
         _preferredDistanceMid = (preferredDistanceMax + preferredDistanceMin) / 2;
         _cachedPath = new();
-        GlobalEnemyComputingTimeOptimizer.AddEnemy(this);
     }
 
+    /// <summary>
+    /// To call only from global computing time optimizer
+    /// </summary>
+    public void ChangeComputingIndex(int index)
+    {
+        _computingIndex = index;
+    }
+    
+    public void Activate()
+    {
+        if (!_isActive)
+        {
+            _isActive = true;
+            _computingIndex = GlobalEnemyComputingTimeOptimizer.AddEnemy(this);
+        }
+    }
+    
+    public void Deactivate()
+    {
+        if (_isActive)
+        {
+            _isActive = false;
+            GlobalEnemyComputingTimeOptimizer.DeleteEnemy(_computingIndex);
+        }
+    }
     
     private void MakeRandomMovementDirection()
     {
@@ -119,12 +151,21 @@ public class EnemyAI : MonoBehaviour
 
     private void ChangeState(float shootingSpeed, float speed, bool currentShootWhileMoving, float currentAngleIncreaseWhileMoving)
     {
-        IsMoving = _agent.hasPath;
+        IsMoving = _agent.hasPath && !_enemyGunController.IsUsingFastTelegraphTime && (shouldInterruptActiveShootingByMovement || _enemyGunController.IsStateNon);
         IsAiming = (currentShootWhileMoving || !IsMoving || _enemySensors.SpeedAlignedWithGround < shootingSpeedThreshold) && 
                    _enemySensors.CanShootToPlayer &&
                    Vector3.Distance(transform.position, _enemySensors.PlayerPosition) <= shootingDistance;
+        if (!IsAiming)
+        {
+            IsMoving = _agent.hasPath;
+        }
+        var isAimingSpeed = (currentShootWhileMoving || !IsMoving) && 
+                            _enemySensors.CanShootToPlayer &&
+                            Vector3.Distance(transform.position, _enemySensors.PlayerPosition) <= shootingDistance;
+
+ 
         
-        _agent.speed = IsMoving ? (IsAiming ? shootingSpeed : speed) : 0f;
+        _agent.speed = IsMoving ? (isAimingSpeed ? shootingSpeed : speed) : 0f;
         ShootingConeAngleIncrease = IsAiming && IsMoving ? currentAngleIncreaseWhileMoving : 0f;
     }
     
@@ -134,6 +175,7 @@ public class EnemyAI : MonoBehaviour
         var targetPos = transform.position - _enemySensors.NormalizedHorizontalDirectionToPlayer * 1f;
         SetAgentDestination(targetPos);
         ChangeState(shootingRetreatSpeed, retreatSpeed, shootWhileRetreating && shootWhileMoving, shootAngleIncreaseWhileRetreating);
+        
     }
     
 
@@ -184,7 +226,7 @@ public class EnemyAI : MonoBehaviour
             _goingToPosition = Vector3.Distance(_enemySensors.MyPosition, _currentTargetNavMeshPos) > 1.5f;
 
         
-        if (GlobalEnemyComputingTimeOptimizer.CanStartCalculation(Index))
+        if (GlobalEnemyComputingTimeOptimizer.CanStartCalculation(_computingIndex))
         {
             StartFindShootingPosition();
         }
@@ -355,53 +397,6 @@ public class EnemyAI : MonoBehaviour
             }
         }
     }
-    
-    
-    
-    // private void FindShootingPosition()
-    // {
-    //     
-    //     var baseDir = -_enemySensors.HorizontalDirectionToPlayer;
-    //     if (baseDir.sqrMagnitude < 0.001f) baseDir = Vector3.forward;
-    //     baseDir.Normalize();
-    //
-    //     var end = Math.Min(
-    //         _currentCheckedDirection + 5 + Mathf.CeilToInt(
-    //                            _directionsToCheck / GlobalEnemyComputingTimeOptimizer.CalculatingTargetDuration * Time.deltaTime), 
-    //         _directionsToCheck);
-    //     for (; _currentCheckedDirection < end; ++_currentCheckedDirection)
-    //     {
-    //         foreach (var dist in _distances)
-    //         {
-    //             var dir = Quaternion.Euler(0, _directions[_currentCheckedDirection], 0) * baseDir;
-    //             var targetPos = _enemySensors.PlayerPosition + dir * dist;
-    //             targetPos.y = _enemySensors.MyPosition.y;
-    //
-    //             if (NavMesh.SamplePosition(targetPos, out var hit, 2f, NavMesh.AllAreas))
-    //             {
-    //                 if (_enemySensors.HasLineOfSightToPlayer(targetPos))
-    //                 {
-    //                     if (NavMesh.CalculatePath(_enemySensors.MyPosition, hit.position, NavMesh.AllAreas, _cachedPath) &&
-    //                         _cachedPath.status == NavMeshPathStatus.PathComplete)
-    //                     {
-    //                         _currentTargetPos = targetPos;
-    //                         _agent.SetPath(_cachedPath);
-    //                         ChangeState(shootingMovingSpeed, traversalSpeed, shootWhileMoving, shootAngleIncreaseWhileMoving);
-    //                         //Debug.Log("Found position, attempts = " + checkedAmount + ", has line of sight = " + checkedHasLine + ", have path = " + checkedCanGetTo);
-    //                         _lookingForPosition = false;
-    //                         _goingToPosition = true;
-    //                         //Debug.Log("Found, checked =  " + checkedAmount);
-    //                         
-    //                         Debug.Log("Successfully found, checked = " + _checkedPoints + ",  successful nav mesh snap = " + _successfullMeshSnap);
-    //                         return;
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-    
-
 
     private void ExecuteFallbacks()
     {
@@ -458,12 +453,23 @@ public class EnemyAI : MonoBehaviour
 
     private void Update()
     {
+        if (!_isActive)
+        {
+            IsMoving = false;
+            IsAiming = false;
+            _agent.speed = 0f;
+            ShootingConeAngleIncrease =  0f;
+            return;
+        }
+        
         if(_controlsMovementAndShooting == 0)
             ControlMovementAndShooting();
         else
         {
             IsMoving = false;
             IsAiming = false;
+            _agent.speed = 0f;
+            ShootingConeAngleIncrease =  0f;
         }
     }
 }

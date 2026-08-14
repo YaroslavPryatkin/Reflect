@@ -47,7 +47,7 @@ public class AnimationAndRigManager : MonoBehaviour
         if (doDebug)
         {
             _controllers = new AnimationLayerController[inputCount];
-            _debugText = GlobalUIManager.DebugText;
+            _debugText = UIManager.DebugText;
         }
     }
     

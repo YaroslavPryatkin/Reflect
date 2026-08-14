@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 [DefaultExecutionOrder(-200 )]
 public class GlobalGameManager : MonoBehaviour
@@ -8,6 +9,8 @@ public class GlobalGameManager : MonoBehaviour
 
     
     public static GameObject Player => _instance.player;
+    public static int PlayerLayerBitMask => 1 << _instance.player.layer;
+    
     
     private void Awake()
     {

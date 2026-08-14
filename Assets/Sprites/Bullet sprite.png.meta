@@ -110,15 +110,15 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Bullet sprite_0
+      name: Bullet
       rect:
         serializedVersion: 2
-        x: 187
+        x: 188
         y: 131
         width: 125
         height: 276
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -145,7 +145,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Bullet sprite_0: 559394993
+      Bullet: 559394993
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

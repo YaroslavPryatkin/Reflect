@@ -1,3 +1,4 @@
+using System;
 using Unity.VisualScripting;
 using UnityEngine;
 using FixedMovementStateEnum = PlayerFixedDirectionMovementController.StateEnum;
@@ -37,11 +38,13 @@ public class PlayerManager : MonoBehaviour
     private PlayerMeleeController _playerMeleeController;
     private PlayerTargetLockController _playerTargetLockController;
     private PlayerMeleeTransformController _playerMeleeTransformController;
-    private Rigidbody rb;
+    private PlayerLedgeClimbController _playerLedgeClimbController;
+    private PlayerHealthController _playerHealthController;
+    private Rigidbody _rb;
 
     private void Awake()
     {
-        rb = GetComponent<Rigidbody>();
+        _rb = GetComponent<Rigidbody>();
         _playerSensors = GetComponent<PlayerSensors>();
         _playerInputController = GetComponent<PlayerInputController>();
         _playerDashController = GetComponent<PlayerDashController>();
@@ -54,73 +57,67 @@ public class PlayerManager : MonoBehaviour
         _playerMeleeController =  GetComponent<PlayerMeleeController>();
         _playerTargetLockController = GetComponent<PlayerTargetLockController>();
         _playerMeleeTransformController = GetComponent<PlayerMeleeTransformController>();
+        _playerLedgeClimbController = GetComponent<PlayerLedgeClimbController>();
+        _playerHealthController = GetComponent<PlayerHealthController>();
     }
 
     public Vector3 TargetMoveDirection { get; private set; } = Vector3.zero;
     public float TargetMoveSpeed { get; private set; } = 0f;
 
-    public bool CanSlide { get; private set; } = false;
-    public bool CanGetStunned { get; private set; } = false;
-    public bool CanFixedMovement { get; private set; } = false;
-    public bool CanAim { get; private set; } = false;
-    public bool CanJump { get; private set; } = false;
-    public bool CanHoldSword { get; private set; } = false;
-    public bool CanNotUseSword { get; private set; } = false;
-    public bool UseGroundPhysics { get;private set; } = false;
+    public bool CanSlide =>_playerSensors.IsGrounded &&
+                           _playerLandingController.CanBeInterrupted &&
+                           !_playerDashController.IsDashing &&
+                           !_playerForwardJumpingController.IsForwardJumping &&
+                           _playerLedgeClimbController.IsStateNon;
+    public bool CanGetStunned => _playerFixedDirectionMovementController.IsStateNon &&
+                                 _playerSlidingController.IsStateNon &&
+                                 !_playerForwardJumpingController.IsForwardJumping &&
+                                 _playerLedgeClimbController.IsStateNon;
+    public bool CanFixedMovement => !_playerForwardJumpingController.IsForwardJumping &&
+                                    _playerLandingController.CanBeInterrupted &&
+                                    _playerSlidingController.IsStateNon &&
+                                    _playerMeleeController.State != MeleeController.MeleeStateEnum.Combo &&
+                                    _playerLedgeClimbController.IsStateNon;
+    public bool CanAim => (
+                              _playerFixedDirectionMovementController.IsStateNon ||
+                              _playerFixedDirectionMovementController.State == FixedMovementStateEnum.Line
+                          ) &&
+                          _playerSlidingController.IsStateNon &&
+                          !_playerDashController.IsDashing && 
+                          !_playerForwardJumpingController.IsForwardJumping &&
+                          _playerLandingController.CanBeInterrupted && 
+                          _playerMeleeController.CanBeInterruptedToAnything &&
+                          !_playerMeleeController.Parrying &&
+                          _playerLedgeClimbController.IsStateNon;
+    public bool CanJump => _playerLandingController.CanBeInterrupted &&
+                           !_playerDashController.IsDashing &&
+                           !_playerForwardJumpingController.IsForwardJumping &&
+                           _playerSlidingController.State != PlayerSlidingController.StateEnum.Starting &&
+                           _playerLedgeClimbController.IsStateNon;
+    public bool CanHoldSword => _playerFixedDirectionMovementController.IsStateNon && 
+                                !_playerForwardJumpingController.IsForwardJumping &&
+                                _playerLandingController.CanBeInterrupted &&
+                                _playerLedgeClimbController.IsStateNon;
+    public bool CanNotUseSword => _playerSlidingController.IsActiveSlidingPhase;
+    public bool UseGroundPhysics => _playerSensors.IsGrounded && 
+                                    !_playerJumpController.ShouldSuppressGroundFriction;
     public bool LookToLockedTarget { get; private set; } = false;
-
-    public bool CanNotLanding { get; private set; } = true;
+    public bool CanNotLanding => _playerSensors.IsForceSlide || 
+                                 _playerForwardJumpingController.IsForwardJumping || 
+                                 _playerMeleeTransformController.IsActive ||
+                                 !_playerLedgeClimbController.IsStateNon ||
+                                 !_playerHealthController.CanBeKilledByPlain;
+    public bool CanUseTargetMoveVector => !_playerForwardJumpingController.IsInAir && 
+                                          _playerLedgeClimbController.IsStateNon;
+    public bool CanClimbLedge => !_playerForwardJumpingController.IsForwardJumping &&
+                                 !_playerDashController.IsDashing &&
+                                 _playerLandingController.CanBeInterrupted;
 
     private void Update()
     {
         _playerLandingController.ToCallFromMovementController();
-        SetFlags();
+        _gettingHitController.CanGetStunned = CanGetStunned;
         SetTargetMoveVector();
-    }
-
-    private void SetFlags()
-    {
-        CanSlide = _playerSensors.IsGrounded &&
-                   _playerLandingController.CanBeInterrupted &&
-                   !_playerDashController.IsDashing &&
-                   !_playerForwardJumpingController.IsForwardJumping;
-        
-        _gettingHitController.CanGetStunned = CanGetStunned =
-            _playerFixedDirectionMovementController.IsStateNon &&
-            _playerSlidingController.IsStateNon &&
-            !_playerForwardJumpingController.IsForwardJumping;
-
-        CanFixedMovement = !_playerForwardJumpingController.IsForwardJumping &&
-                           _playerLandingController.CanBeInterrupted &&
-                           _playerSlidingController.IsStateNon &&
-                           _playerMeleeController.State != MeleeController.MeleeStateEnum.Combo;
-        
-        CanAim = (
-                     _playerFixedDirectionMovementController.IsStateNon ||
-                     _playerFixedDirectionMovementController.State == FixedMovementStateEnum.Line
-                  ) &&
-                 _playerSlidingController.IsStateNon &&
-                 !_playerDashController.IsDashing && 
-                 !_playerForwardJumpingController.IsForwardJumping &&
-                 _playerLandingController.CanBeInterrupted && 
-                 _playerMeleeController.CanBeInterruptedToAnything &&
-                 !_playerMeleeController.Parrying;
-
-        CanJump = _playerLandingController.CanBeInterrupted &&
-                  !_playerDashController.IsDashing &&
-                  !_playerForwardJumpingController.IsForwardJumping &&
-                  _playerSlidingController.State != PlayerSlidingController.StateEnum.Starting;
-        
-        CanHoldSword = _playerFixedDirectionMovementController.IsStateNon && 
-                   !_playerForwardJumpingController.IsForwardJumping &&
-                   _playerLandingController.CanBeInterrupted;
-        
-        CanNotUseSword = _playerSlidingController.IsActiveSlidingPhase;
-
-        UseGroundPhysics = _playerSensors.IsGrounded && !_playerJumpController.ShouldSuppressGroundFriction;
-
-        CanNotLanding = _playerSensors.IsForceSlide || _playerForwardJumpingController.IsForwardJumping || _playerMeleeTransformController.IsActive;
-
     }
 
     private void SetTargetMoveVector()
@@ -130,14 +127,14 @@ public class PlayerManager : MonoBehaviour
         
         if (!_playerFixedDirectionMovementController.IsStateNon)
         {
-            rb.useGravity = false;
+            _rb.useGravity = false;
             TargetMoveDirection = _playerFixedDirectionMovementController.GetMovementDirection();
             TargetMoveSpeed =  _playerFixedDirectionMovementController.State == FixedMovementStateEnum.Line ? 
                   railLineSpeed : wallRunSpeed;
         }
         else
         {
-            rb.useGravity = true;
+            _rb.useGravity = true;
             if (_playerSensors.IsGrounded)
             {
                 if (_playerJumpController.ShouldSuppressGroundFriction || _playerJumpController.State == PlayerJumpController.StateEnum.Starting)
@@ -225,5 +222,17 @@ public class PlayerManager : MonoBehaviour
     private void MakeNonZeroTargetMoveDirection(float angleSpeed)
     {
         TargetMoveDirection = Vector3.RotateTowards(TargetMoveDirection, _playerInputController.NonZeroInputMoveVector, angleSpeed*Time.deltaTime, 1f);
+    }
+
+    public void ResetEverythingForTeleport()
+    {
+        _playerMeleeTransformController.InterruptMove();
+        _playerDashController.InterruptDash();
+        _playerLandingController.InterruptLanding();
+        _playerForwardJumpingController.Interrupt();
+        _playerFixedDirectionMovementController.Interrupt();
+        _rb.angularVelocity = Vector3.zero;
+        _rb.linearVelocity = Vector3.zero;
+        _playerSensors.Update();
     }
 }

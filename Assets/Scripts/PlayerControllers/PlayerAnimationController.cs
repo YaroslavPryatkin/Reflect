@@ -37,10 +37,16 @@ public class PlayerAnimationController : MonoBehaviour
     [Header("Rail line")]
     [SerializeField] private AnimationClip startingRailJumpClip;
     [SerializeField] private AnimationClip continuingRailJumpClip;
+    [Header("Jump pad player particles")]
+    [SerializeField] private ParticleSystem jumpPadParticles;
 
     [Header("Forward Jump Clips")]
     [SerializeField] private AnimationClip forwardJumpingInAirClip;
     [SerializeField] private AnimationClip forwardJumpingLandingClip;
+
+    [Header("Ledge Climb Clips")] 
+    [SerializeField] private AnimationClip ledgeClimbActiveAnimationClip;
+    [SerializeField] private AnimationClip ledgeClimbEndingAnimationClip;
 
     [Header("Wall Run Clips")]
     [SerializeField] private AnimationClip leftWallRunClip;
@@ -81,6 +87,7 @@ public class PlayerAnimationController : MonoBehaviour
     private AutomaticAnimationLayerController _animationLayerController;
     private MultidirectionalMovementController _multidirectionalMovementController;
     private PlayerFixedDirectionMovementController _playerFixedDirectionMovementController;
+    private PlayerLedgeClimbController _playerLedgeClimbController;
 
     // --- Caches ---
     private Quaternion _defaultBodyLocalRot;
@@ -93,13 +100,9 @@ public class PlayerAnimationController : MonoBehaviour
     private float _cachedRotationChangeSpeedForSlideEnding;
     
     private float _cachedStartingGroundStandJumpSpeed;
-    private float _cachedContinuingGroundStandJumpSpeed;    
     private float _cachedStartingGroundRunJumpSpeed;
-    private float _cachedContinuingGroundRunJumpSpeed;
     private float _cachedStartingWallJumpSpeed;
-    private float _cachedContinuingWallJumpSpeed;
     private float _cachedStartingRailJumpSpeed;
-    private float _cachedContinuingRailJumpSpeed;
 
     private float _cachedTargetLockClipSpeed;
     private float _cachedLineRideClipSpeed;
@@ -108,7 +111,9 @@ public class PlayerAnimationController : MonoBehaviour
     private float _cachedRunLandingSpeed;
     private float _cachedRollLandingSpeed;
 
-    
+    private float _cachedLedgeActiveSpeed;
+    private float _cachedLedgeEndingSpeed;
+    private float _cachedLedgeActiveClipDuration;
 
     
     private void Awake()
@@ -146,6 +151,8 @@ public class PlayerAnimationController : MonoBehaviour
         clips.Add(startingSlideClip);
         clips.Add(endingSlideClip);
         clips.Add(railLineRidingClip);
+        clips.Add(ledgeClimbActiveAnimationClip);
+        clips.Add(ledgeClimbEndingAnimationClip);
 
         _animationLayerController = controller.GetAutomaticAnimationLayer(clips, 0, "Player base");
         _animationLayerController.SetLayerWeight(1f);
@@ -161,6 +168,7 @@ public class PlayerAnimationController : MonoBehaviour
         _meleeController = GetComponent<MeleeController>();
         _multidirectionalMovementController = GetComponent<MultidirectionalMovementController>();
         _playerFixedDirectionMovementController = GetComponent<PlayerFixedDirectionMovementController>();
+        _playerLedgeClimbController = GetComponent<PlayerLedgeClimbController>();
         
         _defaultBodyLocalRot = _bodyTransform.localRotation;
     }
@@ -175,20 +183,18 @@ public class PlayerAnimationController : MonoBehaviour
         _cachedRollLandingSpeed = UtilityFunctions.GetAnimationSpeed(rollLandingClip, _playerLandingController.RollLandingDuration, crossfadeDuration);
         
         
-        _cachedStartingSlideSpeed = UtilityFunctions.GetAnimationSpeed(startingSlideClip, _playerSlidingController.StartingSlideTime, crossfadeDuration);
-        _cachedEndingSlideSpeed = UtilityFunctions.GetAnimationSpeed(endingSlideClip, _playerSlidingController.EndingSlideTime, crossfadeDuration);
+        _cachedStartingSlideSpeed = UtilityFunctions.GetAnimationSpeed(startingSlideClip, _playerSlidingController.StartingSlideTime);
+        _cachedEndingSlideSpeed = UtilityFunctions.GetAnimationSpeed(endingSlideClip, _playerSlidingController.EndingSlideTime);
         _cachedForwardJumpLandingSpeed = UtilityFunctions.GetAnimationSpeed(forwardJumpingLandingClip, _playerForwardJumpingController.LandingTime, crossfadeDuration);
         _cachedStartingGroundStandJumpSpeed = UtilityFunctions.GetAnimationSpeed(startingGroundStandJumpClip, _playerJumpController.StartingGroundStandJumpTime, crossfadeDuration);
-        _cachedContinuingGroundStandJumpSpeed = UtilityFunctions.GetAnimationSpeed(continuingGroundStandJumpClip, _playerJumpController.ContinuingGroundStandJumpTime, crossfadeDuration);
         _cachedStartingGroundRunJumpSpeed = UtilityFunctions.GetAnimationSpeed(startingGroundRunJumpClip, _playerJumpController.StartingGroundRunJumpTime, crossfadeDuration);
-        _cachedContinuingGroundRunJumpSpeed = UtilityFunctions.GetAnimationSpeed(continuingGroundRunJumpClip, _playerJumpController.ContinuingGroundRunJumpTime, crossfadeDuration);
         _cachedStartingWallJumpSpeed = UtilityFunctions.GetAnimationSpeed(startingWallJumpClip, _playerJumpController.StartingWallJumpTime, crossfadeDuration);
-        _cachedContinuingWallJumpSpeed = UtilityFunctions.GetAnimationSpeed(continuingWallJumpClip, _playerJumpController.ContinuingWallJumpTime, crossfadeDuration);
         _cachedStartingRailJumpSpeed = UtilityFunctions.GetAnimationSpeed(startingRailJumpClip, _playerJumpController.StartingRailJumpTime, crossfadeDuration);
-        _cachedContinuingRailJumpSpeed = UtilityFunctions.GetAnimationSpeed(continuingRailJumpClip, _playerJumpController.ContinuingRailJumpTime, crossfadeDuration);
-
         _cachedTargetLockClipSpeed = UtilityFunctions.GetAnimationSpeed(targetLockIdleClip, targetLockClipDuration);
         _cachedLineRideClipSpeed = UtilityFunctions.GetAnimationSpeed(railLineRidingClip, railLineRidingClipDuration);
+        _cachedLedgeActiveSpeed = UtilityFunctions.GetAnimationSpeed(ledgeClimbActiveAnimationClip, _playerLedgeClimbController.ActiveStateDuration);
+        _cachedLedgeEndingSpeed = UtilityFunctions.GetAnimationSpeed(ledgeClimbEndingAnimationClip, _playerLedgeClimbController.EndingStateDuration, crossfadeDuration);
+        _cachedLedgeActiveClipDuration = ledgeClimbActiveAnimationClip.length;
         
         _cachedRotationChangeSpeedForSlideStarting = 90.0f / Mathf.Max(0.001f, _playerSlidingController.StartingSlideTime);
         _cachedRotationChangeSpeedForSlideEnding = 90.0f / Mathf.Max(0.001f, _playerSlidingController.EndingSlideTime);
@@ -205,9 +211,15 @@ public class PlayerAnimationController : MonoBehaviour
 
     private void CalculateBaseLayerLogic()
     {
+        
+        
+        
+        
         var targetClip = fallingIdleClip;
         var targetSpeed = 1f;
+        var isJumpPadParticles = false;
         _multidirectionalMovementController.ShouldUseMultiDirectionalAnimation = false;
+        
         
         var currentSpeed = _playerSensors.SpeedAlignedWithGround;
 
@@ -244,6 +256,20 @@ public class PlayerAnimationController : MonoBehaviour
             {
                 targetClip = forwardJumpingInAirClip;
                 targetSpeed = forwardJumpingInAirClip.length / Mathf.Max(0.001f, _playerForwardJumpingController.TimeToJump); 
+            }
+        }
+        else if (!_playerLedgeClimbController.IsStateNon)
+        {
+            switch (_playerLedgeClimbController.State)
+            {
+                case PlayerLedgeClimbController.StateEnum.Active:
+                    targetClip = ledgeClimbActiveAnimationClip;
+                    targetSpeed = _cachedLedgeActiveSpeed;
+                    break;
+                default:
+                    targetClip = ledgeClimbEndingAnimationClip;
+                    targetSpeed = _cachedLedgeEndingSpeed;
+                    break;
             }
         }
         else if (!_playerFixedDirectionMovementController.IsStateNon)
@@ -291,23 +317,24 @@ public class PlayerAnimationController : MonoBehaviour
                     }
                     break;
                 case PlayerJumpController.StateEnum.Continuing:
+                    isJumpPadParticles = _playerJumpController.IsJumpPadJump;
                     switch (_playerJumpController.Type)
                     {
                         case PlayerJumpController.JumpTypeEnum.Standing:
                             targetClip = continuingGroundStandJumpClip;
-                            targetSpeed = _cachedContinuingGroundStandJumpSpeed;
+                            targetSpeed = UtilityFunctions.GetAnimationSpeed(continuingGroundStandJumpClip, _playerJumpController.CurrentContinuingJumpTime, crossfadeDuration);
                             break;
                         case PlayerJumpController.JumpTypeEnum.Running:
                             targetClip = continuingGroundRunJumpClip;
-                            targetSpeed = _cachedContinuingGroundRunJumpSpeed;
+                            targetSpeed = UtilityFunctions.GetAnimationSpeed(continuingGroundRunJumpClip, _playerJumpController.CurrentContinuingJumpTime, crossfadeDuration); ;
                             break;
                         case PlayerJumpController.JumpTypeEnum.Wall:
                             targetClip = continuingWallJumpClip;
-                            targetSpeed = _cachedContinuingWallJumpSpeed;
+                            targetSpeed = UtilityFunctions.GetAnimationSpeed(continuingWallJumpClip, _playerJumpController.CurrentContinuingJumpTime, crossfadeDuration);
                             break;
                         case PlayerJumpController.JumpTypeEnum.Line:
                             targetClip = continuingRailJumpClip;
-                            targetSpeed = _cachedContinuingRailJumpSpeed;
+                            targetSpeed =  UtilityFunctions.GetAnimationSpeed(continuingRailJumpClip, _playerJumpController.CurrentContinuingJumpTime, crossfadeDuration);
                             break;
                     }
                     break;
@@ -365,6 +392,30 @@ public class PlayerAnimationController : MonoBehaviour
         }
         
         _animationLayerController.AutomaticUpdateCurrentPlayable(targetClip, targetSpeed, crossfadeDuration);
+
+        if (_playerLedgeClimbController.State == PlayerLedgeClimbController.StateEnum.Active && 
+            _playerLedgeClimbController.ShouldUpdateAnimationTime)
+        {
+            _playerLedgeClimbController.ShouldUpdateAnimationTime = false;
+            _animationLayerController.SetPlayableTime(ledgeClimbActiveAnimationClip,_playerLedgeClimbController.TimeFraction * _cachedLedgeActiveClipDuration);
+        }
+
+        if (isJumpPadParticles)
+        {
+            var partMain = jumpPadParticles.main;
+            partMain.startColor = _playerJumpController.JumpPadColor;
+            if (!jumpPadParticles.isPlaying)
+            {
+                jumpPadParticles.Play();
+            }
+        }
+        else
+        {
+            if (jumpPadParticles.isPlaying)
+            {
+                jumpPadParticles.Stop();
+            }
+        }
     }
     
     

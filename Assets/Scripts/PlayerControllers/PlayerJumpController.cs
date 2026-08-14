@@ -19,8 +19,7 @@ public class PlayerJumpController : MonoBehaviour
     [SerializeField] private float groundCoyoteTime = 0.2f;
     [SerializeField] private float wallCoyoteTime = 0.1f;
     [SerializeField] private float railCoyoteTime = 0.1f;
-
-
+    
     [Header("Ground stand timings")]
     [SerializeField] private float startingGroundStandJumpTime = 0.1f;
     [SerializeField] private float continuingGroundStandJumpTime = 0.7f;
@@ -52,18 +51,22 @@ public class PlayerJumpController : MonoBehaviour
     [Header("General")]
     [SerializeField] private float interruptionRechargeTime = 0.1f;
 
+    [Header("Jump pad")] 
+    [SerializeField] private float jumpPadForceToJumpDuration = 0.01f;
+
 
     public float StartingGroundStandJumpTime => startingGroundStandJumpTime;
-    public float ContinuingGroundStandJumpTime => continuingGroundStandJumpTime;
     
     public float StartingGroundRunJumpTime => startingGroundRunJumpTime;
-    public float ContinuingGroundRunJumpTime => continuingGroundRunJumpTime;
     
     public float StartingWallJumpTime => startingWallJumpTime;
-    public float ContinuingWallJumpTime => continuingWallJumpTime;
     
     public float StartingRailJumpTime => startingRailJumpTime;
-    public float ContinuingRailJumpTime => continuingRailJumpTime;
+
+    public float CurrentContinuingJumpTime { get; private set; } = 1f;
+    public bool IsJumpPadJump { get; private set; } = false;
+    
+    public Color JumpPadColor { get; private set; } = Color.white;
     
     private Rigidbody rb;
     private PlayerSlidingController _playerSlidingController;
@@ -98,6 +101,23 @@ public class PlayerJumpController : MonoBehaviour
     private readonly UtilityClasses.TemporaryValue<bool> _shouldSuppressGroundFriction = new(false, true);
     public bool ShouldSuppressGroundFriction => _shouldSuppressGroundFriction.Value;
 
+
+    private int _amountOfJumpPadEntered = 0;
+    private JumpPadController _currentJumpPad;
+
+    public void EnterJumpPad(JumpPadController jumpPad)
+    {
+        _currentJumpPad = jumpPad;
+        ++_amountOfJumpPadEntered;
+    }
+
+    public void ExitJumpPad()
+    {
+        --_amountOfJumpPadEntered;
+        if (_amountOfJumpPadEntered < 0)
+            _amountOfJumpPadEntered = 0;
+    }
+    
     public void InterruptJump()
     {
         if(_jumpState!=StateEnum.Non)
@@ -123,29 +143,37 @@ public class PlayerJumpController : MonoBehaviour
             {
                 case StateEnum.Starting:
                     
+                    IsJumpPadJump = _amountOfJumpPadEntered > 0;
+
+                    if (IsJumpPadJump)
+                        JumpPadColor = _currentJumpPad.playerParticlesColor;
+                    
                     rb.linearVelocity = _playerSensors.VelocityAlignedWithGround;
                     
                     switch (_currentJumpType)
                     {
                         case JumpTypeEnum.Standing or JumpTypeEnum.Running:
-                            if(_playerSensors.IsGrounded && _playerSensors.FoundGroundNormal)
-                                rb.AddForce(_playerSensors.GroundNormal * jumpStrength, ForceMode.Impulse);
-                            else
-                                rb.AddForce(Vector3.up * jumpStrength, ForceMode.Impulse);
+
+                            var force = (_playerSensors.IsGrounded && _playerSensors.FoundGroundNormal
+                                ? _playerSensors.GroundNormal
+                                : Vector3.up) * jumpStrength;
+                            
+                            AddUpForce(force);
                     
                             _playerFixedDirectionMovementController.SuppressAfterJump(afterJumpFromGround);
                             _shouldSuppressGroundFriction.Activate(groundSpeedSuppressAfterJump);
                             break;
                         case JumpTypeEnum.Wall:
-                            var force = Vector3.up * wallJumpUpStrength + _playerFixedDirectionMovementController.LastNormal * wallJumpSideStrength;
+                            force = Vector3.up * wallJumpUpStrength + _playerFixedDirectionMovementController.LastNormal * wallJumpSideStrength;
                             if(_playerSensors.HorizontalSpeed >= wallJumpBackSpeedThreshold)
                                 force -= _playerSensors.NormalizedHorizontalVelocity * wallJumpBackStrength;
-                            rb.AddForce( force, ForceMode.Impulse);
+                            
+                            AddUpForce(in force);
                             
                             _playerFixedDirectionMovementController.SuppressAfterJump(afterJumpFromWall);
                             break;
                         case JumpTypeEnum.Line:
-                            rb.AddForce( Vector3.up * railJumpStrength, ForceMode.Impulse);
+                            AddUpForce(Vector3.up * railJumpStrength);
                             
                             _playerFixedDirectionMovementController.SuppressAfterJump(afterJumpFromLine);
                             break;
@@ -156,16 +184,16 @@ public class PlayerJumpController : MonoBehaviour
                     switch (_currentJumpType)
                     {
                         case JumpTypeEnum.Standing:
-                            _jumpState.SetForce(StateEnum.Continuing, continuingGroundStandJumpTime);
+                            SwitchStateToContinuing(continuingGroundStandJumpTime);
                             break;
                         case JumpTypeEnum.Running:
-                            _jumpState.SetForce(StateEnum.Continuing, continuingGroundRunJumpTime);
+                            SwitchStateToContinuing(continuingGroundRunJumpTime);
                             break;
                         case JumpTypeEnum.Wall:
-                            _jumpState.SetForce(StateEnum.Continuing, continuingWallJumpTime);
+                            SwitchStateToContinuing(continuingWallJumpTime);
                             break;
                         case  JumpTypeEnum.Line:
-                            _jumpState.SetForce(StateEnum.Continuing, continuingRailJumpTime);
+                            SwitchStateToContinuing(continuingRailJumpTime);
                             break;
                     }
                     break;
@@ -190,6 +218,19 @@ public class PlayerJumpController : MonoBehaviour
         }
     }
 
+    private void AddUpForce(in Vector3 force)
+    {
+         rb.AddForce( IsJumpPadJump ? _currentJumpPad.JumpForceVector : force, ForceMode.Impulse);
+    }
+
+    private void SwitchStateToContinuing(float duration)
+    {
+        CurrentContinuingJumpTime = IsJumpPadJump
+            ? jumpPadForceToJumpDuration * _currentJumpPad.jumpForce
+            : duration;
+        _jumpState.SetForce(StateEnum.Continuing, CurrentContinuingJumpTime);
+    }
+    
     private void DetectPlaceToJumpFrom()
     {
         if (!_playerFixedDirectionMovementController.IsStateNon)
@@ -244,9 +285,9 @@ public class PlayerJumpController : MonoBehaviour
                 _jumpState.SetForce(StateEnum.Starting, startingRailJumpTime);
                 break;
             case JumpPlaceEnum.Ground:
-                if (_playerSensors.FrontGroundState == 1)
+                if (_playerSensors.FrontGroundState == PlayerSensors.FrontGroundStateEnum.Ledge)
                 {
-                    _playerForwardJumpingController.PerformForwardJump(transform.position, _playerSensors.GetForwardGroundEndPoint(), _playerSensors.FrontGroundObstacleHeight);
+                    _playerForwardJumpingController.PerformForwardJump(transform.position, _playerSensors.GetForwardGroundEndPoint(),transform.position.y + _playerSensors.FrontGroundObstacleHeight);
                 }
                 else
                 {

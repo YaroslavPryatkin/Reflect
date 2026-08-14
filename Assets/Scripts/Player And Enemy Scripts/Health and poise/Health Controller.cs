@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public class HealthController : MonoBehaviour
@@ -5,6 +6,9 @@ public class HealthController : MonoBehaviour
     [SerializeField] private float maxHealth = 120f;
     [SerializeField] private float damageFractionWhileStunned = 0.7f;
     
+    [Header("Kill plain")]
+    [SerializeField] private float killPlainActivationSuppressDuration = 0.1f;
+
     [Header("Deflect bullet")] 
     [SerializeField] private float deflectBulletAngle = 80f;
     [SerializeField] private float deflectBulletDamageReduction = 2f;
@@ -15,24 +19,34 @@ public class HealthController : MonoBehaviour
     public float MaxHealth => maxHealth;
     public float HealthFraction => CurrentHealth / maxHealth;
 
-    protected MeleeController _meleeController;
+    private MeleeController _meleeController;
     private GettingHitController _gettingHitController;
+    private GunController _gunController;
+    private bool _haveGunController;
     private bool _haveGettingHitController = false;
-    protected bool haveMelee;
-    protected Sensors _sensors;
+    private bool _haveMelee;
+    private Sensors _sensors;
     
     protected ArenaController ArenaController;
     protected bool HaveArenaController = false;
 
+    private readonly UtilityClasses.TemporaryValue<bool> _canKillPlain =
+        new (true, false);
+    public bool CanBeKilledByPlain => _canKillPlain.Value;
+    
     public void SetArenaController(ArenaController arenaController)
     {
         HaveArenaController = true;
         ArenaController = arenaController;
     }
 
-    public void RemoveArenaController()
+    public void RemoveArenaController(ArenaController arenaController)
     {
-        HaveArenaController = false;
+        if (arenaController == ArenaController)
+        {
+            HaveArenaController = false;
+            ArenaController=null;
+        }
     }
     
 
@@ -50,28 +64,34 @@ public class HealthController : MonoBehaviour
 
     public enum DamageDealer
     {
-        Bullet, Melee
+        Bullet, Melee, Hazard
     }
     
     protected virtual void Awake()
     {
         CurrentHealth = maxHealth;
         _sensors =  GetComponent<Sensors>();
-        haveMelee = TryGetComponent(out _meleeController);
+        _haveMelee = TryGetComponent(out _meleeController);
         _haveGettingHitController = TryGetComponent(out _gettingHitController);
+        _haveGunController = TryGetComponent(out _gunController);
     }
-
-    public void ResetHealth()
-    {
-        CurrentHealth = maxHealth;
-        if(IsDead)
-            OnRevive();
-        IsDead = false;
-    }
-
+    
     protected virtual void OnRevive()
     {
+        _gettingHitController.Revive();
+    }
+
+    public void OnArenaReset()
+    {
+        CurrentHealth = maxHealth;
         
+        if(IsDead)
+            OnRevive();
+        
+        IsDead = false;
+        
+        if(_haveGunController)
+            _gunController.SetBulletsToMaximum();
     }
     
     public void ChangeHealth(float change)
@@ -92,47 +112,76 @@ public class HealthController : MonoBehaviour
         }
     }
 
-    public void DoDeflectDamage(float damage, float poiseDamage, DamageDealer  damageDealer)
+    public void DoDeflectDamage(float damage, float poiseDamage, float bulletRechargeFraction, DamageDealer damageDealer)
     {
+        if (IsDead) return;
+    
         _meleeController.OnSuccessfulParry();
-        
+        if (_haveGunController)
+            _gunController.EarnBullet(bulletRechargeFraction);
+
         if (_iFrameSourcesCount > 0) return;
+
         if (_haveGettingHitController)
             _gettingHitController.Stun(poiseDamage, true);
+        
     }
 
     public void DoNormalDamage(float damage, float poiseDamage, DamageDealer damageDealer)
     {
-        if (_iFrameSourcesCount > 0) return;
+        if (IsDead || _iFrameSourcesCount > 0) return;
         
         if (_haveGettingHitController)
         {
-            if(_gettingHitController.IsStunned)
+            if (_gettingHitController.IsStunned)
                 ChangeHealth(-damage * damageFractionWhileStunned);
             else
                 ChangeHealth(-damage);
-
-            _gettingHitController.Stun(poiseDamage, false);
         }
         else
             ChangeHealth(-damage);
+        
 
-        OnDamageTaken(damage, damageDealer);
+        if (!IsDead)
+        {
+            if(_haveGettingHitController)
+                _gettingHitController.Stun(poiseDamage, false);
+            
+            OnDamageTaken(damage, damageDealer);
+        }
     }
+
 
     protected virtual void OnDamageTaken(float damage, DamageDealer damageDealer)
     {
-        
     }
 
     protected virtual void OnDeath()
     {
-        
+        _gettingHitController.Death();
     }
 
+    public void FellOffTheMap()
+    {
+        if (_canKillPlain)
+        {
+            _canKillPlain.Activate(killPlainActivationSuppressDuration);
+            Die();
+        }
+    }
+    public virtual void OnHazardEntered()
+    {
+    }
+    public void Die()
+    {
+        IsDead = true;
+        CurrentHealth = 0f;
+        OnDeath();
+    }
+    
     public bool TryDeflecting(Vector3 attackDirection)
     {
-        return haveMelee && GetAngleToBullet(attackDirection) <= deflectBulletAngle && _meleeController.Parrying;
+        return _haveMelee && GetAngleToBullet(attackDirection) <= deflectBulletAngle && _meleeController.Parrying;
     }
 
     public void GetNewEnemyLayerMask(out int destructiveLayer, out int enemyLayer)
@@ -140,6 +189,8 @@ public class HealthController : MonoBehaviour
         enemyLayer = _sensors.EnemyLayer;
         destructiveLayer = _sensors.IgnoreMyLayerMask;
     }
+
+    public Transform GetBackTarget() => transform;
 
     private float GetAngleToBullet(Vector3 attackDirection)
     {
@@ -153,4 +204,6 @@ public class HealthController : MonoBehaviour
     {
         damage /= deflectBulletDamageReduction;
     }
+
+
 }

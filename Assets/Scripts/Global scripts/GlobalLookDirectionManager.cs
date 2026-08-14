@@ -12,13 +12,15 @@ public class GlobalLookDirectionManager : MonoBehaviour
     [SerializeField] private float minCamAngle = 10f;
     [SerializeField] private float maxCamAngle = 70f;
     [SerializeField] private PlayerGunController playerGunController;
+    [SerializeField] private float startingYaw = 0f;
+    
     private InputSlider mouseSensSliderX;
     private InputSlider mouseSensSliderY;
     private InputSlider mouseSensSliderAiming;
     
-    private Vector3 currentLookDirection  = Vector3.forward;
+    private Vector3 _currentLookDirection  = Vector3.forward;
 
-    public static Vector3 CurrentLookDirection => Instance.currentLookDirection;
+    public static Vector3 CurrentLookDirection => Instance._currentLookDirection;
     
     private float currentYaw;
     private float currentPitch = 20f;
@@ -33,9 +35,11 @@ public class GlobalLookDirectionManager : MonoBehaviour
         {
             Destroy(gameObject);
         }
-        mouseSensSliderX = GlobalUIManager.Instance.EscapeMenuController.MouseSensX;
-        mouseSensSliderY = GlobalUIManager.Instance.EscapeMenuController.MouseSensY;
-        mouseSensSliderAiming = GlobalUIManager.Instance.EscapeMenuController.MouseSensAim;
+        mouseSensSliderX = EscapeMenuController.MouseSensX;
+        mouseSensSliderY = EscapeMenuController.MouseSensY;
+        mouseSensSliderAiming = EscapeMenuController.MouseSensAim;
+        currentYaw = startingYaw;
+        CalculateLookDirection();
     }
     
     private void Start()
@@ -67,7 +71,7 @@ public class GlobalLookDirectionManager : MonoBehaviour
 
     private void CalculateLookDirection()
     {
-        currentLookDirection = Quaternion.Euler(currentPitch, currentYaw, 0f) * Vector3.forward;
+        _currentLookDirection = Quaternion.Euler(currentPitch, currentYaw, 0f) * Vector3.forward;
     }
 
     private float GetMouseSensitivityScale(float userInput)
@@ -84,11 +88,6 @@ public class GlobalLookDirectionManager : MonoBehaviour
     public static Vector3 FromCameraLocalToGlobalByZX(Vector3 localVector)
     {
         return UtilityFunctions.FromLocalToGlobalByZX(CurrentLookDirection, localVector);
-    }
-    public static Vector3 FromCameraLocalToGlobalByZX(Vector2 localVector)
-    {
-        var localVector3 = new Vector3(localVector.x, 0f, localVector.y);
-        return UtilityFunctions.FromLocalToGlobalByZX(CurrentLookDirection, localVector3);
     }
 
     public static float CurrentYaw => Instance.currentYaw;

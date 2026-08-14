@@ -3,30 +3,25 @@ using UnityEngine;
 
 public class GettingHitController : MonoBehaviour
 {
-    [Header("Timings")]
-    [SerializeField] private float crossFadeDuration;
-    [SerializeField] private float stunDurationFractionToGetStunnedAgain = 0.8f;
-    [SerializeField] private float activeStunDurationFraction = 0.3f;
-    
-    [Header("Durations")]
-    [SerializeField] private float minimalStunDuration;
-    [SerializeField] private float minimalPoiseDamageToGetStunned = 10f;
-    [SerializeField] private float maximalStunDuration;
-    [SerializeField] private float maximalPoiseDamageToGetStunned = 100f;
-
-    [Header("Parry")] 
-    [SerializeField] private float minimalStunDamageToGetStunnedDuringParry = 50f;
-    [SerializeField] private float parryStunDamageFraction = 0.6f;
-    
-    [Header("Animation")]
-    [SerializeField] private List<AnimationClip> clips;
-    [SerializeField] private AvatarMask avatarMask;
-    [SerializeField] private float weightMultiplier = 0.5f;
-    
+    [SerializeField] private GettingHitSettings settings;
     
     private AnimationLayerController _animationLayerController;
-    private float _durationForPoiseFraction;
+    private HealthController _healthController;
 
+    private UtilityClasses.BaseActionAutomaticTransition _transitionState;
+
+    private readonly UtilityClasses.FractionTemporaryValue<bool> _stun = new(false, true);
+    private AnimationClip _lastClip;
+    
+    public bool CanGetStunned { get; set; } = true;
+    
+    public bool IsStunned => _stun.Value;
+
+    public bool IsActivelyStunned => _stun.Value && _stun.TimeFraction < settings.activeStunDurationFraction;
+    
+    
+    private readonly UtilityClasses.ChangeableFractionValue _hyperArmor = new();
+    
     private void Awake()
     {
         if (!TryGetComponent(out AnimationAndRigManager controller))
@@ -35,40 +30,12 @@ public class GettingHitController : MonoBehaviour
             enabled = false;
             return;
         }
+        
+        _healthController = GetComponent<HealthController>();
 
-        if (clips.Count == 0)
-        {
-            Debug.LogError("No animation clips!", this);
-            enabled = false;
-            return;
-        }
-        
-        _durationForPoiseFraction = (maximalPoiseDamageToGetStunned - minimalPoiseDamageToGetStunned) /
-                                  (maximalStunDuration - minimalStunDuration);
-                                  
-        
-        var uniqueClips = new HashSet<AnimationClip>();
-        foreach (var clip in clips)
-            uniqueClips.Add(clip);
-        
-        _animationLayerController = controller.GetAnimationLayer(uniqueClips, 5, avatarMask, "Getting hit");
-        _lastClip = clips[0];
-        _transitionState = new(crossFadeDuration,weightMultiplier);
+        settings.InitializeController(controller, out _animationLayerController, out _transitionState, out _lastClip);
     }
-
-    private UtilityClasses.BaseActionAutomaticTransition _transitionState;
-
-    private UtilityClasses.FractionTemporaryValue<bool> _stun = new(false, true);
-    private AnimationClip _lastClip;
     
-    public bool CanGetStunned { get; set; } = true;
-    
-    public bool IsStunned => _stun.Value;
-
-    public bool IsActivelyStunned => _stun.Value && _stun.TimeFraction < activeStunDurationFraction;
-    
-    
-    private readonly UtilityClasses.ChangeableFractionValue _hyperArmor = new();
     
     public void ActivateHyperArmor(UtilityClasses.FractionTemporaryValue<bool> timer)
     {
@@ -82,12 +49,18 @@ public class GettingHitController : MonoBehaviour
 
     public void InterruptStunIfNotActive()
     {
-        if(_stun.Value && _stun.TimeFraction > activeStunDurationFraction)
+        if(_stun.Value && _stun.TimeFraction > settings.activeStunDurationFraction)
             _stun.Deactivate();
     }
     
     private void Update()
     {
+        if (_healthController.IsDead)
+        {
+            _animationLayerController.SetLayerWeight(1f);
+            return;
+        }
+        
         if (!CanGetStunned)
         {
             _stun.Deactivate();
@@ -95,37 +68,25 @@ public class GettingHitController : MonoBehaviour
         _animationLayerController.SetLayerWeight(_transitionState.GetFraction( _stun.Value));
     }
 
-    private void InternalStun(float poiseDamage)
-    {
-        _animationLayerController.SetPlayableWeight(_lastClip, 0f);
-
-
-        _lastClip = clips[Random.Range(0, clips.Count)];
-
-        var stunDuration = UtilityFunctions.ChangeMeasurementScaleFraction(poiseDamage, minimalPoiseDamageToGetStunned,
-            _durationForPoiseFraction, minimalStunDuration, maximalStunDuration);
-        
-        var speed = UtilityFunctions.GetAnimationSpeed(_lastClip, stunDuration + crossFadeDuration);
-        _animationLayerController.SetPlayableSpeedAndWeightAndResetTime(_lastClip, speed, 1f);
-        _stun.Activate(stunDuration);
-    }
-
     public void Stun(float poiseDamage, bool haveParried)
     {
-        if (_stun.TimeFraction < stunDurationFractionToGetStunnedAgain || !CanGetStunned || _hyperArmor.Value) return;
-        
-        if (poiseDamage < minimalPoiseDamageToGetStunned) return;
+        if (_stun.TimeFraction < settings.stunDurationFractionToGetStunnedAgain || !CanGetStunned || _hyperArmor.Value) return;
 
-        if (haveParried)
+        if (settings.TryStun(poiseDamage, haveParried, out var stunDuration))
         {
-            if (poiseDamage < minimalStunDamageToGetStunnedDuringParry) return;
-            
-            InternalStun(poiseDamage * parryStunDamageFraction);
+            settings.SetStunAnimation(stunDuration, _animationLayerController, ref _lastClip);
+            _stun.Activate(stunDuration);
         }
-        else
-        {
-            InternalStun(poiseDamage);
-        }
+    }
+
+    public void Death()
+    {
+        settings.SetDeathAnimation(_animationLayerController, ref _lastClip);
+    }
+
+    public void Revive()
+    {
+        settings.UnsetDeathAnimation(_animationLayerController, ref _lastClip);
     }
 
 }

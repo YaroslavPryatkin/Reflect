@@ -59,7 +59,7 @@ public class MeleeSecondHandController : MonoBehaviour
         }
         _secondHandController = controller.GetRig(secondHandRigIndex);
         _secondHandTransformSource = new IkRigTargetController.TransformSource(secondHandIKTarget);
-        _secondHandController.SetSource(_secondHandTransformSource, 2);
+        _secondHandController.SetSource(_secondHandTransformSource);
         _transitionState = crossFadeDuration;
     }
 

@@ -30,7 +30,7 @@ public class CameraTransformController : MonoBehaviour
     
     private void LateUpdate()
     {
-        if (!GlobalUIManager.Instance.IsGameActive) return;
+        if (!UIManager.IsGameActive) return;
         
         
         var lookDir = TargetDirection;
