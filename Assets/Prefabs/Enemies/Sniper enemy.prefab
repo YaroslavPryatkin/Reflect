@@ -6138,7 +6138,7 @@ MonoBehaviour:
   killPlainActivationSuppressDuration: 0.1
   deflectBulletAngle: 80
   deflectBulletDamageReduction: 2
-  hpRegen: 60
+  playerHpRegen: 40
 --- !u!114 &1956369054092133074
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6202,6 +6202,9 @@ MonoBehaviour:
   enemyLayer:
     serializedVersion: 2
     m_Bits: 256
+  ignoreLayers:
+    serializedVersion: 2
+    m_Bits: 0
   shoulderPoint: {fileID: 682227519762987253}
   seePoints:
   - {fileID: 7436224881106099291}

@@ -11,7 +11,7 @@ public static class UtilityFunctions
         public float ClipSpeed => 0f;   
         public bool ClipIsNull  => true;
         public AnimationClip Clip => null;
-        public bool ShouldUpdateCurrentPlayableAnyway => false;
+        public bool ShouldResetTimeOfPlayableAnyway => false;
     }
 
     public enum BaseActionTransitionsEnum { Base, BaseToAction, Action, ActionToBase }
@@ -205,6 +205,17 @@ public static class UtilityFunctions
         return string.Join(separator.ToString(), pathNodes);
     }
 
+    public static Vector3 LerpByDistance(Vector3 a, Vector3 b, float distance)
+    {
+        var dir = b - a;
+        var sqrMagnitude = dir.sqrMagnitude;
+
+        if (sqrMagnitude <= 0.0001f) return a;
+        
+        var t = distance / Mathf.Sqrt(sqrMagnitude);
+        return a + dir * Mathf.Clamp01(t);
+    }
+    
     public static Transform MakeEmptyObject(string name, Transform parent)
     {
         var res = new GameObject(name).transform;

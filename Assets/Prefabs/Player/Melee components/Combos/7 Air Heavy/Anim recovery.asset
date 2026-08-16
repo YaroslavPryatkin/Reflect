@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb2d3080c6c024c41ab95bedb65c3d17, type: 3}
+  m_Name: Anim recovery
+  m_EditorClassIdentifier: Assembly-CSharp::MeleeSystem.MeleeAnimation
+  duration: 0.2
+  canBeInterruptedInto: 0
+  additionalActions:
+  - {fileID: 11400000, guid: 2432cadfa436a0f4b9bf38c252caa3a6, type: 2}
+  - {fileID: 11400000, guid: 9605338d253816944b0e5d487ab6b70b, type: 2}
+  haveReturnToLoop: 0
+  clip: {fileID: 7400000, guid: f6de93faf9d0cd7499ae2a68d9995569, type: 2}

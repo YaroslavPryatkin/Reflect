@@ -20,12 +20,12 @@ public class HealthController : MonoBehaviour
     public float HealthFraction => CurrentHealth / maxHealth;
 
     private MeleeController _meleeController;
-    private GettingHitController _gettingHitController;
+    protected GettingHitController GettingHitController;
     private GunController _gunController;
     private bool _haveGunController;
     private bool _haveGettingHitController = false;
     private bool _haveMelee;
-    private Sensors _sensors;
+    protected Sensors Sensors;
     
     protected ArenaController ArenaController;
     protected bool HaveArenaController = false;
@@ -48,18 +48,23 @@ public class HealthController : MonoBehaviour
             ArenaController=null;
         }
     }
-    
 
-    private int _iFrameSourcesCount = 0;
 
-    public void GrantIFrames()
+    private readonly UtilityClasses.ChangeableFractionValueReference _iFrames = new();
+
+    public void ActivateIFrames(UtilityClasses.IFractionTimer<bool> timer)
     {
-        ++_iFrameSourcesCount;
+        _iFrames.Set(timer);
+    }
+    
+    public void ActivateIFrames()
+    {
+        _iFrames.Set();
     }
 
-    public void TakeIFrames()
+    public void StopIFrames()
     {
-        --_iFrameSourcesCount;
+        _iFrames.Unset();
     }
 
     public enum DamageDealer
@@ -70,15 +75,15 @@ public class HealthController : MonoBehaviour
     protected virtual void Awake()
     {
         CurrentHealth = maxHealth;
-        _sensors =  GetComponent<Sensors>();
+        Sensors =  GetComponent<Sensors>();
         _haveMelee = TryGetComponent(out _meleeController);
-        _haveGettingHitController = TryGetComponent(out _gettingHitController);
+        _haveGettingHitController = TryGetComponent(out GettingHitController);
         _haveGunController = TryGetComponent(out _gunController);
     }
     
     protected virtual void OnRevive()
     {
-        _gettingHitController.Revive();
+        GettingHitController.Revive();
     }
 
     public void OnArenaReset()
@@ -120,20 +125,20 @@ public class HealthController : MonoBehaviour
         if (_haveGunController)
             _gunController.EarnBullet(bulletRechargeFraction);
 
-        if (_iFrameSourcesCount > 0) return;
+        if (_iFrames.Value) return;
 
         if (_haveGettingHitController)
-            _gettingHitController.Stun(poiseDamage, true);
+            GettingHitController.Stun(poiseDamage, true);
         
     }
 
     public void DoNormalDamage(float damage, float poiseDamage, DamageDealer damageDealer)
     {
-        if (IsDead || _iFrameSourcesCount > 0) return;
+        if (IsDead || _iFrames.Value) return;
         
         if (_haveGettingHitController)
         {
-            if (_gettingHitController.IsStunned)
+            if (GettingHitController.IsStunned)
                 ChangeHealth(-damage * damageFractionWhileStunned);
             else
                 ChangeHealth(-damage);
@@ -145,7 +150,7 @@ public class HealthController : MonoBehaviour
         if (!IsDead)
         {
             if(_haveGettingHitController)
-                _gettingHitController.Stun(poiseDamage, false);
+                GettingHitController.Stun(poiseDamage, false);
             
             OnDamageTaken(damage, damageDealer);
         }
@@ -158,7 +163,7 @@ public class HealthController : MonoBehaviour
 
     protected virtual void OnDeath()
     {
-        _gettingHitController.Death();
+        GettingHitController.Death();
     }
 
     public void FellOffTheMap()
@@ -186,8 +191,8 @@ public class HealthController : MonoBehaviour
 
     public void GetNewEnemyLayerMask(out int destructiveLayer, out int enemyLayer)
     {
-        enemyLayer = _sensors.EnemyLayer;
-        destructiveLayer = _sensors.IgnoreMyLayerMask;
+        enemyLayer = Sensors.EnemyLayer;
+        destructiveLayer = Sensors.IgnoreMyLayerMask;
     }
 
     public Transform GetBackTarget() => transform;

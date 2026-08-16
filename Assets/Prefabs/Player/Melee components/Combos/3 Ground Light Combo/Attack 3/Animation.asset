@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb2d3080c6c024c41ab95bedb65c3d17, type: 3}
+  m_Name: Animation
+  m_EditorClassIdentifier: Assembly-CSharp::MeleeSystem.MeleeAnimation
+  duration: 0.45
+  canBeInterruptedInto: 0
+  additionalActions:
+  - {fileID: 11400000, guid: 8e3fcba85f60bf24bbcf39f70a90d25e, type: 2}
+  - {fileID: 11400000, guid: 722f538b655362343a66286f667f8b00, type: 2}
+  haveReturnToLoop: 0
+  clip: {fileID: 7400000, guid: ef0dbabdf451af248a6743d32aea06c0, type: 2}

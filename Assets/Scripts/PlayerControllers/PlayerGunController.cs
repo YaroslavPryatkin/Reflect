@@ -1,5 +1,4 @@
 using System;
-using MeleeComponents;
 using UnityEngine;
 
 public class PlayerGunController : GunController

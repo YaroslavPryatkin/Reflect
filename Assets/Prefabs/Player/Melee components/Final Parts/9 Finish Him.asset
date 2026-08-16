@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9eb0216640e479f84dd62b699312a0f, type: 3}
+  m_Name: 9 Finish Him
+  m_EditorClassIdentifier: Assembly-CSharp::MeleeSystem.PartHolder
+  parts:
+  - {fileID: 11400000, guid: d1e50912b7a2af644bb40d60c4c39128, type: 2}
+  - {fileID: 11400000, guid: 9b8d2fc751ef5234dacb8e9d368208b9, type: 2}
+  - {fileID: 11400000, guid: 6774e97c66bb0b0449c3383d994d45fe, type: 2}

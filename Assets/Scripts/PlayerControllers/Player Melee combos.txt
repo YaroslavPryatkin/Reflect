@@ -1,9 +1,0 @@
-﻿0 - ground parry
-1 - on successful ground parry
-2 - ground charging
-3 - ground combo
-4 - ground heavy
-5 - air parry
-6 - on successful air parry
-7 - air heavy
-8 - air combo

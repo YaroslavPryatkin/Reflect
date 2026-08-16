@@ -12,7 +12,8 @@ public abstract class Sensors : MonoBehaviour
     [Header("Layer masks")]
     [SerializeField] private LayerMask myLayer;
     [SerializeField] private LayerMask enemyLayer;
-
+    [SerializeField] private LayerMask ignoreLayers;
+    
     public const QueryTriggerInteraction QueryTriggerInteractionShooting = QueryTriggerInteraction.Collide;
     
     protected abstract Vector3 GetVelocity();
@@ -47,7 +48,7 @@ public abstract class Sensors : MonoBehaviour
 
     protected virtual void Awake()
     {
-        IgnoreMyLayerMask = ~(myLayer | (2 << 1)) ;
+        IgnoreMyLayerMask = ~(myLayer | (1 << 2)| ignoreLayers) ;
         ThisCollider = GetComponent<CapsuleCollider>();
         ColliderRadius =  ThisCollider.radius;
         ColliderHeight =  ThisCollider.height;

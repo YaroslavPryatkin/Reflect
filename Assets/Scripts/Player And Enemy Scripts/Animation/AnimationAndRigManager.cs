@@ -15,15 +15,18 @@ public class AnimationAndRigManager : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool doDebug=false;
     
-    private PlayableGraph _graph;
-    private AnimationLayerMixerPlayable _layerMixer;
+    public Animator Animator { get; private set; }
+    public PlayableGraph Graph{ get; private set; }
+    public AnimationLayerMixerPlayable LayerMixer{ get; private set; }
+    
+    
     private readonly SortedSet<uint> _usedLayers  = new ();
-    private Animator _animator;
     
     private readonly Dictionary<int, IkRigTargetController> _rigs = new ();
     
     private AnimationLayerController[]  _controllers;
     private TextMeshProUGUI  _debugText;
+    
     
     
     private void Update()
@@ -41,7 +44,7 @@ public class AnimationAndRigManager : MonoBehaviour
 
     private void Awake()
     {
-        _animator = body.GetComponent<Animator>();
+        Animator = body.GetComponent<Animator>();
         InitPlayableGraph();
 
         if (doDebug)
@@ -53,33 +56,33 @@ public class AnimationAndRigManager : MonoBehaviour
     
     private void OnDestroy()
     {
-        if (_graph.IsValid()) _graph.Destroy();
+        if (Graph.IsValid()) Graph.Destroy();
     }
     
     private void InitPlayableGraph()
     {
-        _graph = _animator.playableGraph;
-        if (!_graph.IsValid())
+        Graph = Animator.playableGraph;
+        if (!Graph.IsValid())
         {
-            _graph = PlayableGraph.Create("DirectAnimationGraph");
+            Graph = PlayableGraph.Create("DirectAnimationGraph");
         }
         
-        _graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
+        Graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
         
-        _layerMixer = AnimationLayerMixerPlayable.Create(_graph, inputCount);
+        LayerMixer = AnimationLayerMixerPlayable.Create(Graph, inputCount);
         
         AnimationPlayableOutput output;
-        if (_graph.GetOutputCount() > 0)
+        if (Graph.GetOutputCount() > 0)
         {
-            output = (AnimationPlayableOutput)_graph.GetOutput(0);
+            output = (AnimationPlayableOutput)Graph.GetOutput(0);
         }
         else
         {
-            output = AnimationPlayableOutput.Create(_graph, "Animation", _animator);
+            output = AnimationPlayableOutput.Create(Graph, "Animation", Animator);
         }
         
-        output.SetSourcePlayable(_layerMixer);
-        _graph.Play();
+        output.SetSourcePlayable(LayerMixer);
+        Graph.Play();
 
         if (TryGetComponent(out RigBuilder rigBuilder))
         {
@@ -92,7 +95,7 @@ public class AnimationAndRigManager : MonoBehaviour
     public AnimationLayerController GetAnimationLayer(HashSet<AnimationClip> uniqueClips, uint destinationPort, string name, bool additive = false)
     {
         AddNewPortToSet(destinationPort);
-        var res =new AnimationLayerController(_graph, _layerMixer, destinationPort, uniqueClips, name, additive);
+        var res =new AnimationLayerController(this, destinationPort, uniqueClips, name, additive);
         if (doDebug)
         {
             _controllers[destinationPort] = res;
@@ -104,7 +107,7 @@ public class AnimationAndRigManager : MonoBehaviour
     public AnimationLayerController GetAnimationLayer(HashSet<AnimationClip> uniqueClips, uint destinationPort, AvatarMask avatarMask,string name, bool additive = false)
     {
         AddNewPortToSet(destinationPort);
-        var res = new AnimationLayerController(_graph, _layerMixer, destinationPort, uniqueClips, avatarMask, name, additive);
+        var res = new AnimationLayerController(this, destinationPort, uniqueClips, avatarMask, name, additive);
         if (doDebug)
         {
             _controllers[destinationPort] = res;
@@ -116,7 +119,7 @@ public class AnimationAndRigManager : MonoBehaviour
     public CurrentPlayableAnimationLayerController GetCurrentPlayableAnimationLayer(HashSet<AnimationClip> uniqueClips, uint destinationPort, string name, bool additive = false)
     {
         AddNewPortToSet(destinationPort);
-        var res =new CurrentPlayableAnimationLayerController(_graph, _layerMixer, destinationPort, uniqueClips, name, additive);
+        var res =new CurrentPlayableAnimationLayerController(this, destinationPort, uniqueClips, name, additive);
         if (doDebug)
         {
             _controllers[destinationPort] = res;
@@ -128,7 +131,7 @@ public class AnimationAndRigManager : MonoBehaviour
     public CurrentPlayableAnimationLayerController GetCurrentPlayableAnimationLayer(HashSet<AnimationClip> uniqueClips, uint destinationPort, AvatarMask avatarMask,string name, bool additive = false)
     {
         AddNewPortToSet(destinationPort);
-        var res = new CurrentPlayableAnimationLayerController(_graph, _layerMixer, destinationPort, uniqueClips, avatarMask, name, additive);
+        var res = new CurrentPlayableAnimationLayerController(this, destinationPort, uniqueClips, avatarMask, name, additive);
         if (doDebug)
         {
             _controllers[destinationPort] = res;
@@ -140,7 +143,7 @@ public class AnimationAndRigManager : MonoBehaviour
     public AutomaticAnimationLayerController GetAutomaticAnimationLayer(HashSet<AnimationClip> uniqueClips, uint destinationPort, string name, bool additive = false)
     {
         AddNewPortToSet(destinationPort);
-        var res = new AutomaticAnimationLayerController(_graph, _layerMixer, destinationPort, uniqueClips,name,  additive);
+        var res = new AutomaticAnimationLayerController(this, destinationPort, uniqueClips,name,  additive);
         if (doDebug)
         {
             _controllers[destinationPort] = res;
@@ -152,7 +155,7 @@ public class AnimationAndRigManager : MonoBehaviour
     public AutomaticAnimationLayerController GetAutomaticAnimationLayer(HashSet<AnimationClip> uniqueClips, uint destinationPort, AvatarMask avatarMask,string name, bool additive = false)
     {
         AddNewPortToSet(destinationPort);
-        var res = new AutomaticAnimationLayerController(_graph, _layerMixer, destinationPort, uniqueClips,avatarMask, name, additive);
+        var res = new AutomaticAnimationLayerController(this, destinationPort, uniqueClips,avatarMask, name, additive);
         
         if (doDebug)
         {
@@ -166,17 +169,15 @@ public class AnimationAndRigManager : MonoBehaviour
     {
         if(destinationPort >= inputCount)
             throw new ArgumentException($"The port {destinationPort} does not fit into the current limit of {inputCount} ports.");
-        if(_usedLayers.Contains(destinationPort))
+        if(!_usedLayers.Add(destinationPort))
             throw new ArgumentException($"The port {destinationPort} is already in use");
-        _usedLayers.Add(destinationPort);
+        
     }
 
     public void AddRig(IkRigTargetController rig)
     {
-        if (_rigs.ContainsKey(rig.Index))
+        if (!_rigs.TryAdd(rig.Index, rig))
             throw new ArgumentException($"The rig {rig.Index} is already in use");
-        
-        _rigs.Add(rig.Index, rig);
     }
 
     public IkRigTargetController GetRig(int index)

@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using System.Collections.Generic;
+using CustomAttributes;
 using Random = UnityEngine.Random;
 
 [CreateAssetMenu(fileName = "GettingHitAnimationPack", menuName = "Scriptable Objects/GettingHitAnimationPack")]
@@ -27,24 +28,35 @@ public class GettingHitSettings : ScriptableObject
     [SerializeField] private AvatarMask gettingHitAvatarMask;
     [SerializeField] private float weightMultiplier = 0.5f;
     [Header("Death")] 
+    [SerializeField] private float deathDuration = 3f;
     [SerializeField] private List<AnimationClip> deathClips;
     [SerializeField] private AvatarMask deathAvatarMask;
-    
-    private float _durationForPoiseFraction;
-
-    private void Awake()
-    {
-        if (gettingHitClips.Count == 0 || deathClips.Count == 0)
-        {
-            Debug.LogError("No animation clips!", this);
-        }
+    [SerializeField] public bool shouldSlowDeath = false;
+    [SerializeField, EnableIf("shouldSlowDeath")] 
+    private float slowDeathDuration = 0.4f;
+    [SerializeField, EnableIf("shouldSlowDeath")] 
+    private float slowDeathSpeed = 0.1f;
         
-        _durationForPoiseFraction = (maximalPoiseDamageToGetStunned - minimalPoiseDamageToGetStunned) /
+    [SerializeField, HideInInspector] private float durationForPoiseFraction;
+    private void OnValidate()
+    {
+        durationForPoiseFraction = (maximalPoiseDamageToGetStunned - minimalPoiseDamageToGetStunned) /
                                     (maximalStunDuration - minimalStunDuration);
+
     }
 
     public void InitializeController(AnimationAndRigManager controller, out AnimationLayerController animationLayerController, out UtilityClasses.BaseActionAutomaticTransition transitionState, out AnimationClip lastClip)
     {
+        if (gettingHitClips.Count == 0 || deathClips.Count == 0)
+        {
+            Debug.LogError("No animation clips!", this);
+            animationLayerController = null;
+            transitionState = null;
+            lastClip = null;
+            return;
+        }
+
+        
         lastClip = gettingHitClips[0];
         
         
@@ -96,20 +108,33 @@ public class GettingHitSettings : ScriptableObject
     private float GetStunDuration(float poiseDamage)
     {
         return UtilityFunctions.ChangeMeasurementScaleFraction(poiseDamage, minimalPoiseDamageToGetStunned,
-            _durationForPoiseFraction, minimalStunDuration, maximalStunDuration);
+            durationForPoiseFraction, minimalStunDuration, maximalStunDuration);
     }
 
     /// <summary>
     /// Sets random death animation
     /// </summary>
-    public void SetDeathAnimation(AnimationLayerController animationLayerController, ref AnimationClip lastClip)
+    public void SetDeathAnimation(AnimationLayerController animationLayerController, ref AnimationClip lastClip, UtilityClasses.FractionTemporaryValue<bool> timer)
     {
         animationLayerController.SetPlayableWeight(lastClip, 0f);
         
         lastClip = deathClips[Random.Range(0, deathClips.Count)];
         
         animationLayerController.SetAvatarMask(deathAvatarMask);
-        animationLayerController.SetPlayableSpeedAndWeightAndResetTime(lastClip, 1f, 1f);
+        
+        animationLayerController.SetPlayableSpeedAndWeightAndResetTime(
+            lastClip, shouldSlowDeath ? slowDeathSpeed :  
+                UtilityFunctions.GetAnimationSpeed(lastClip, deathDuration), 1f);
+        
+        if(shouldSlowDeath)
+            timer.Activate(slowDeathDuration);
+    }
+
+    public void RestoreDeathAnimationSpeed(
+        AnimationLayerController animationLayerController, ref AnimationClip lastClip)
+    {
+        animationLayerController.SetPlayableSpeed(
+            lastClip, UtilityFunctions.GetAnimationSpeed(lastClip, deathDuration));
     }
 
     public void UnsetDeathAnimation(AnimationLayerController animationLayerController, ref AnimationClip lastClip)

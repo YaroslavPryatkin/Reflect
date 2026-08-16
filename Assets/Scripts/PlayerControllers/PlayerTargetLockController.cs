@@ -30,12 +30,23 @@ public class PlayerTargetLockController : MonoBehaviour
     [SerializeField] private float cameraMaxRotationSpeed = 80f;
     [SerializeField] private float speedCurvePower = 2f;
 
+    [Header("Enemy finishing")] 
+    [SerializeField] private float enemyFinishClipDistance = 0.7f;
+    [SerializeField] private float enemyFinishDistance = 4f;
+    [SerializeField] private float enemyFinishMaxAngle = 20f;
+    [SerializeField] private float enemyFinishCameraMinRotationSpeed = 30f;
+    [SerializeField] private float enemyFinishCameraMaxRotationSpeed = 80f;
+
+    private readonly Collider[] _candidates = new Collider[10];
+    
     private PlayerSensors _playerSensors;
     private PlayerSlidingController _playerSlidingController;
     private PlayerGunController _playerGunController;
     private PlayerMeleeController _playerMeleeController;
     private PlayerInputController _playerInputController;
+    private PlayerMeleeTransformController _playerMeleeTransformController;
     private float _smoothFactor;
+    
     
     
     private Transform _targetTransform;
@@ -47,11 +58,14 @@ public class PlayerTargetLockController : MonoBehaviour
     public Vector3 TargetCameraDirection { get; private set; } = Vector3.zero;
     public Vector3 TargetPosition { get; private set; } = Vector3.zero;
 
+    public bool HaveFinishHimTarget { get; private set; } = false;
+    private EnemyHealthController _finishHimTarget;
+    
+    
     
     public bool IsLocked { get; private set; } = false;
-    
-    
     public bool IsMeleeLocked { get; private set; } = false;
+    public bool IsFinishHimLocked { get;private set; } = false;
     
     private void Awake()
     {
@@ -60,27 +74,76 @@ public class PlayerTargetLockController : MonoBehaviour
         _playerGunController = GetComponent<PlayerGunController>();
         _playerMeleeController = GetComponent<PlayerMeleeController>();
         _playerInputController = GetComponent<PlayerInputController>();
+        _playerMeleeTransformController = GetComponent<PlayerMeleeTransformController>();
         _ignoreMyLayerMask = _playerSensors.IgnoreMyLayerMask;
         _smoothFactor = 2 * reLockAngleFactor;
     }
 
 
-
-    public bool FindMeleeTarget(out Transform bestTarget)
+    private void FindFinishHimTarget()
     {
-        bestTarget = null;
+        var amount = Physics.OverlapSphereNonAlloc(transform.position, enemyFinishDistance, _candidates, _playerSensors.EnemyLayer, QueryTriggerInteraction.Collide);
+
+        var pos = transform.position;
+        var lastMaxAngle = float.MaxValue;
+        HaveFinishHimTarget = false;
+
+        for (var i = 0; i < amount; ++i)
+        {
+            var collider = _candidates[i];
+            
+            var dir = collider.transform.position - pos;
+
+            if (dir.magnitude < enemyFinishClipDistance)
+            {
+                if (collider.TryGetComponent(out EnemyHealthController health))
+                {
+                    if (health.CanBeFinished)
+                    {
+                        _finishHimTarget = health;
+                        HaveFinishHimTarget = true;
+                        return;
+                    }
+                }
+            }
+            else
+            {
+                var angle = Vector3.Angle(_playerInputController.NonZeroInputMoveVector, dir);
+
+                if (angle <= enemyFinishMaxAngle)
+                {
+                    if (collider.TryGetComponent(out EnemyHealthController health))
+                    {
+                        if (health.CanBeFinished)
+                        {
+                            if (angle < lastMaxAngle)
+                            {
+                                lastMaxAngle = angle;
+                                _finishHimTarget = health;
+                                HaveFinishHimTarget = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    
+    private void FindMeleeTarget()
+    {
         
-        var candidates = Physics.OverlapSphere(transform.position, meleeLockingLockDistance,  _playerSensors.EnemyLayer);
+        var amount = Physics.OverlapSphereNonAlloc(transform.position, meleeLockingLockDistance, _candidates, _playerSensors.EnemyLayer);
         
         
-        var foundTarget = false;
+        IsMeleeLocked = false;
         var minScore = float.MaxValue;
         
         var camPos = GlobalCameraManager.GetPlayerCameraPosition();
-        
 
-        foreach (var collider in candidates)
+        for (var i = 0; i < amount; ++i)
         {
+            var collider = _candidates[i];
             if (!collider.TryGetComponent<HealthController>(out var health) || health.IsDead) 
                 continue;
 
@@ -97,28 +160,26 @@ public class PlayerTargetLockController : MonoBehaviour
                 if (UtilityFunctions.HasLineOfSight(camPos, collider, _ignoreMyLayerMask))
                 {
                     minScore = score;
-                    bestTarget = collider.transform;
-                    foundTarget = true;
+                    _targetTransform = collider.transform;
+                    IsMeleeLocked = true;
                 }
             }
         }
-
-        return foundTarget;
     }
     
-    public bool FindTargetInFoV(out Transform bestTarget)
+    private bool FindTargetInFoV()
     {
-        var candidates = Physics.OverlapSphere(transform.position, maximalStartLockDistance,  _playerSensors.EnemyLayer);
+        var amount =  Physics.OverlapSphereNonAlloc(transform.position, maximalStartLockDistance,_candidates,  _playerSensors.EnemyLayer);
         
-        bestTarget = null;
         var foundTarget = false;
         var minScore = float.MaxValue;
         var camPos = GlobalCameraManager.GetPlayerCameraPosition();
         
         var screenCenter = new Vector2(0.5f, 0.5f);
 
-        foreach (var collider in candidates)
+        for (var i = 0; i < amount; ++i)
         {
+            var collider = _candidates[i];
             var viewportPos = GlobalCameraManager.PlayerCamera.WorldToViewportPoint(collider.transform.position);
 
             if (viewportPos.z <= 0 || viewportPos.x < -0.5 || viewportPos.x > 1.5 || viewportPos.y < 0 || viewportPos.y > 1)
@@ -141,7 +202,7 @@ public class PlayerTargetLockController : MonoBehaviour
                 if (UtilityFunctions.HasLineOfSight(camPos, collider, _ignoreMyLayerMask))
                 {
                     minScore = score;
-                    bestTarget = collider.transform;
+                    _targetTransform = collider.transform;
                     foundTarget = true;
                 }
             }
@@ -181,14 +242,15 @@ public class PlayerTargetLockController : MonoBehaviour
             GlobalLookDirectionManager.CurrentLookDirection, GetShiftedSmooth(inputAngle/180f));
         
         
-        var candidates = Physics.OverlapSphere(transform.position, maximalStartLockDistance,  _playerSensors.EnemyLayer);
+        var amount =  Physics.OverlapSphereNonAlloc(transform.position, maximalStartLockDistance, _candidates, _playerSensors.EnemyLayer);
         
         var foundTarget = false;
         var minScore = float.MaxValue;
         var camPos = GlobalCameraManager.GetPlayerCameraPosition();
 
-        foreach (var collider in candidates)
+        for (var i = 0; i < amount; ++i)
         {
+            var collider = _candidates[i];
             if (!collider.TryGetComponent<HealthController>(out var health) || health.IsDead) 
                 continue;
             
@@ -216,14 +278,10 @@ public class PlayerTargetLockController : MonoBehaviour
     }
     
     
-    private void TryMeleeLock()
-    {
-        IsMeleeLocked = FindMeleeTarget(out _targetTransform);
-    }
     
     private void TryLock()
     {
-        if (FindTargetInFoV(out _targetTransform))
+        if (FindTargetInFoV())
         {
             IsLocked = true;
             GetHealthControllerOnTarget();
@@ -300,14 +358,23 @@ public class PlayerTargetLockController : MonoBehaviour
 
     private bool CalculateFields()
     {
+        
         TargetPosition = _targetTransform.position;
         
         TargetCameraDirection = TargetPosition - GlobalCameraManager.GetPlayerCameraPosition();
         
         
         var tmpDir = TargetPosition - transform.position;
-        if (tmpDir.sqrMagnitude < 0.001f)
+        var sqrMagn = tmpDir.sqrMagnitude;
+        if (sqrMagn < 0.0001f)
         {
+            NormalizedHorizontalDirectionToLockedTarget=transform.forward;
+            return false;
+        }
+        
+        if (tmpDir.y / Mathf.Sqrt(sqrMagn) > 0.995f)
+        {
+            
             NormalizedHorizontalDirectionToLockedTarget=transform.forward;
             return false;
         }
@@ -316,7 +383,7 @@ public class PlayerTargetLockController : MonoBehaviour
         return true;
     }
     
-    private void MoveCamera()
+    private void MoveCamera(float minSpeed, float maxSpeed)
     {
         if (_playerGunController.GunStateValue != UtilityFunctions.BaseActionTransitionsEnum.Base)
             return;
@@ -340,7 +407,7 @@ public class PlayerTargetLockController : MonoBehaviour
 
             var speedFactor = Mathf.Pow(angleRatio, speedCurvePower);
 
-            currentSpeed = Mathf.Lerp(cameraMinRotationSpeed, cameraMaxRotationSpeed, speedFactor);
+            currentSpeed = Mathf.Lerp(minSpeed, maxSpeed, speedFactor);
         }
         else
         {
@@ -355,28 +422,56 @@ public class PlayerTargetLockController : MonoBehaviour
         
         GlobalLookDirectionManager.SetNewYaw(newCameraYaw);
     }
+
+    public void LockFinishHimTarget()
+    {
+        IsFinishHimLocked = true;
+        _targetTransform = _finishHimTarget.transform;
+        _targetHealthController = _finishHimTarget;
+        _finishHimTarget.StartBeingFinished();
+        CalculateFields();
+    }
+
+    public void UnlockFinishHim(bool shouldRegen)
+    {
+        //Debug.Log("UnlockFinishHim, regen =  " + shouldRegen + ", time = " + Time.frameCount);
+        _finishHimTarget.StopBeingFinished(shouldRegen);
+        IsFinishHimLocked = false;
+        FindFinishHimTarget();
+    }
     
     private void Update()
     {
-
-        if (IsLocked)
+        if (IsFinishHimLocked)
         {
-            DoLockedChecks();
-            if (IsLocked)
+            if (CalculateFields())
             {
-                if (CalculateFields())
-                {
-                    MoveCamera();
-                }
+                MoveCamera(enemyFinishCameraMinRotationSpeed, enemyFinishCameraMaxRotationSpeed);
             }
         }
-        
-        if(!IsLocked)
+        else
         {
-            TryMeleeLock();
-            if (IsMeleeLocked)
+            FindFinishHimTarget();
+            
+            if (IsLocked)
             {
-                CalculateFields();
+                DoLockedChecks();
+                if (IsLocked)
+                {
+                    if (CalculateFields())
+                    {
+                        MoveCamera(cameraMinRotationSpeed, cameraMaxRotationSpeed);
+                    }
+                }
+            }
+        
+            if(!IsLocked)
+            {
+                FindMeleeTarget();
+                if (IsMeleeLocked)
+                {
+                    CalculateFields();
+                }
             }
         }
     }

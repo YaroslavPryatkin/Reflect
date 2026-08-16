@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd3eb6f32366d284680d50125077ef4c, type: 3}
+  m_Name: Player
+  m_EditorClassIdentifier: Assembly-CSharp::GettingHitSettings
+  crossFadeDuration: 0.07
+  stunDurationFractionToGetStunnedAgain: 0.9
+  activeStunDurationFraction: 0.2
+  minimalStunDamageToGetStunnedDuringParry: 80
+  parryStunDamageFraction: 0.6
+  minimalStunDuration: 0.05
+  minimalPoiseDamageToGetStunned: 10
+  maximalStunDuration: 0.6
+  maximalPoiseDamageToGetStunned: 100
+  gettingHitClips:
+  - {fileID: 7400000, guid: 451647c182ce87a42bb1a435d256197e, type: 2}
+  - {fileID: 7400000, guid: ca04f5216201bba47bd91759b371be55, type: 2}
+  - {fileID: 7400000, guid: 60bd31196a0254541be0f3ba68739cde, type: 2}
+  gettingHitAvatarMask: {fileID: 31900000, guid: 1e67dcd00e3b7114ca3a8b69705383fa, type: 2}
+  weightMultiplier: 0.5
+  deathDuration: 3
+  deathClips:
+  - {fileID: 7400000, guid: 92667b6c79745d04088cdf726ba3854a, type: 2}
+  - {fileID: 7400000, guid: 8673ea643fffe1540bffa26d54b6b590, type: 2}
+  - {fileID: 7400000, guid: ce45e3db03bc3d04b8e9414460237cfd, type: 2}
+  - {fileID: 7400000, guid: 9d944ad89e0061740887a8fd44810131, type: 2}
+  - {fileID: 7400000, guid: 067649ee0f4dad640a6e6ad2d6eaef5e, type: 2}
+  deathAvatarMask: {fileID: 31900000, guid: 2a459eb9762384e43b380ec4cc8b96ba, type: 2}
+  shouldSlowDeath: 0
+  slowDeathDuration: 0.4
+  slowDeathSpeed: 0.1
+  durationForPoiseFraction: 163.63635

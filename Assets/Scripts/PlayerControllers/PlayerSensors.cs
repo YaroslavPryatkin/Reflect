@@ -56,8 +56,7 @@ public class PlayerSensors : Sensors
     [SerializeField] private float maxOvershoot = 2;
     [SerializeField] private float speedAtMaxOvershoot = 10;
     [SerializeField] private float rayCastDownDistance = 20f;
-
-
+    
     [Header("Ground sensors for ledge climb")] 
     [SerializeField] private float ledgeCheckDistance = 1f;
     [SerializeField] private float ledgeCheckMinimalHeight = -0.1f;
@@ -66,6 +65,8 @@ public class PlayerSensors : Sensors
 
     [Header("Has something in the collider")] 
     [SerializeField] private float hasSomethingInTheColliderCheckRadius = 0.5f;
+
+    
     
     [Header("Dash mask")] 
     [SerializeField] private LayerMask playerCanDashTroughLayers;
@@ -188,6 +189,11 @@ public class PlayerSensors : Sensors
         return rb.linearVelocity;
     }
 
+    public void GatherFinishEnemySensors()
+    {
+        
+    }
+    
     private void GatherForceSlideSensors()
     {
         var point = transform.position + Vector3.down * forceSlideCheckDistance;

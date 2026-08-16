@@ -4,8 +4,6 @@ using System;
 using UnityEngine.Playables;
 using UnityEngine.Animations;
 using UnityEngine.Animations.Rigging;
-using MeleeComponents;
-using MeleeComponents.Presets;
 using CustomAttributes;
 using BaseActionTransitionsEnum = UtilityFunctions.BaseActionTransitionsEnum;
 
@@ -14,14 +12,8 @@ public class MeleeSecondHandController : MonoBehaviour
     [SerializeField] private int secondHandRigIndex;
     [SerializeField] private Transform secondHandIKTarget;
     [SerializeField] private float crossFadeDuration = 0.1f;
-
-    public enum TypeEnum
-    {
-        Active, RemainPrevious
-    }
-
-    //private TypeEnum _type;
-    private readonly UtilityClasses.ChangeableFractionValue _useSecondHand = new();
+    
+    private readonly UtilityClasses.ChangeableFractionValueReference _useSecondHand = new();
     
     private IkRigTargetController _secondHandController;
     private IkRigTargetController.TransformSource _secondHandTransformSource;

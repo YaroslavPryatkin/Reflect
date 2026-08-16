@@ -8,13 +8,13 @@ using BaseActionTransitionsEnum = UtilityFunctions.BaseActionTransitionsEnum;
 
 public class AutomaticAnimationLayerController : CurrentPlayableAnimationLayerController
 {
-    public AutomaticAnimationLayerController(PlayableGraph graph, AnimationLayerMixerPlayable layerMixer, 
-        uint destinationLayerPort, HashSet<AnimationClip> uniqueClips,string name, bool additive) : base( graph,  layerMixer, 
+    public AutomaticAnimationLayerController(AnimationAndRigManager manager, 
+        uint destinationLayerPort, HashSet<AnimationClip> uniqueClips,string name, bool additive) : base(manager, 
         destinationLayerPort,  uniqueClips,name, additive)
     { }
     
-    public AutomaticAnimationLayerController(PlayableGraph graph, AnimationLayerMixerPlayable layerMixer, 
-        uint destinationLayerPort, HashSet<AnimationClip> uniqueClips,  AvatarMask avatarMask,string name, bool additive) : base( graph,  layerMixer, 
+    public AutomaticAnimationLayerController(AnimationAndRigManager manager, 
+        uint destinationLayerPort, HashSet<AnimationClip> uniqueClips,  AvatarMask avatarMask,string name, bool additive) : base(manager, 
         destinationLayerPort,  uniqueClips, avatarMask, name, additive)
     { }
     

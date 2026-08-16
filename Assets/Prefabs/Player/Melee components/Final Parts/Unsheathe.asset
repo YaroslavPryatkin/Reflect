@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 08f4d5254f0e46ff9b9fdb7857f833bb, type: 3}
+  m_Name: Unsheathe
+  m_EditorClassIdentifier: Assembly-CSharp::MeleeSystem.Unsheathe
+  transition: {fileID: 11400000, guid: b0fc5d56d6e9a4b4f949394959010084, type: 2}
+  meleeAnimation: {fileID: 11400000, guid: 169c9089cadc5d94786454fa2e37bcc3, type: 2}
+  parts:
+  - {fileID: 11400000, guid: b0fc5d56d6e9a4b4f949394959010084, type: 2}
+  - {fileID: 11400000, guid: 169c9089cadc5d94786454fa2e37bcc3, type: 2}

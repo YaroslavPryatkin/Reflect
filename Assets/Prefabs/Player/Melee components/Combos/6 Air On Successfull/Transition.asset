@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 339ad6945d7f9da41974f157a397d024, type: 3}
+  m_Name: Transition
+  m_EditorClassIdentifier: Assembly-CSharp::MeleeSystem.Transition
+  duration: 0.04
+  canBeInterruptedInto: 0
+  additionalActions:
+  - {fileID: 11400000, guid: eb89fa5c5a9c9eb43ae9e6446c9af061, type: 2}
+  - {fileID: 11400000, guid: 15c624203c4ccee4b8f98a15df829b20, type: 2}
+  - {fileID: 11400000, guid: 5df6d75b3ea4c5a4095f7624127a8970, type: 2}
+  haveReturnToLoop: 0

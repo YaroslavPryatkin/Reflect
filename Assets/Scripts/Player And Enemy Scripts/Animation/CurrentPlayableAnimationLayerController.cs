@@ -9,16 +9,16 @@ using BaseActionTransitionsEnum = UtilityFunctions.BaseActionTransitionsEnum;
 public class CurrentPlayableAnimationLayerController : AnimationLayerController
 {
 
-    public CurrentPlayableAnimationLayerController(PlayableGraph graph, AnimationLayerMixerPlayable layerMixer, 
-        uint destinationLayerPort, HashSet<AnimationClip> uniqueClips, string name, bool additive) : base( graph,  layerMixer, 
+    public CurrentPlayableAnimationLayerController(AnimationAndRigManager manager, 
+        uint destinationLayerPort, HashSet<AnimationClip> uniqueClips, string name, bool additive) : base(manager, 
         destinationLayerPort,  uniqueClips, name, additive)
     { 
         CurrentPort = new() { Port = -1, Weight = 1f };
     }
     
-    public CurrentPlayableAnimationLayerController(PlayableGraph graph, AnimationLayerMixerPlayable layerMixer, 
-        uint destinationLayerPort, HashSet<AnimationClip> uniqueClips,  AvatarMask avatarMask, string name, bool additive) : base( graph,  layerMixer, 
-        destinationLayerPort,  uniqueClips, avatarMask, name, additive)
+    public CurrentPlayableAnimationLayerController(AnimationAndRigManager manager, 
+        uint destinationLayerPort, HashSet<AnimationClip> uniqueClips,  AvatarMask avatarMask, string name, bool additive) : 
+        base(manager, destinationLayerPort,  uniqueClips, avatarMask, name, additive)
     { 
         CurrentPort = new() { Port = -1, Weight = 1f };
     }
@@ -105,7 +105,13 @@ public class CurrentPlayableAnimationLayerController : AnimationLayerController
             {
                 if (updateTime)
                 {
+                    Manager.Animator.fireEvents = false;
+                    
                     currentPlayable.SetTime(0f);
+        
+                    Manager.Graph.Evaluate(0f);
+
+                    Manager.Animator.fireEvents = true;
                 }
 
                 currentPlayable.SetSpeed(clipSpeed);
@@ -126,7 +132,13 @@ public class CurrentPlayableAnimationLayerController : AnimationLayerController
             }
             else
             {
-                InternalChangeCurrentPlayableSpeedAndTime(input.ClipSpeed, input.ShouldUpdateCurrentPlayableAnyway);
+                // if (input.ShouldResetTimeOfPlayableAnyway)
+                // {
+                //     var currentPlayable = AnimationMixer.GetInput(CurrentPort.Port);
+                //     Debug.Log("Reset time for clip = " + input.Clip.name + ", from "+ (currentPlayable.GetTime()/input.Clip.length) +  ", frame = " + Time.frameCount);
+                // }
+                
+                InternalChangeCurrentPlayableSpeedAndTime(input.ClipSpeed, input.ShouldResetTimeOfPlayableAnyway);
             }
         }
         else

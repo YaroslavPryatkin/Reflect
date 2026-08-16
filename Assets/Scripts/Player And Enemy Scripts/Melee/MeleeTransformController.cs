@@ -1,49 +1,75 @@
 using System;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.Playables;
-using System.Collections.Generic;
-using UnityEngine.UIElements;
 
+/// <summary>
+/// This requires refactoring, but it is working and i dont want to bother
+/// </summary>
 public abstract class MeleeTransformController : MonoBehaviour
 {
     [SerializeField] private float parabolaTargetFollowingSpeed = 20f;
     [SerializeField] private float targetDistanceToTarget = 0.9f;
+    [SerializeField] private float targetSnapDistanceToTarget = 0.9f;
     public bool IsActive { get; private set; } = false;
-    private readonly UtilityClasses.ChangeableFractionValue _isActiveTimer = new();
-    public bool IsControllingMovement { get;protected set; } = false;
+    private readonly UtilityClasses.ChangeableFractionValueReference _isActiveTimer = new();
+    
+    public bool IsControllingMovement { get;private set; } = false;
+    private bool _forceLookToTarget;
     
     private Vector3 _targetPosition;
     private Vector3 _targetDirection;
     private Vector3 _targetLookDirection;
     private bool _haveTarget;
 
-    private enum TypeEnum
+    private enum Mode
     {
-        Moving, Standing, Parabola
+        Move, Standing, Parabola, Snap, MoveThrough
     }
     
-    private TypeEnum _type = TypeEnum.Moving;
+    private Mode _mode = Mode.Move;
     
     
+    /// <summary>
+    /// different purpose for different modes <br/>
+    /// move or moveThrough - speed multiplier<br/>
+    /// parabola - angle up
+    /// </summary>
     private float _currentFloatValue;
+    /// <summary>
+    /// different purpose for different modes <br/>
+    /// move or moveThrough - speed curve<br/>
+    /// parabola and snap - distance curve
+    /// </summary>
     private AnimationCurve _currentCurve;
-
-    private float _rotationSpeed;
-    private bool _forceLookToTarget;
+    /// <summary>
+    /// different purpose for different modes <br/>
+    /// parabola - target position on start<br/>
+    /// snap - start transform pos
+    /// </summary>
+    private Vector3 _currentVector3Value;
     
-    private UtilityClasses.ParabolaCurve _parabolaCurve;
+    private float _rotationSpeed;
     private bool _wasKinematic=false;
-    private Vector3 _currentParabolaEndPos;
+
+    private LayerMask _wasExcludeLayers;
+    
+    private readonly UtilityClasses.ParabolaCurve _parabolaCurve = new();
     
     private Sensors _sensors;
     private Rigidbody _rb;
-
-    protected abstract void SetTargetLookDirection( out Vector3 targetLookDirection);
+    
+    /// <summary>
+    /// Called if <br/> forceLookAtTarget == false or DoesHaveTarget() == false
+    /// </summary>
+    /// <param name="targetLookDirection">Should be normalized</param>
+    protected abstract void SetTargetLookDirection(out Vector3 targetLookDirection);
+    
     protected abstract bool DoesHaveTarget();
+    
+    /// <param name="targetPosition">World position</param>
+    /// <param name="targetDirection">Should be normalized</param>
     protected abstract void SetTargetPositionAndDirection(out Vector3 targetPosition, out Vector3 targetDirection);
 
-    public void ActivateMoving(
+    public void ActivateMove(
         float transformSpeedMultiplier,
         AnimationCurve speedCurve,
         float rotationSpeed,
@@ -52,13 +78,14 @@ public abstract class MeleeTransformController : MonoBehaviour
     {
         if (IsActive)
         {
-            //Debug.Log("<color="+GetColor()+">Ending previous " + _type + "</color>");
             InterruptMove();
         }
+        _wasKinematic = _rb.isKinematic;
+        _wasExcludeLayers = _rb.excludeLayers;
         
         _isActiveTimer.Set(moveRequest);
         IsActive = true;
-        _type = TypeEnum.Moving;
+        _mode = Mode.Move;
         
         _currentFloatValue = transformSpeedMultiplier;
         _currentCurve = speedCurve;
@@ -67,6 +94,47 @@ public abstract class MeleeTransformController : MonoBehaviour
         IsControllingMovement = true;
         _haveTarget = false;
       
+    }
+    
+    public void ActivateMoveThrough(
+        float transformSpeedMultiplier,
+        AnimationCurve speedCurve,
+        float rotationSpeed,
+        float angleHorizontal,
+        bool forceLookToTarget,
+        UtilityClasses.FractionTemporaryValue<bool> moveRequest)
+    {
+        if (IsActive)
+        {
+            InterruptMove();
+        }
+        _wasKinematic = _rb.isKinematic;
+        _wasExcludeLayers = _rb.excludeLayers;
+
+
+        if (forceLookToTarget && (_haveTarget = DoesHaveTarget()))
+        {
+            SetTargetPositionAndDirection(out _targetPosition, out _targetDirection);
+            _targetLookDirection = _targetDirection;
+        }
+        else
+        {
+            SetTargetLookDirection(out _targetLookDirection);
+        }
+
+        _targetLookDirection = Quaternion.AngleAxis(angleHorizontal, Vector3.up) * _targetLookDirection;
+        
+        _isActiveTimer.Set(moveRequest);
+        IsActive = true;
+        _mode = Mode.MoveThrough;
+        
+        _currentFloatValue = transformSpeedMultiplier;
+        _currentCurve = speedCurve;
+        _rotationSpeed = rotationSpeed;
+        _forceLookToTarget = forceLookToTarget;
+        IsControllingMovement = true;
+        
+        _rb.excludeLayers = _wasExcludeLayers | _sensors.EnemyLayer;
         //Debug.Log("<color="+GetColor()+">Starting moving</color>");
     }
     
@@ -81,10 +149,12 @@ public abstract class MeleeTransformController : MonoBehaviour
             //Debug.Log("<color="+GetColor()+">Ending previous " + _type + "</color>");
             InterruptMove();
         }
+        _wasKinematic = _rb.isKinematic;
+        _wasExcludeLayers = _rb.excludeLayers;
         
         _isActiveTimer.Set(moveRequest);
         IsActive = true;
-        _type = TypeEnum.Standing;
+        _mode = Mode.Standing;
         
         _rotationSpeed = rotationSpeed;
         _forceLookToTarget= forceLookToTarget;
@@ -92,7 +162,7 @@ public abstract class MeleeTransformController : MonoBehaviour
         //Debug.Log("<color="+GetColor()+">Starting standing</color>");
     }
     
-    public void ActivateParabola(
+    public bool ActivateParabola(
         float angleUp,
         AnimationCurve distanceCurve,
         UtilityClasses.FractionTemporaryValue<bool> moveRequest)
@@ -102,22 +172,24 @@ public abstract class MeleeTransformController : MonoBehaviour
             //Debug.Log("<color="+GetColor()+">Ending previous " + _type + "</color>");
             InterruptMove();
         }
+        _wasKinematic = _rb.isKinematic;
+        _wasExcludeLayers = _rb.excludeLayers;
         
         
-        _isActiveTimer.Set(moveRequest);
         
         _haveTarget = DoesHaveTarget();
         
         if (!_haveTarget)
         {
-            return;
+            return false;
         }
         
-        SetTargetPositionAndDirection(out _currentParabolaEndPos, out _targetDirection);
+        SetTargetPositionAndDirection(out _currentVector3Value, out _targetDirection);
 
+        _isActiveTimer.Set(moveRequest);
         
         IsActive = true;
-        _type = TypeEnum.Parabola;
+        _mode = Mode.Parabola;
 
         _currentFloatValue = angleUp;
         _currentCurve = distanceCurve;
@@ -125,20 +197,51 @@ public abstract class MeleeTransformController : MonoBehaviour
         _parabolaCurve.StartPos = transform.position;
         _rotationSpeed = 30;
         
-        _wasKinematic = _rb.isKinematic;
         _rb.isKinematic = true;
+        return true;
         //Debug.Log("<color="+GetColor()+">Starting parabola</color>");
     }
 
-    // private string GetColor()
-    // {
-    //     return _type switch
-    //     {
-    //         TypeEnum.Parabola => "red",
-    //         TypeEnum.Moving => "green",
-    //         TypeEnum.Standing => "cyan"
-    //     };
-    // }
+    public bool ActivateSnapping(
+        bool forceLookToTarget,
+        AnimationCurve distanceCurve,
+        UtilityClasses.FractionTemporaryValue<bool> moveRequest)
+    {
+        
+        if (IsActive)
+        {
+            InterruptMove();
+        }
+        _wasKinematic = _rb.isKinematic;
+        _wasExcludeLayers = _rb.excludeLayers;
+
+        _haveTarget = DoesHaveTarget();
+        
+        if (!_haveTarget)
+        {
+            Debug.Log("No snap" + ", time = " + Time.frameCount);
+            return false;
+        }
+        
+        
+        _isActiveTimer.Set(moveRequest);
+        IsActive = true;
+        _mode = Mode.Snap;
+
+        
+        SetTargetPositionAndDirection(out _targetPosition, out _targetDirection);
+        
+        _currentCurve = distanceCurve;
+        _currentVector3Value = transform.position;
+        
+        _rotationSpeed = 400;
+        _forceLookToTarget = forceLookToTarget;
+        IsControllingMovement = true;
+        
+        
+        _rb.isKinematic = true;
+        return true;
+    }
     
     public void StopMovingAndClearReferences()
     {
@@ -156,15 +259,15 @@ public abstract class MeleeTransformController : MonoBehaviour
             return;
         }
 
-        if (!_sensors.IsGrounded && _type == TypeEnum.Moving)
+        if (!_sensors.IsGrounded && (_mode is Mode.Move or Mode.Snap or Mode.MoveThrough))
         { 
             InterruptMove();
             return;
         }
 
-        switch (_type)
+        switch (_mode)
         {
-            case TypeEnum.Parabola:
+            case Mode.Parabola:
                 if (!DoesHaveTarget())
                 {
                     InterruptMove();
@@ -173,23 +276,41 @@ public abstract class MeleeTransformController : MonoBehaviour
                 SetTargetPositionAndDirection(out _targetPosition, out _targetDirection);
                 _targetLookDirection = _targetDirection;
                 break;
-            case TypeEnum.Moving or TypeEnum.Standing:
+            case Mode.Move or Mode.Standing:
                 if (DoesHaveTarget())
                 {
-                    
                     _haveTarget = true;
                     SetTargetPositionAndDirection(out _targetPosition, out _targetDirection);
                     if (_forceLookToTarget)
                     {
                         _targetLookDirection = _targetDirection;
-                        break;
+                    }
+                    else
+                    {
+                        SetTargetLookDirection(out _targetLookDirection);
                     }
                 }
                 else
                 {
                     _haveTarget = false;
+                    SetTargetLookDirection(out _targetLookDirection);
                 }
-                SetTargetLookDirection(out _targetLookDirection);
+                break;
+            case Mode.Snap:
+                if (!DoesHaveTarget())
+                {
+                    InterruptMove();
+                    return;
+                }
+                SetTargetPositionAndDirection(out _targetPosition, out _targetDirection);
+                if (_forceLookToTarget)
+                {
+                    _targetLookDirection = _targetDirection;
+                }
+                else
+                {
+                    SetTargetLookDirection(out _targetLookDirection);
+                }
                 break;
         }
     }
@@ -199,9 +320,10 @@ public abstract class MeleeTransformController : MonoBehaviour
         if (IsActive)
         {
             _rb.isKinematic = _wasKinematic;
-            _wasKinematic = false;
             IsActive = false;
-            if (_type == TypeEnum.Moving)
+            _rb.excludeLayers = _wasExcludeLayers;
+            
+            if (_mode is Mode.Move or Mode.MoveThrough)
                 _rb.linearVelocity = Vector3.zero;
         }
     }
@@ -210,9 +332,9 @@ public abstract class MeleeTransformController : MonoBehaviour
     {
         var endPos = Vector3.zero;
 
-        switch (_type)
+        switch (_mode)
         {
-            case TypeEnum.Parabola or TypeEnum.Moving:
+            case Mode.Parabola or Mode.Move:
                 endPos = _targetPosition - _targetDirection * targetDistanceToTarget;
                 if (Vector3.Distance(transform.position, endPos) < 0.1f || 
                     Vector3.Distance(transform.position, _targetPosition) < targetDistanceToTarget)
@@ -220,35 +342,52 @@ public abstract class MeleeTransformController : MonoBehaviour
                     InterruptMove();
                     return;
                 }
-               
                 break;
         }
         
-        switch (_type)
+        switch (_mode)
         {
-            case TypeEnum.Standing:
+            case Mode.Standing:
                 _rb.linearVelocity=Vector3.zero;
                 break;
-            case TypeEnum.Parabola:
-                _currentParabolaEndPos = Vector3.MoveTowards(_currentParabolaEndPos, endPos,
+            case Mode.Parabola:
+                _currentVector3Value = Vector3.MoveTowards(_currentVector3Value, endPos,
                     parabolaTargetFollowingSpeed * Time.fixedDeltaTime);
-                _parabolaCurve.EndPos = _currentParabolaEndPos;
-                    _parabolaCurve.MakeStartAngleParabola(_currentFloatValue);
-                    _parabolaCurve.CalculateTotalLength();
-                    _rb.MovePosition(
-                        _parabolaCurve.GetPositionByTraveledDistance(
+                _parabolaCurve.EndPos = _currentVector3Value;
+                _parabolaCurve.MakeStartAngleParabola(_currentFloatValue);
+                _parabolaCurve.CalculateTotalLength();
+                _rb.MovePosition(
+                        _parabolaCurve.GetPositionByDistance(
                             _currentCurve.Evaluate(_isActiveTimer.TimeFraction)
+                        )
+                        );
+                break;
+            case Mode.Snap:
+                if (Mathf.Abs(_targetDirection.y) > 0.995f)
+                {
+                    _targetDirection = transform.forward;
+                }
+                else
+                {
+                    _targetDirection.y = 0f;
+                    _targetDirection = _targetDirection.normalized;
+                }
+                endPos =  _targetPosition - _targetDirection * targetSnapDistanceToTarget;
+                
+                _rb.MovePosition(
+                    UtilityFunctions.LerpByDistance(
+                        _currentVector3Value, endPos,
+                        _currentCurve.Evaluate(_isActiveTimer.TimeFraction)
                         )
                     );
                 break;
-            case TypeEnum.Moving:
+            case Mode.Move:
                 if (_haveTarget)
                 {
                     var res = transform.forward * (
                         _currentFloatValue * _currentCurve.Evaluate(_isActiveTimer.TimeFraction));
                     if (Vector3.Distance(_targetPosition, transform.position + res) < targetDistanceToTarget)
                     {
-                        //Debug.Log("<color="+GetColor()+">Ended for reaching destination</color>");
                         res = Vector3.ProjectOnPlane(res, _targetDirection);
                     }
                     _rb.linearVelocity = res;
@@ -259,6 +398,10 @@ public abstract class MeleeTransformController : MonoBehaviour
                         _currentFloatValue * _currentCurve.Evaluate(_isActiveTimer.TimeFraction));
                 }
                 break;
+            case Mode.MoveThrough:
+                _rb.linearVelocity = transform.forward * (
+                    _currentFloatValue * _currentCurve.Evaluate(_isActiveTimer.TimeFraction));
+                break;
         }
         _sensors.UpdateVelocity();
     }
@@ -267,7 +410,7 @@ public abstract class MeleeTransformController : MonoBehaviour
     {
         var rot = Vector3.RotateTowards(transform.forward,
             _targetLookDirection, 
-            _rotationSpeed * Time.deltaTime,
+            _rotationSpeed * Time.fixedDeltaTime,
             0.0f);
         _rb.MoveRotation(Quaternion.LookRotation(rot, Vector3.up));
     }

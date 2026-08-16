@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9eb0216640e479f84dd62b699312a0f, type: 3}
+  m_Name: 3 Ground Light Combo
+  m_EditorClassIdentifier: Assembly-CSharp::MeleeSystem.PartHolder
+  parts:
+  - {fileID: 11400000, guid: 21ad31f5c578a1641891fd950021722f, type: 2}
+  - {fileID: 11400000, guid: 387b1ef46bed2e748af177af3a64b184, type: 2}
+  - {fileID: 11400000, guid: 669d4294cb4d62840ad1505f1ac60e49, type: 2}
+  - {fileID: 11400000, guid: b5c0acb6b914fa54d871d9da884775fd, type: 2}
+  - {fileID: 11400000, guid: 669d4294cb4d62840ad1505f1ac60e49, type: 2}
+  - {fileID: 11400000, guid: 48d40499fbdbf644c847bf9f0a9511ca, type: 2}
+  - {fileID: 11400000, guid: 669d4294cb4d62840ad1505f1ac60e49, type: 2}
+  - {fileID: 11400000, guid: 423066cad9a1a884c89b0749cd0dec4c, type: 2}
+  - {fileID: 11400000, guid: 26be741012463e1459cd1cee457e61d9, type: 2}

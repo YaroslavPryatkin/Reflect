@@ -205,14 +205,12 @@ public class ArenaController : MonoBehaviour
         RestartRoutes();
     }
 
-    public void EnemyDied(float playerHpRegen)
+    public void EnemyDied()
     {
         --_amountOfAliveEnemies;
         
         
         if (!IsActive) return;
-        
-        _playerHealth.ChangeHealth(playerHpRegen);
         
         if (_amountOfAliveEnemies <= 0)
         {
@@ -231,6 +229,12 @@ public class ArenaController : MonoBehaviour
             
             SetOpenSigns(true);
         }
+    }
+
+    public void RegenPlayerHp(float hp)
+    {
+        if (!IsActive) return;
+        _playerHealth.ChangeHealth(hp);
     }
 
     public void EnemyRevived()

@@ -7,21 +7,22 @@ using BaseActionTransitionsEnum = UtilityFunctions.BaseActionTransitionsEnum;
 
 public class AnimationLayerController
 {
-    private readonly AnimationLayerMixerPlayable _layerMixer;
-    protected readonly AnimationMixerPlayable AnimationMixer;
+    protected readonly AnimationAndRigManager Manager;
+    protected AnimationMixerPlayable AnimationMixer;
     private readonly int _destinationLayerPort;
     private readonly uint _destinationLayerPortU;
     protected readonly Dictionary<AnimationClip, int> ClipToPort;
     public float LayerWeight { get; private set; }
     public string Name { get; private set; }
     
-    public AnimationLayerController(PlayableGraph graph, AnimationLayerMixerPlayable layerMixer, 
+    public AnimationLayerController(AnimationAndRigManager manager, 
         uint destinationLayerPort, HashSet<AnimationClip> uniqueClips, string name,  bool additive)
     {
         Name = name;
-        _layerMixer = layerMixer;
+        Manager = manager;
         _destinationLayerPortU = destinationLayerPort;
         _destinationLayerPort = (int)destinationLayerPort;
+        
         
         ClipToPort = new Dictionary<AnimationClip, int>();
         var portIdx = 0;
@@ -29,24 +30,24 @@ public class AnimationLayerController
             ClipToPort[clip] = portIdx++;
         }
 
-        AnimationMixer = AnimationMixerPlayable.Create(graph, ClipToPort.Count);
+        AnimationMixer = AnimationMixerPlayable.Create(Manager.Graph, ClipToPort.Count);
     
         foreach (var pair in ClipToPort) {
-            var clipPlayable = AnimationClipPlayable.Create(graph, pair.Key);
-            graph.Connect(clipPlayable, 0, AnimationMixer, pair.Value);
+            var clipPlayable = AnimationClipPlayable.Create(Manager.Graph, pair.Key);
+            Manager.Graph.Connect(clipPlayable, 0, AnimationMixer, pair.Value);
             AnimationMixer.SetInputWeight(pair.Value, 0f);
         }
-        graph.Connect(AnimationMixer, 0, _layerMixer, _destinationLayerPort);
-        _layerMixer.SetInputWeight(_destinationLayerPort, 0f);
-        _layerMixer.SetLayerAdditive(_destinationLayerPortU, additive);
+        Manager.Graph.Connect(AnimationMixer, 0, Manager.LayerMixer, _destinationLayerPort);
+        Manager.LayerMixer.SetInputWeight(_destinationLayerPort, 0f);
+        Manager.LayerMixer.SetLayerAdditive(_destinationLayerPortU, additive);
         LayerWeight = 0f;
     }
     
-    public AnimationLayerController(PlayableGraph graph, AnimationLayerMixerPlayable layerMixer, 
-        uint destinationLayerPort, HashSet<AnimationClip> uniqueClips,  AvatarMask avatarMask, string name,bool additive) : this( graph,  layerMixer, 
-         destinationLayerPort,  uniqueClips,  name, additive)
+    public AnimationLayerController(AnimationAndRigManager manager, uint destinationLayerPort, 
+        HashSet<AnimationClip> uniqueClips,  AvatarMask avatarMask, string name,bool additive) : 
+        this(manager, destinationLayerPort,  uniqueClips,  name, additive)
     {
-        _layerMixer.SetLayerMaskFromAvatarMask(_destinationLayerPortU, avatarMask);
+        Manager.LayerMixer.SetLayerMaskFromAvatarMask(_destinationLayerPortU, avatarMask);
     }
 
 
@@ -59,7 +60,7 @@ public class AnimationLayerController
     {
         weight = Mathf.Clamp01(weight);
         LayerWeight = weight;
-        _layerMixer.SetInputWeight(_destinationLayerPort, weight);
+        Manager.LayerMixer.SetInputWeight(_destinationLayerPort, weight);
     }
     
     
@@ -111,7 +112,7 @@ public class AnimationLayerController
 
     public void SetAvatarMask(AvatarMask mask)
     {
-        _layerMixer.SetLayerMaskFromAvatarMask(_destinationLayerPortU, mask);
+        Manager.LayerMixer.SetLayerMaskFromAvatarMask(_destinationLayerPortU, mask);
     }
     
     

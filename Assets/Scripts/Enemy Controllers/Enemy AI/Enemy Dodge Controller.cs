@@ -66,6 +66,7 @@ public class EnemyDodgeController : MonoBehaviour
     }
     
     private readonly UtilityClasses.FractionBlockingValueTimer<StateEnum> _state = StateEnum.Non;
+    
     private UtilityClasses.BaseActionAutomaticTransition _transitionState;
     
     private Vector3 _direction;
@@ -95,7 +96,7 @@ public class EnemyDodgeController : MonoBehaviour
         _enemyAI = GetComponent<EnemyAI>();
         _healthController = GetComponent<HealthController>();
         _haveGunController = TryGetComponent(out _enemyGunController);
-
+        
         var clips = new HashSet<AnimationClip>();
         clips.Add(dodgeClip);
 
@@ -151,7 +152,7 @@ public class EnemyDodgeController : MonoBehaviour
             _direction = direction * (distance * _curveSpeedMultiplier);
             _enemyRotationController.UseSpecificDirection(direction);
             _animationLayerController.SetPlayableTime(dodgeClip);
-            _healthController.GrantIFrames();
+            _healthController.ActivateIFrames();
             
             if(_haveGunController)
                 _enemyGunController.InterruptAiming();
@@ -178,7 +179,7 @@ public class EnemyDodgeController : MonoBehaviour
 
         _enemyRotationController.FastRotate(timeToTurnToPlayerAfterDodge);
         _enemyRotationController.StopUsingSpecificDirection();
-        _healthController.TakeIFrames();
+        _healthController.StopIFrames();
     }
 
 

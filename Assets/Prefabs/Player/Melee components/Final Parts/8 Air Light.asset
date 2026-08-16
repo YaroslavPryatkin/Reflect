@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9eb0216640e479f84dd62b699312a0f, type: 3}
+  m_Name: 8 Air Light
+  m_EditorClassIdentifier: Assembly-CSharp::MeleeSystem.PartHolder
+  parts:
+  - {fileID: 11400000, guid: effe5d2052f52484f8669958d9f0d829, type: 2}
+  - {fileID: 11400000, guid: ca114ead9f5b2184d8867bbc9a3e1570, type: 2}
+  - {fileID: 11400000, guid: 2acc839cd0d86d14d9e5dd8a38b1966e, type: 2}
+  - {fileID: 11400000, guid: a9378612a9c75c843b8257e7a0851aac, type: 2}
+  - {fileID: 11400000, guid: 3413c4383e893624fa4be044a1eedcee, type: 2}

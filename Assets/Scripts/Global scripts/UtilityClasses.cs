@@ -13,7 +13,7 @@ public static class UtilityClasses
     }
     
     
-    public struct ParabolaCurve
+    public class ParabolaCurve
     {
         public Vector3 StartPos;
         public Vector3 EndPos;
@@ -88,7 +88,7 @@ public static class UtilityClasses
             return 0.5f * (u * sqrt + Mathf.Log(u + sqrt));
         }
         
-        public Vector3 GetPositionByTraveledDistance(float distance)
+        public Vector3 GetPositionByDistance(float distance)
         {
             var fraction = Mathf.Clamp01(distance / Length);
             var p = Vector3.Lerp(StartPos, EndPos, fraction);
@@ -446,7 +446,36 @@ public static class UtilityClasses
             return (time - startTime) / unitTime;
         }
     }
+
+    public class FractionTimerToBoolConverterSet<T> : IFractionTimer<bool>
+    {
+        private readonly IFractionTimer<T> _source;
+        private readonly HashSet<T> _trueValues;
+        
+        public bool Value => _trueValues.Contains(_source.Value);
+        public float TimeFraction => _source.TimeFraction;
+
+        public FractionTimerToBoolConverterSet(IFractionTimer<T> source, HashSet<T> trueValues)
+        {
+            _source = source;
+            _trueValues = trueValues;
+        }
+    }
     
+    public class FractionTimerToBoolConverter<T> : IFractionTimer<bool>
+    {
+        private readonly IFractionTimer<T> _source;
+        private readonly T _trueValue;
+        
+        public bool Value => _trueValue.Equals(_source.Value);
+        public float TimeFraction => _source.TimeFraction;
+        
+        public FractionTimerToBoolConverter(IFractionTimer<T> source, T trueValue)
+        {
+            _source = source;
+            _trueValue = trueValue;
+        }
+    }
     
     public class BaseActionAutomaticTransition
     {
@@ -618,28 +647,42 @@ public static class UtilityClasses
         }
     }
 
-    public class ChangeableFractionValue : IFractionTimer<bool>
+    public class ChangeableFractionValueReference : IFractionTimer<bool>
     {
         private IFractionTimer<bool> _holder;
+        private bool _alwaysOn = false;
         private int _setCounter = 0;
         
-        public bool Value => _setCounter > 0 && _holder.Value;
-        public float TimeFraction => _setCounter > 0 ? _holder.TimeFraction : 1f;
+        public bool Value => _setCounter > 0 && (_alwaysOn || _holder.Value);
+        public float TimeFraction => (_setCounter <= 0 || _alwaysOn) ?  1f : _holder.TimeFraction;
+        
 
         public int Count => _setCounter;
         
         public void Set(IFractionTimer<bool> holder)
         {
+            _alwaysOn = false;
             _holder = holder;
+            ++_setCounter;
+        }
+
+        public void Set()
+        {
+            _alwaysOn = true;
             ++_setCounter;
         }
 
         public void Unset()
         {
             --_setCounter;
+            if (_setCounter < 0)
+            {
+                _setCounter = 0;
+                Debug.LogError("[ChangeableFractionValueReference] Set counter went below zero. Check your set-unset operations.");
+            }
         }
         
-        public static implicit operator bool(ChangeableFractionValue holder)
+        public static implicit operator bool(ChangeableFractionValueReference holder)
         {
             return holder.Value;
         }
