@@ -9,6 +9,7 @@ namespace MeleeSystem
     [CreateAssetMenu(fileName = "SnapToTarget", menuName = "Melee/MeleeAdditionalActions/Transform/SnapToTarget")]
     public class SnapToTarget : MeleeAdditionalActionWithTimeFractionSerialized
     {
+        [SerializeField] private float targetDistanceToTarget = 0.9f;
         [SerializeField] private bool forceLookToTarget = true;
         [SerializeField] private float distanceToTravel = 0f;
 
@@ -27,7 +28,7 @@ namespace MeleeSystem
 
         
         public override MeleeAdditionalActionOverhead Initialize(
-            MeleePlayablePart playablePart,
+            MeleeController meleeController,
             float thisStateDuration)
         {
             return new ShouldTurnOffOverhead(thisStateDuration, this);
@@ -49,10 +50,11 @@ namespace MeleeSystem
             MeleeController meleeController,
             MeleePlayable meleePlayable,
             MeleeAdditionalActionOverhead overheadRaw,
-            UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
+            UtilityTimers.FractionTemporaryValue<bool> thisActivityTimer)
         {
             var overhead = (ShouldTurnOffOverhead)overheadRaw;
             overhead.ShouldTurnOff = meleeController.TransformController.ActivateSnapping(
+                targetDistanceToTarget,
                 forceLookToTarget,
                 distanceCurve,
                 thisActivityTimer);

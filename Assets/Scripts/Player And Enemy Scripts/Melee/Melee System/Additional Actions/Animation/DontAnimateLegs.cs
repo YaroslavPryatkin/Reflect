@@ -19,7 +19,7 @@ namespace MeleeSystem
             MeleeController meleeController,
             MeleePlayable meleePlayable,
             MeleeAdditionalActionOverhead overhead,
-            UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
+            UtilityTimers.FractionTemporaryValue<bool> thisActivityTimer)
         {
             meleeController.ActivateDontAnimateLegs(thisActivityTimer);
         }

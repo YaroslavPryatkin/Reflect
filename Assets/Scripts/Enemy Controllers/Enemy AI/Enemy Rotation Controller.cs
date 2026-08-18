@@ -17,7 +17,7 @@ public class EnemyRotationController : MonoBehaviour
     private float _rotationSpeedWhileAimingRad;
     private Vector3 _currentRotation;
 
-    private UtilityClasses.TemporaryValue<bool> _fastRotation = new(false, true);
+    private UtilityTimers.TemporaryValue<bool> _fastRotation = new(false, true);
 
 
     private Vector3 _specificDirection;
@@ -82,6 +82,7 @@ public class EnemyRotationController : MonoBehaviour
                     _enemySensors.NormalizedHorizontalDirectionToPlayer, 
                     _rotationSpeedWhileAimingRad * Time.deltaTime,
                     0.0f);
+            
             transform.rotation = Quaternion.LookRotation(_currentRotation,Vector3.up);
         }
         else

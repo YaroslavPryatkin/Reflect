@@ -14,8 +14,8 @@ namespace MeleeSystem
         private readonly MeleePlayableSource _source;
         private readonly MeleeController _meleeController;
 
-        private readonly List<UtilityClasses.FractionTemporaryValue<bool>> _additionalActionsActivityTimers;
-        private readonly UtilityClasses.FractionBlockingValueTimer<int> _currentPart;
+        private readonly List<UtilityTimers.FractionTemporaryValue<bool>> _additionalActionsActivityTimers;
+        private readonly UtilityTimers.FractionBlockingValueTimer<int> _currentPart;
         private readonly List<List<MeleeAdditionalActionOverhead>> _overheads = new();
 
         public int Length { get; private set; }
@@ -55,7 +55,7 @@ namespace MeleeSystem
             for (var i = 0; i < _source.Parts.Count; ++i)
             {
                 _overheads.Add(new List<MeleeAdditionalActionOverhead>());
-                _source.Parts[i].Initialize(_overheads[^1]);
+                _source.Parts[i].Initialize(meleeController, _overheads[^1]);
 
                 int otherMax = _source.Parts[i].AdditionalActionsCount;
                 if (otherMax > maxAddition)
@@ -75,7 +75,7 @@ namespace MeleeSystem
             _nextPartWithClip = Length;
             _stillHasClip = _hasClip;
 
-            _additionalActionsActivityTimers = new List<UtilityClasses.FractionTemporaryValue<bool>>(maxAddition);
+            _additionalActionsActivityTimers = new List<UtilityTimers.FractionTemporaryValue<bool>>(maxAddition);
 
             for (var i = 0; i < maxAddition; ++i)
             {

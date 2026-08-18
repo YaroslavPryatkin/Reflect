@@ -48,14 +48,14 @@ namespace MeleeSystem
             }
         }
 
-        public void Initialize(List<MeleeAdditionalActionOverhead> overheadList)
+        public void Initialize(MeleeController meleeController, List<MeleeAdditionalActionOverhead> overheadList)
         {
             overheadList.Clear();
             if (additionalActions.Count > 0)
             {
                 foreach (var additionalAction in additionalActions)
                 {
-                    overheadList.Add(additionalAction.Initialize(this, duration));
+                    overheadList.Add(additionalAction.Initialize(meleeController, duration));
                 }
             }
         }
@@ -76,7 +76,7 @@ namespace MeleeSystem
             MeleeController meleeController,
             MeleePlayable thisMeleePlayable,
             List<MeleeAdditionalActionOverhead> overheadList,
-            List<UtilityClasses.FractionTemporaryValue<bool>> additionalActivityTimers)
+            List<UtilityTimers.FractionTemporaryValue<bool>> additionalActivityTimers)
         {
             if (additionalActions.Count > 0)
             {
@@ -102,7 +102,7 @@ namespace MeleeSystem
             MeleeController meleeController,
             MeleePlayable thisMeleePlayable,
             List<MeleeAdditionalActionOverhead> overheadList,
-            List<UtilityClasses.FractionTemporaryValue<bool>> additionalActivityTimers)
+            List<UtilityTimers.FractionTemporaryValue<bool>> additionalActivityTimers)
         {
             if (additionalActions.Count > 0)
             {
@@ -122,7 +122,7 @@ namespace MeleeSystem
             MeleeController meleeController,
             MeleePlayable thisMeleePlayable,
             List<MeleeAdditionalActionOverhead> overheadList,
-            List<UtilityClasses.FractionTemporaryValue<bool>> additionalActivityTimers)
+            List<UtilityTimers.FractionTemporaryValue<bool>> additionalActivityTimers)
         {
             if (additionalActions.Count > 0)
             {

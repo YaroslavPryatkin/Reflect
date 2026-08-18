@@ -230,13 +230,7 @@ public class ArenaController : MonoBehaviour
             SetOpenSigns(true);
         }
     }
-
-    public void RegenPlayerHp(float hp)
-    {
-        if (!IsActive) return;
-        _playerHealth.ChangeHealth(hp);
-    }
-
+    
     public void EnemyRevived()
     {
         ++_amountOfAliveEnemies;

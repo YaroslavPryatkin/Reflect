@@ -241,7 +241,7 @@ public class BulletController : Poolable<BulletController>
                 if (canBeParried != CanBeParriedEnum.No && healthController.TryDeflecting(transform.forward))
                 {
                     if(_alreadyHitTargets.TryHitTarget(healthController))
-                        healthController.DoDeflectDamage(_damage, _poiseDamage,_bulletRechargeOnParryFraction, HealthController.DamageDealer.Bullet);
+                        healthController.DoDeflectDamage(true, _damage, _poiseDamage,_bulletRechargeOnParryFraction, HealthController.DamageDealer.Bullet);
                    
                     if (canBeParried == CanBeParriedEnum.YesWithReturn)
                     {
@@ -263,7 +263,7 @@ public class BulletController : Poolable<BulletController>
                     if (_alreadyHitTargets.TryHitTarget(healthController))
                     {
                         
-                        healthController.DoNormalDamage(_damage, _poiseDamage, HealthController.DamageDealer.Bullet);
+                        healthController.DoNormalDamage(true, _damage, _poiseDamage, HealthController.DamageDealer.Bullet);
                     }
                 }
             }
@@ -408,7 +408,7 @@ public class BulletController : Poolable<BulletController>
                 {
                     if (_alreadyHitTargets.TryHitTarget(healthController))
                     {
-                        healthController.DoNormalDamage(_damage, _poiseDamage, HealthController.DamageDealer.Bullet);
+                        healthController.DoNormalDamage(true, _damage, _poiseDamage, HealthController.DamageDealer.Bullet);
                     }
                 }
             }

@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.Animations.Rigging;
-
+[DefaultExecutionOrder(200)]
 public class RigController : MonoBehaviour
 {
     private Rig _rig;
@@ -20,7 +20,7 @@ public class RigController : MonoBehaviour
             _maxWeightInThisFrame = weight;
     }
     
-    private void LateUpdate()
+    private void Update()
     {
         if(_wasUpdated)
             _rig.weight = _maxWeightInThisFrame;

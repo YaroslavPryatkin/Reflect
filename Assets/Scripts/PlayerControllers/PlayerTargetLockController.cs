@@ -31,7 +31,7 @@ public class PlayerTargetLockController : MonoBehaviour
     [SerializeField] private float speedCurvePower = 2f;
 
     [Header("Enemy finishing")] 
-    [SerializeField] private float enemyFinishClipDistance = 0.7f;
+    [SerializeField] private float enemyFinishClipDistance = 1f;
     [SerializeField] private float enemyFinishDistance = 4f;
     [SerializeField] private float enemyFinishMaxAngle = 20f;
     [SerializeField] private float enemyFinishCameraMinRotationSpeed = 30f;
@@ -45,6 +45,7 @@ public class PlayerTargetLockController : MonoBehaviour
     private PlayerMeleeController _playerMeleeController;
     private PlayerInputController _playerInputController;
     private PlayerMeleeTransformController _playerMeleeTransformController;
+    private PlayerHealthController _playerHealthController;
     private float _smoothFactor;
     
     
@@ -55,8 +56,8 @@ public class PlayerTargetLockController : MonoBehaviour
     private int _ignoreMyLayerMask;
     
     public Vector3 NormalizedHorizontalDirectionToLockedTarget { get; private set; } = Vector3.zero;
-    public Vector3 TargetCameraDirection { get; private set; } = Vector3.zero;
-    public Vector3 TargetPosition { get; private set; } = Vector3.zero;
+    public Vector3 TargetCameraDirection => TargetPosition - GlobalCameraManager.GetPlayerCameraPosition();
+    public Vector3 TargetPosition => _targetTransform.position;
 
     public bool HaveFinishHimTarget { get; private set; } = false;
     private EnemyHealthController _finishHimTarget;
@@ -75,6 +76,7 @@ public class PlayerTargetLockController : MonoBehaviour
         _playerMeleeController = GetComponent<PlayerMeleeController>();
         _playerInputController = GetComponent<PlayerInputController>();
         _playerMeleeTransformController = GetComponent<PlayerMeleeTransformController>();
+        _playerHealthController = GetComponent<PlayerHealthController>();
         _ignoreMyLayerMask = _playerSensors.IgnoreMyLayerMask;
         _smoothFactor = 2 * reLockAngleFactor;
     }
@@ -232,13 +234,14 @@ public class PlayerTargetLockController : MonoBehaviour
     public FindTargetGeneralResult FindTargetGeneral(bool useDeadZone, out Transform bestTarget)
     {
         bestTarget = null;
-        
-        var inputAngle = Vector3.Angle(TargetCameraDirection, GlobalLookDirectionManager.CurrentLookDirection);
+
+        var targCameraDirection = TargetCameraDirection;
+        var inputAngle = Vector3.Angle(targCameraDirection, GlobalLookDirectionManager.CurrentLookDirection);
 
         if (useDeadZone && inputAngle < reLockDeadZoneAngle)
             return FindTargetGeneralResult.DontChange;
         
-        var lookdir = Vector3.Slerp(TargetCameraDirection,
+        var lookdir = Vector3.Slerp(targCameraDirection,
             GlobalLookDirectionManager.CurrentLookDirection, GetShiftedSmooth(inputAngle/180f));
         
         
@@ -281,6 +284,8 @@ public class PlayerTargetLockController : MonoBehaviour
     
     private void TryLock()
     {
+        if (IsFinishHimLocked) return;
+        
         if (FindTargetInFoV())
         {
             IsLocked = true;
@@ -294,6 +299,8 @@ public class PlayerTargetLockController : MonoBehaviour
     
     private void TryReLock(bool useDeadZone)
     {
+        if (IsFinishHimLocked) return;
+        
         switch (FindTargetGeneral(useDeadZone, out var newT))
         {
             case FindTargetGeneralResult.Found:
@@ -328,6 +335,7 @@ public class PlayerTargetLockController : MonoBehaviour
 
     public void FlipLock()
     {
+        
         if (IsLocked)
             Unlock();
         else
@@ -358,24 +366,11 @@ public class PlayerTargetLockController : MonoBehaviour
 
     private bool CalculateFields()
     {
-        
-        TargetPosition = _targetTransform.position;
-        
-        TargetCameraDirection = TargetPosition - GlobalCameraManager.GetPlayerCameraPosition();
-        
-        
         var tmpDir = TargetPosition - transform.position;
         var sqrMagn = tmpDir.sqrMagnitude;
-        if (sqrMagn < 0.0001f)
+        if (sqrMagn < 0.0001f || Mathf.Abs(tmpDir.y) > 0.995f * Mathf.Sqrt(sqrMagn))
         {
-            NormalizedHorizontalDirectionToLockedTarget=transform.forward;
-            return false;
-        }
-        
-        if (tmpDir.y / Mathf.Sqrt(sqrMagn) > 0.995f)
-        {
-            
-            NormalizedHorizontalDirectionToLockedTarget=transform.forward;
+            NormalizedHorizontalDirectionToLockedTarget = transform.forward;
             return false;
         }
         
@@ -425,25 +420,62 @@ public class PlayerTargetLockController : MonoBehaviour
 
     public void LockFinishHimTarget()
     {
+        if (IsFinishHimLocked)
+        {
+            Debug.LogError("LockFinishHimTarget is already locked: " + _targetHealthController.gameObject.name);
+            UnlockFinishHimUnsuccessful();
+        }
+        // Debug.Log("LockFinishHimTarget on " +  _finishHimTarget.gameObject.name);
         IsFinishHimLocked = true;
         _targetTransform = _finishHimTarget.transform;
         _targetHealthController = _finishHimTarget;
-        _finishHimTarget.StartBeingFinished();
+        _finishHimTarget.GettingHitController.IsBeingFinished = true;
         CalculateFields();
     }
 
-    public void UnlockFinishHim(bool shouldRegen)
+    public void UnlockFinishHimUnsuccessful()
     {
-        //Debug.Log("UnlockFinishHim, regen =  " + shouldRegen + ", time = " + Time.frameCount);
-        _finishHimTarget.StopBeingFinished(shouldRegen);
+        _finishHimTarget.GettingHitController.IsBeingFinished = false;
         IsFinishHimLocked = false;
+    }
+    
+    public void UnlockFinishHimSuccessful()
+    {
+        //Debug.Log("UnlockFinishHim from " + _finishHimTarget.gameObject.name + ", reason: "+(shouldRegen ? "event" : "interrupt"));
+        UnlockFinishHimUnsuccessful();
+        _playerHealthController.ChangeHealth(_finishHimTarget.PlayerRegenHpAmount);
+        _playerGunController.EarnBullet(_finishHimTarget.PlayerBulletRegenAmount);
         FindFinishHimTarget();
+    }
+
+    public void StubDuringFinishHimEvent()
+    {
+        if (IsFinishHimLocked)
+        {
+            _finishHimTarget.GettingHitController.GetStabbedDuringDeath(transform.position);
+        }
+    }
+
+    public void UnlockEverything()
+    {
+        IsLocked = false;
+        IsMeleeLocked = false;
+        if (IsFinishHimLocked)
+        {
+            UnlockFinishHimUnsuccessful();
+        }
     }
     
     private void Update()
     {
         if (IsFinishHimLocked)
         {
+            // if (!_finishHimTarget.CanBeFinished)
+            // {
+            //     UnlockFinishHimInternal();
+            //     return;
+            // }
+            
             if (CalculateFields())
             {
                 MoveCamera(enemyFinishCameraMinRotationSpeed, enemyFinishCameraMaxRotationSpeed);

@@ -11,15 +11,35 @@ namespace MeleeSystem
     public class StartComboOnFinish : MeleeAdditionalAction
     {
         public override float DurationFraction => 1f;
-        [SerializeField] private int combo;
+        [SerializeReference] private MeleePlayableSource sourceToSwitchTo;
+
+        private class StartComboOnFinishOverhead : MeleeAdditionalActionOverhead
+        {
+            public readonly int Index;
+            public StartComboOnFinishOverhead(int index, float thisStateDuration, StartComboOnFinish action) :
+                base(thisStateDuration, action)
+            {
+                Index = index;
+            }
+        }
+        
+        public override MeleeAdditionalActionOverhead  Initialize(
+            MeleeController meleeController,
+            float thisStateDuration)
+        {
+            var index = meleeController.GetSourceIndex(sourceToSwitchTo);
+            return new StartComboOnFinishOverhead(index, thisStateDuration, this);
+        }
         
         public override void FinishAction(
             MeleeController meleeController,
             MeleePlayable meleePlayable,
             MeleeAdditionalActionOverhead overheadRaw)
         {
+            var overhead = (StartComboOnFinishOverhead)overheadRaw;
             meleePlayable.StartingOtherComboOnFinish();
-            meleeController.PlayCombo(combo);
+
+            meleeController.PlayCombo(overhead.Index);
         }
     }
 }

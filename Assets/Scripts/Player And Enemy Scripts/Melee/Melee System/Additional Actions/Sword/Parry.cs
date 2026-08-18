@@ -18,7 +18,7 @@ namespace MeleeSystem
         [Header("Successful parry")] [SerializeField]
         private float parryStateAfterSuccessfulParryTime;
 
-        [SerializeField] private int onSuccessfulParryPlayableIndex = 1;
+        [SerializeReference] private MeleePlayableSource onSuccessfulParrySource;
 
         [SerializeField, HideInInspector] private bool parryTimeChanges = false;
 
@@ -29,12 +29,14 @@ namespace MeleeSystem
 
         private class ParryOverhead : MeleeAdditionalActionOverhead
         {
-            public readonly UtilityClasses.MultipleTemporaryValue<bool> ConsecutiveParriesCounter;
-            public readonly UtilityClasses.TemporaryValue<bool> Parrying = new(false, true);
-
-            public ParryOverhead(float thisStateDuration, Parry action) :
+            public readonly UtilityTimers.MultipleTemporaryValue<bool> ConsecutiveParriesCounter;
+            public readonly UtilityTimers.TemporaryValue<bool> Parrying = new(false, true);
+            public readonly int Index;
+            
+            public ParryOverhead(int index, float thisStateDuration, Parry action) :
                 base(thisStateDuration, action)
             {
+                Index = index;
                 var consecutiveSlots =
                     Mathf.Clamp(Mathf.FloorToInt((Duration - action.minimalParryTime) /
                                                  action.parryTimeReductionForConsecutiveParries), 1, 10);
@@ -44,10 +46,11 @@ namespace MeleeSystem
         }
 
         public override MeleeAdditionalActionOverhead  Initialize(
-            MeleePlayablePart playablePart,
+            MeleeController meleeController,
             float thisStateDuration)
         {
-            return new ParryOverhead(thisStateDuration, this);
+            var index = meleeController.GetSourceIndex(onSuccessfulParrySource);
+            return new ParryOverhead(index, thisStateDuration, this);
         }
 
 
@@ -93,7 +96,7 @@ namespace MeleeSystem
             MeleeController meleeController,
             MeleePlayable meleePlayable,
             MeleeAdditionalActionOverhead overheadRaw,
-            UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
+            UtilityTimers.FractionTemporaryValue<bool> thisActivityTimer)
         {
             var overhead = (ParryOverhead)overheadRaw;
 
@@ -106,7 +109,7 @@ namespace MeleeSystem
             }
 
             overhead.Parrying.Activate(parryDuration);
-            meleeController.ActivateParrying(overhead.Parrying, thisActivityTimer, onSuccessfulParryPlayableIndex);
+            meleeController.ActivateParrying(overhead.Parrying, thisActivityTimer, overhead.Index);
         }
     }
 }

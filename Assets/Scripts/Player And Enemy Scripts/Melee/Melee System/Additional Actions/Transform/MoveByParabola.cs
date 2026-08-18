@@ -26,7 +26,7 @@ namespace MeleeSystem
         }
 
         public override MeleeAdditionalActionOverhead Initialize(
-            MeleePlayablePart playablePart,
+            MeleeController meleeController,
             float thisStateDuration)
         {
             return new ShouldTurnOffOverhead(thisStateDuration, this);
@@ -48,7 +48,7 @@ namespace MeleeSystem
             MeleeController meleeController,
             MeleePlayable meleePlayable,
             MeleeAdditionalActionOverhead overheadRaw,
-            UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
+            UtilityTimers.FractionTemporaryValue<bool> thisActivityTimer)
         {
             var overhead = (ShouldTurnOffOverhead)overheadRaw;
             overhead.ShouldTurnOff = meleeController.TransformController.ActivateParabola(

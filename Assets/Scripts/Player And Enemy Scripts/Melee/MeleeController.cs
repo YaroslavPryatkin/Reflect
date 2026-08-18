@@ -14,7 +14,7 @@ public abstract class MeleeController : MonoBehaviour
     [SerializeField] private Hold holdSource;
 
     [Header("Playables")] 
-    [SerializeReference] private List<MeleePlayableSource> playableSources = new ();
+    [SerializeReference] protected List<MeleePlayableSource> playableSources = new ();
     
     [Header("Weapon objects")] 
     [SerializeField] private GameObject sheathedWeapon;
@@ -39,8 +39,8 @@ public abstract class MeleeController : MonoBehaviour
     
 
     private int _onSuccessfulParryIndex = -1;
-    private UtilityClasses.TemporaryValue<bool> _parrying;
-    private UtilityClasses.FractionTemporaryValue<bool> _waitingForOnSuccessfulParry;
+    private UtilityTimers.TemporaryValue<bool> _parrying;
+    private UtilityTimers.FractionTemporaryValue<bool> _waitingForOnSuccessfulParry;
     private bool _hasParrying = false;
     public bool Parrying=> _hasParrying && _parrying.Value;
 
@@ -60,6 +60,9 @@ public abstract class MeleeController : MonoBehaviour
 
     public MeleeStateEnum State { get; private set; } = MeleeStateEnum.Non;
     public int CurrentCombo { get; private set; } = -1;
+
+    private int _nextComboToPlay = -1;
+    private bool _canChangeNextComboToPlay = true;
     
     public bool CanBeInterruptedToAnything => State == MeleeStateEnum.Non ||
                                               _currentMeleePlayable.CanBeInterruptedInto == InterruptionEnum.ToAnything;
@@ -70,9 +73,12 @@ public abstract class MeleeController : MonoBehaviour
     private MeleePlayable _unSheath;
     private MeleePlayable _hold;
 
-    public void ActivateParrying(UtilityClasses.TemporaryValue<bool> parrying, UtilityClasses.FractionTemporaryValue<bool> waitingForOnSuccessfulParry, int onSuccessfulParryIndex)
+    public void ActivateParrying(UtilityTimers.TemporaryValue<bool> parrying, 
+        UtilityTimers.FractionTemporaryValue<bool> waitingForOnSuccessfulParry, 
+        int onSuccessfulParryIndex)
     {
         _onSuccessfulParryIndex = onSuccessfulParryIndex;
+        
         _parrying = parrying;
         _waitingForOnSuccessfulParry = waitingForOnSuccessfulParry;
         _hasParrying = true;
@@ -103,7 +109,7 @@ public abstract class MeleeController : MonoBehaviour
         _handAnimationLayer.SetAvatarMask(handsAvatarMask);
     }
 
-    public void ActivateDontAnimateLegs(UtilityClasses.FractionTemporaryValue<bool> timer)
+    public void ActivateDontAnimateLegs(UtilityTimers.FractionTemporaryValue<bool> timer)
     {
         _dontAnimateLegs.Set(timer);
     }
@@ -113,7 +119,7 @@ public abstract class MeleeController : MonoBehaviour
         _dontAnimateLegs.Unset();
     }
 
-    public void ActivateInterruptIfNotOnGround(UtilityClasses.FractionTemporaryValue<bool> timer)
+    public void ActivateInterruptIfNotOnGround(UtilityTimers.FractionTemporaryValue<bool> timer)
     {
         _interruptIfNotOnGround.Set(timer);
     }
@@ -178,18 +184,32 @@ public abstract class MeleeController : MonoBehaviour
             combo.AddClipsToSet(uniqueClips);
         }
     }
+    
+    public void ResetNextComboToPlay()
+    {
+        _nextComboToPlay = -1;
+        _canChangeNextComboToPlay = true;
+    }
+
+    private void ResetAllCombos()
+    {
+        CurrentCombo = -1;
+        ResetNextComboToPlay();
+    }
+    
     /// <returns>
-    /// Must return -1 if no combo should be played
+    /// If nextComboToPlayCanBeChanged
     /// </returns>
-    protected abstract int WhatComboToPlay();
+    protected abstract bool WhatComboToPlay(ref int nextComboToPlay);
     protected abstract bool ShouldHold();
     protected abstract bool ShouldInterrupt();
     protected abstract bool ShouldSwitchStateToNon();
-    
+
     public virtual void OnAttackEnd(){}
     public virtual void OnParryEnd(){}
 
-    public virtual void OnFinishHimInterrupt() { }
+    public virtual void OnFinishHimStart() {}
+    public virtual void OnFinishHimEnd(){}
 
     private void ChangeCurrentMeleePlayable(MeleePlayable meleePlayable)
     {
@@ -221,50 +241,30 @@ public abstract class MeleeController : MonoBehaviour
         _currentMeleePlayable = meleePlayable;
     }
 
+    public int GetSourceIndex(MeleePlayableSource source)
+    {
+        return playableSources.IndexOf(source);
+    }
+    
     public void PlayCombo(int index)
     {
         if (index != CurrentCombo || !_currentMeleePlayable.IsActive)
         {
+            //Debug.Log("CurrentCombo: " + CurrentCombo + ", index: " + index);
             CurrentCombo = index;
             State = MeleeStateEnum.Combo;
             //Debug.Log("Starting combo " + index + ", frame = " + Time.frameCount);
             ChangeCurrentMeleePlayable(_playables[index]);
         }
     }
-    
-    private bool CheckInterrupt()
-    {
-        if (ShouldInterrupt() || GettingHitController.IsActivelyStunned || (_interruptIfNotOnGround.Value && !_sensors.IsGrounded))
-        {
-            if (State == MeleeStateEnum.Non || State == MeleeStateEnum.Sheathe)
-            {
-                State = MeleeStateEnum.Non;
-                if(_currentMeleePlayable != null)
-                    _currentMeleePlayable.Interrupt();
-                _currentMeleePlayable = null;
-            }
-            else
-            {
-                CurrentCombo = -1;
-                if (State != MeleeStateEnum.Hold || !_currentMeleePlayable.IsActive)
-                {
-                    State = MeleeStateEnum.Hold;
-                    ChangeCurrentMeleePlayable(_hold);
-                }
-            }
-            return true;
-        }
-        return false;
-    }
-    
+
     private void DoSomethingBasedOnInput()
     {
         if (_currentMeleePlayable.CanBeInterruptedInto == InterruptionEnum.Never) return;
         
-        var combo = WhatComboToPlay();
-        if (combo != -1)
+        if (_nextComboToPlay != -1)
         {
-            PlayCombo(combo);
+            PlayCombo(_nextComboToPlay);
             return;
         }
 
@@ -298,27 +298,64 @@ public abstract class MeleeController : MonoBehaviour
             if(_currentMeleePlayable != null)
                 _currentMeleePlayable.Interrupt();
             _currentMeleePlayable = null;
+            
+            ResetAllCombos();
             return;
         }
 
-        if (CheckInterrupt()) return;
-        
-        if (State == MeleeStateEnum.Non)
+        if (ShouldInterrupt() || GettingHitController.IsActivelyStunned || (_interruptIfNotOnGround.Value && !_sensors.IsGrounded))
         {
-            if (ShouldHold() || WhatComboToPlay() != -1)
+            if (State == MeleeStateEnum.Non || State == MeleeStateEnum.Sheathe)
             {
-                State = MeleeStateEnum.UnSheath;
-                ChangeCurrentMeleePlayable(_unSheath);
+                State = MeleeStateEnum.Non;
+                if(_currentMeleePlayable != null)
+                    _currentMeleePlayable.Interrupt();
+                _currentMeleePlayable = null;
             }
+            else
+            {
+                CurrentCombo = -1;
+                if (State != MeleeStateEnum.Hold || !_currentMeleePlayable.IsActive)
+                {
+                    State = MeleeStateEnum.Hold;
+                    ChangeCurrentMeleePlayable(_hold);
+                }
+            }
+            ResetAllCombos();
             return;
         }
-        _currentMeleePlayable.Update();
         
 
+        if (_currentMeleePlayable != null)
+        {
+            _currentMeleePlayable.Update();
+            if (!_currentMeleePlayable.IsActive)
+            {
+                ResetAllCombos();
+            }
+        }
+        
+        if (_canChangeNextComboToPlay)
+        {
+            _canChangeNextComboToPlay = WhatComboToPlay(ref _nextComboToPlay);
+        }
+
+        if (_nextComboToPlay == -1)
+        {
+            ResetAllCombos();
+        }
+        
         switch (State)
         {
+            case MeleeStateEnum.Non:
+                if (ShouldHold() || _nextComboToPlay != -1)
+                {
+                    State = MeleeStateEnum.UnSheath;
+                    ChangeCurrentMeleePlayable(_unSheath);
+                }
+                break;
             case MeleeStateEnum.UnSheath:
-                if (ShouldHold() || WhatComboToPlay() != -1)
+                if (ShouldHold() || _nextComboToPlay != -1)
                 {
                     if (!_currentMeleePlayable.IsActive)
                     {
@@ -333,10 +370,9 @@ public abstract class MeleeController : MonoBehaviour
                 break;
             case MeleeStateEnum.Hold or MeleeStateEnum.Combo:
                 DoSomethingBasedOnInput();
-
                 break;
             case MeleeStateEnum.Sheathe:
-                if (ShouldHold() || WhatComboToPlay() != -1)
+                if (ShouldHold() || _nextComboToPlay != -1)
                 {
                     if (_currentMeleePlayable.LengthFraction < 1f)
                     {
@@ -353,7 +389,7 @@ public abstract class MeleeController : MonoBehaviour
         }
         
 
-        if (!_currentMeleePlayable.IsActive)
+        if (State!=MeleeStateEnum.Non && !_currentMeleePlayable.IsActive)
         {
             State = MeleeStateEnum.Non;
             

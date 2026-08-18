@@ -1,144 +1,147 @@
-
 using UnityEngine;
 using System.Collections.Generic;
+using MeleeSystem;
 
 public class PlayerMeleeController : MeleeController
 {
+    [SerializeField] private List<MeleePlayableSource> finishHimSources = new();
+    
     private PlayerInputController _playerInputController;
     private PlayerManager _playerManager;
     private PlayerTargetLockController _playerTargetLockController;
     private PlayerSensors _playerSensors;
     private PlayerHealthController _playerHealthController;
-    public bool ShouldBlockChangeTargetLock => _currentAction == 2 || _currentAction == 7;
+    public bool ShouldBlockChangeTargetLock => CurrentCombo == 2 || CurrentCombo == 7;
     
-    private int _currentAction = -1;
-    
-    public void ResetCurrentAction()
+
+    private readonly List<int> _finishHimIndexes = new();
+    private int _lastRandomIndexFinishHim = 0;
+
+    protected override void Awake()
     {
-        _currentAction = -1;
+        _playerInputController = GetComponent<PlayerInputController>();
+        _playerManager= GetComponent<PlayerManager>();
+        _playerTargetLockController = GetComponent<PlayerTargetLockController>();
+        _playerSensors = GetComponent<PlayerSensors>();
+        _playerHealthController = GetComponent<PlayerHealthController>();
+
+        
+        foreach (var source in finishHimSources)
+        {
+            _finishHimIndexes.Add(playableSources.Count);
+            playableSources.Add(source);
+        }
+        
+        base.Awake();
     }
     
-    private void ChangeFlags()
+    protected override bool WhatComboToPlay(ref int nextComboToPlay)
     {
         if (_playerManager.CanNotUseSword)
         {
-            _currentAction = -1;
-            return;
+            nextComboToPlay = -1;
+            return true;
         }
 
+        if (_playerTargetLockController.IsFinishHimLocked)
+        {
+            return false;
+        }
         
-        if (_playerTargetLockController.IsFinishHimLocked) return;
-        
-        if (_currentAction == -1 &&
+        if (nextComboToPlay == -1 && 
             _playerInputController.IsAttackBufferActive &&
             _playerTargetLockController.HaveFinishHimTarget)
         {
-            _currentAction = 9;
-            _playerTargetLockController.LockFinishHimTarget();
-            return;
+            nextComboToPlay = _finishHimIndexes.GetRandomElement(ref _lastRandomIndexFinishHim);
+            return false;
         }
         
         if (_playerSensors.IsGrounded)
         {
             if (_playerInputController.IsParryBufferActive)
             {
-                _currentAction = 0;
-                return;
+                nextComboToPlay = 0;
+                return false;
             }
             if (_playerInputController.IsHeavyAttackCharging)
             {
-                _currentAction = 2;
-                return;
+                nextComboToPlay = 2;
+                return true;
             }
             if (_playerInputController.IsAttackBufferActive)
             {
-                _currentAction = 3;
-                return;
+                nextComboToPlay = 3;
+                return true;
+            }
+            if (_playerInputController.IsWeaponArtCharging)
+            {
+                nextComboToPlay = 9;
+                return true;
             }
         }
         else
         {
             if (_playerInputController.IsParryBufferActive)
             {
-                _currentAction = 5;
-                return;
+                nextComboToPlay = 5;
+                return false;
             }
             if (_playerInputController.IsHeavyAttackCharging &&
                 (_playerTargetLockController.IsLocked || _playerTargetLockController.IsMeleeLocked) && 
                 _playerTargetLockController.TargetPosition.y < transform.position.y && 
                 Vector3.Distance(transform.position, _playerTargetLockController.TargetPosition) <= 11f)
             {
-                _currentAction = 7;
-                return;
+                nextComboToPlay = 7;
+                return true;
             }
             if (_playerInputController.IsAttackBufferActive)
             {
-                _currentAction = 8;
-                return;
+                nextComboToPlay = 8;
+                return true;
             }
         }
         
-        if (_currentAction == 2 || _currentAction == 7)
-            _currentAction = -1;
-    }
-
-    protected override void Awake()
-    {
-        base.Awake();
-        _playerInputController = GetComponent<PlayerInputController>();
-        _playerManager= GetComponent<PlayerManager>();
-        _playerTargetLockController = GetComponent<PlayerTargetLockController>();
-        _playerSensors = GetComponent<PlayerSensors>();
-        _playerHealthController = GetComponent<PlayerHealthController>();
-    }
-
-    protected override void Update()
-    {
-        ChangeFlags();
-        base.Update();
-    }
-    
-    protected override int WhatComboToPlay()
-    {
-        return _currentAction;
+        if (nextComboToPlay == 2 || nextComboToPlay == 7 || nextComboToPlay == 9)
+            nextComboToPlay = -1;
+        
+        return true;
     }
 
     public override void OnAttackEnd()
     {
         _playerInputController.ConsumeAttack();
-        _currentAction = -1;
-        ChangeFlags();
+        ResetNextComboToPlay();
     }
 
     public override void OnParryEnd()
     {
         _playerInputController.ConsumeParry();
-        _currentAction = -1;
-        ChangeFlags();
+        ResetNextComboToPlay();
     }
-
-    public override void OnFinishHimInterrupt()
-    {
-        if (_playerTargetLockController.IsFinishHimLocked)
-        {
-            _playerTargetLockController.UnlockFinishHim(false);
-        }
-    }
-
+    
     public void OnFinishHimEvent()
     {
         if (_playerTargetLockController.IsFinishHimLocked)
         {
-            _playerTargetLockController.UnlockFinishHim(true);
+            _playerTargetLockController.UnlockFinishHimSuccessful();
             TransformController.InterruptMove();
             _playerInputController.ConsumeAttack();
-            //Debug.Log("Good at " + Time.frameCount);
-            //Debug.Log(_currentAction + ", " + _playerInputController.IsAttackBufferActive + ", " + _playerTargetLockController.HaveFinishHimTarget);
-            _currentAction = -1;
-            ChangeFlags();
         }
     }
+    
+    public override void OnFinishHimStart()
+    {
+        _playerTargetLockController.LockFinishHimTarget();
+    }
 
+    public override void OnFinishHimEnd()
+    {
+        if (_playerTargetLockController.IsFinishHimLocked)
+        {
+            _playerTargetLockController.UnlockFinishHimUnsuccessful();
+        }
+    }
+    
     protected override bool ShouldHold()
     {
         return _playerTargetLockController.IsLocked || 
@@ -155,4 +158,6 @@ public class PlayerMeleeController : MeleeController
     {
         return !_playerManager.CanHoldSword;
     }
+
+
 }

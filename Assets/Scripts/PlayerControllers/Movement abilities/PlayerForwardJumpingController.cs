@@ -27,9 +27,9 @@ public class PlayerForwardJumpingController : MonoBehaviour
 
     public float TimeToJump { get; private set; } = 0f;
 
-    private readonly UtilityClasses.FractionBlockingValueTimer<bool> _isInAir = false;
+    private readonly UtilityTimers.FractionBlockingValueTimer<bool> _isInAir = false;
     public bool IsInAir => _isInAir.Value;
-    private readonly UtilityClasses.TemporaryValue<bool> _isLanding = new(false, true);
+    private readonly UtilityTimers.TemporaryValue<bool> _isLanding = new(false, true);
     public bool IsLanding => _isLanding.Value;
     public bool IsForwardJumping => IsInAir || IsLanding;
     public float LandingTime => landingTime;

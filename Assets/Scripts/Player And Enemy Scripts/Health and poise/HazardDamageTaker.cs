@@ -8,7 +8,7 @@ public class HazardDamageTaker : MonoBehaviour
     {
         private readonly HazardType _type; 
         private int _hazardsEntered;
-        private readonly UtilityClasses.TemporaryValue<bool> _canTakeDamage;
+        private readonly UtilityTimers.TemporaryValue<bool> _canTakeDamage;
 
         public Hazard(HazardType type)
         {
@@ -36,7 +36,7 @@ public class HazardDamageTaker : MonoBehaviour
                 if (_canTakeDamage)
                 {
                     _canTakeDamage.Activate(_type.InvulnerabilityDuration);
-                    healthController.DoNormalDamage(_type.Damage, 0, HealthController.DamageDealer.Hazard);
+                    healthController.DoNormalDamage(false, _type.Damage, 0, HealthController.DamageDealer.Hazard);
                 }
             }
             else

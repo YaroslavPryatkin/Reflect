@@ -38,4 +38,7 @@ MonoBehaviour:
   shouldSlowDeath: 0
   slowDeathDuration: 0.4
   slowDeathSpeed: 0.1
+  getStabbedClip: {fileID: 7400000, guid: 9800c153bea1dde45805e8125975c13e, type: 2}
+  gettingStubbedClipDuration: 0.07
   durationForPoiseFraction: 163.63635
+  gettingStubbedClipSpeed: 3.333334

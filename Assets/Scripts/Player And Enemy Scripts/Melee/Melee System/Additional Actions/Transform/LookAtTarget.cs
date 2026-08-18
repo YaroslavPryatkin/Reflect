@@ -39,7 +39,7 @@ namespace MeleeSystem
 
 
         public override MeleeAdditionalActionOverhead  Initialize(
-            MeleePlayablePart playablePart,
+            MeleeController meleeController,
             float thisStateDuration)
         {
             return new LookAtTargetOverhead(thisStateDuration, this);
@@ -58,7 +58,7 @@ namespace MeleeSystem
             MeleeController meleeController,
             MeleePlayable meleePlayable,
             MeleeAdditionalActionOverhead overheadRaw,
-            UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
+            UtilityTimers.FractionTemporaryValue<bool> thisActivityTimer)
         {
 
             var overhead = (LookAtTargetOverhead)overheadRaw;

@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7c9c3d74db214a978b008ddae620c810, type: 3}
   m_Name: StartComboOnFinish
   m_EditorClassIdentifier: Assembly-CSharp::MeleeSystem.StartComboOnFinish
-  combo: 4
+  sourceToSwitchTo: {fileID: 11400000, guid: 4aa55a3f9a69cbd40bb78467f44a8194, type: 2}

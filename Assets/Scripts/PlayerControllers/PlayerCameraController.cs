@@ -15,6 +15,10 @@ public class PlayerCameraController : MonoBehaviour
     [SerializeField] private float targetLockUpShift = 0.3f;
     [SerializeField] private float targetLockSmoothTime = 0.1f;
     [SerializeField] private float minVelocityDotToChangeSide = 0.3f;
+    [Header("Finish him")]
+    [SerializeField] private float finishHimCameraDistance = 1.5f;
+    [SerializeField] private float finishHimSideShift = 0.8f;
+    [SerializeField] private float finishHimUpShift = 0.1f;
     [Header("Wall Settings")]
     [SerializeField] private float wallSideShift = 0.5f;
     [Header("Dash Settings")]
@@ -38,9 +42,9 @@ public class PlayerCameraController : MonoBehaviour
     private PlayerTargetLockController _playerTargetLockController;
     private PlayerFixedDirectionMovementController _playerFixedDirectionMovementController;
 
-    private float lastTargetLockSideShiftSign = 1f;
-    private float targetLockSideShiftBase = 1f;
-    private float targetLockSideShiftVelocity = 0f;
+    private float _lastTargetLockSideShiftSign = 1f;
+    private float _targetLockSideShiftCurrent = 0f;
+    private float _targetLockSideShiftVelocity = 0f;
 
     private void Awake()
     {
@@ -96,23 +100,23 @@ public class PlayerCameraController : MonoBehaviour
             wantedSideShift = railSideShiftCurveMultiplier * railSideShiftCurve.Evaluate(dot) * Mathf.Sign(dot);
             cameraTransformController.TargetUpShift = railUpShift;
         }
-        else if (_playerTargetLockController.IsLocked || _playerTargetLockController.IsMeleeLocked)
+        else if (_playerTargetLockController.IsFinishHimLocked)
+        {
+            cameraTransformController.TargetCameraDistance = finishHimCameraDistance;
+            cameraTransformController.TargetUpShift = finishHimUpShift;
+            SetTargetLockState( finishHimSideShift,false, out wantedSideShift);
+        }
+        else if (_playerTargetLockController.IsLocked || _playerTargetLockController.IsMeleeLocked || _playerTargetLockController.HaveFinishHimTarget)
         {
             cameraTransformController.TargetCameraDistance = targetLockCameraDistance;
             cameraTransformController.TargetUpShift = targetLockUpShift;
-            var velocity = _playerSensors.NormalizedHorizontalVelocity;
-            var dir = _playerTargetLockController.NormalizedHorizontalDirectionToLockedTarget;
-            var dot = Vector3.Dot(velocity, Vector3.Cross(dir, Vector3.up));
-            if (Mathf.Abs(dot) > minVelocityDotToChangeSide)
-                lastTargetLockSideShiftSign = Mathf.Sign(dot);
-                
-            targetLockSideShiftBase = Mathf.SmoothDamp(targetLockSideShiftBase,lastTargetLockSideShiftSign , ref targetLockSideShiftVelocity,targetLockSmoothTime);
-            wantedSideShift = targetLockSideShiftBase * targetLockSideShift;
+            SetTargetLockState( targetLockSideShift,true, out wantedSideShift);
         }
         else
         {
-            targetLockSideShiftVelocity = 0f;
-            lastTargetLockSideShiftSign = 1f;
+            _targetLockSideShiftCurrent = 0f;
+            _targetLockSideShiftVelocity = 0f;
+            _lastTargetLockSideShiftSign = 1f;
             cameraTransformController.TargetCameraDistance = normalCameraDistance;
             wantedSideShift = normalSideShift;
             cameraTransformController.TargetUpShift = normalUpShift;
@@ -134,6 +138,21 @@ public class PlayerCameraController : MonoBehaviour
         cameraTransformController.TargetDirection = GlobalLookDirectionManager.CurrentLookDirection;
     }
 
+    private void SetTargetLockState(float sideShift, bool canChangeSign, out float wantedSideShift)
+    {
+        var velocity = _playerSensors.NormalizedHorizontalVelocity;
+        if (canChangeSign)
+        {
+            var dir = _playerTargetLockController.NormalizedHorizontalDirectionToLockedTarget;
+            var dot = Vector3.Dot(velocity, Vector3.Cross(dir, Vector3.up));
+            if (Mathf.Abs(dot) > minVelocityDotToChangeSide)
+                _lastTargetLockSideShiftSign = Mathf.Sign(dot);
+        }
+
+        _targetLockSideShiftCurrent = Mathf.SmoothDamp(_targetLockSideShiftCurrent,_lastTargetLockSideShiftSign  * sideShift, ref _targetLockSideShiftVelocity,targetLockSmoothTime);
+        wantedSideShift = _targetLockSideShiftCurrent;
+    }
+    
 
     private void ChangeFoWFromSpeed()
     {

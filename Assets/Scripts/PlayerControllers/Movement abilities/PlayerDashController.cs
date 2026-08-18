@@ -30,7 +30,7 @@ public class PlayerDashController : MonoBehaviour
     
     
     
-    private UtilityClasses.FractionBlockingValueTimer<bool> isDashing = new(false);
+    private UtilityTimers.FractionBlockingValueTimer<bool> isDashing = new(false);
 
     
     public bool IsDashing => isDashing.Value;

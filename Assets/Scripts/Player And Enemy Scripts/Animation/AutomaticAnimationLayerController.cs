@@ -18,7 +18,7 @@ public class AutomaticAnimationLayerController : CurrentPlayableAnimationLayerCo
         destinationLayerPort,  uniqueClips, avatarMask, name, additive)
     { }
     
-    private readonly UtilityClasses.FractionTemporaryValue<bool> _isTransitioning = new (false, true);
+    private readonly UtilityTimers.FractionTemporaryValue<bool> _isTransitioning = new (false, true);
 
     public void AutomaticUpdateCurrentPlayable(AnimationClip clip, float clipSpeed, float crossFadeDuration)
     {

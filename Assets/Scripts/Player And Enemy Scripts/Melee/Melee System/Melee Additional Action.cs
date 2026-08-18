@@ -35,7 +35,7 @@ namespace MeleeSystem
         }
 
         public virtual MeleeAdditionalActionOverhead Initialize(
-            MeleePlayablePart playablePart,
+            MeleeController meleeController,
             float thisStateDuration
         )
         {
@@ -46,7 +46,7 @@ namespace MeleeSystem
             MeleeController meleeController,
             MeleePlayable meleePlayable,
             MeleeAdditionalActionOverhead overhead,
-            UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
+            UtilityTimers.FractionTemporaryValue<bool> thisActivityTimer)
         {
             
         }

@@ -35,7 +35,7 @@ public class PlayerFixedDirectionMovementController : MonoBehaviour
     public StateEnum State => _state.Value;
     public bool IsStateNon => _state.Value == StateEnum.Non;
     
-    private readonly UtilityClasses.BlockingValueTimer<StateEnum> _state = StateEnum.Non;
+    private readonly UtilityTimers.BlockingValueTimer<StateEnum> _state = StateEnum.Non;
 
     private bool _shouldStopBecauseOfSpeed = true;
 

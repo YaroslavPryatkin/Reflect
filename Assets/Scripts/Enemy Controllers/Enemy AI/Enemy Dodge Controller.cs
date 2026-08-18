@@ -65,7 +65,7 @@ public class EnemyDodgeController : MonoBehaviour
         Non, Dodging, Recharging
     }
     
-    private readonly UtilityClasses.FractionBlockingValueTimer<StateEnum> _state = StateEnum.Non;
+    private readonly UtilityTimers.FractionBlockingValueTimer<StateEnum> _state = StateEnum.Non;
     
     private UtilityClasses.BaseActionAutomaticTransition _transitionState;
     

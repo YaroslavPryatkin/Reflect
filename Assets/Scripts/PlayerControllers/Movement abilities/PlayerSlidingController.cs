@@ -38,7 +38,7 @@ public class PlayerSlidingController : MonoBehaviour
         Non, Starting, InProcess, Ending
     }
 
-    private UtilityClasses.FractionBlockingValueTimer<StateEnum> _state = StateEnum.Non;
+    private UtilityTimers.FractionBlockingValueTimer<StateEnum> _state = StateEnum.Non;
 
     public StateEnum State => _state.Value;
 

@@ -30,7 +30,7 @@ public class PlayerLandingController : MonoBehaviour
     /// <summary>
     /// 0 - not landing, 1 - standing landing, 2 - running landing, 3 - rolling landing
     /// </summary>
-    private UtilityClasses.TemporaryValue<int> landingState = 0;
+    private UtilityTimers.TemporaryValue<int> landingState = 0;
     private bool wasOnGround = true;
 
     public bool IsStateNon => landingState == 0;

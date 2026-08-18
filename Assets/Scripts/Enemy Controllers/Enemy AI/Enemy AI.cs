@@ -73,7 +73,7 @@ public class EnemyAI : MonoBehaviour
     
     private int _movementDirection = 0;
     
-    private readonly UtilityClasses.TemporaryValue<bool> _orbitingDirectionTimer = new(false, true);
+    private readonly UtilityTimers.TemporaryValue<bool> _orbitingDirectionTimer = new(false, true);
     private readonly float _orbitingAheadHalfAngle = 5f;
     private float _orbitingChord;
 

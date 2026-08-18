@@ -30,7 +30,7 @@ public class GlobalEnemyComputingTimeOptimizer : MonoBehaviour
     }
 
     private readonly List<EnemyAI> _enemies = new();
-    private readonly UtilityClasses.FractionBlockingValueTimer<int> _currentIndex = 0;
+    private readonly UtilityTimers.FractionBlockingValueTimer<int> _currentIndex = 0;
     private float _timeForOneEnemy;
     private bool _haveEnemies=false;
     private bool _returnedTrue = false;

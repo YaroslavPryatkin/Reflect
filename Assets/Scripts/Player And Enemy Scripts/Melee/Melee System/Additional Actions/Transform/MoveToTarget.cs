@@ -65,7 +65,7 @@ namespace MeleeSystem
             MeleeController meleeController,
             MeleePlayable meleePlayable,
             MeleeAdditionalActionOverhead overheadRaw,
-            UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
+            UtilityTimers.FractionTemporaryValue<bool> thisActivityTimer)
         {
             var overhead = (MoveToTargetOverhead)overheadRaw;
             meleeController.TransformController.ActivateMove(
@@ -77,10 +77,10 @@ namespace MeleeSystem
         }
 
         public override MeleeAdditionalActionOverhead  Initialize(
-            MeleePlayablePart playablePart,
+            MeleeController meleeController,
             float thisStateDuration)
         {
-            return  new MoveToTargetOverhead(thisStateDuration, this);
+            return new MoveToTargetOverhead(thisStateDuration, this);
         }
     }
 }

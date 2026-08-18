@@ -17,5 +17,5 @@ MonoBehaviour:
   consecutiveParriesRechargeTime: 2
   minimalParryTime: 0.15
   parryStateAfterSuccessfulParryTime: 0.05
-  onSuccessfulParryPlayableIndex: 1
+  onSuccessfulParrySource: {fileID: 11400000, guid: ce2cc6da7707ac044aa3336df8b4ccc4, type: 2}
   parryTimeChanges: 1

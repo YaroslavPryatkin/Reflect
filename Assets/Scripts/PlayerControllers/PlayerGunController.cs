@@ -35,8 +35,8 @@ public class PlayerGunController : GunController
         else
         {
             if (Physics.Raycast(GlobalCameraManager.GetPlayerCameraPosition(),
-                    GlobalCameraManager.GetPlayerCameraForward(), out RaycastHit hit,
-                    maximumTargetDistance, DestructionLayerMask))
+                    GlobalCameraManager.GetPlayerCameraForward(), out var hit,
+                    maximumTargetDistance, DestructionLayerMask, Sensors.QueryTriggerInteractionShooting))
             {
                 wantedTargetPoint = hit.point;
             }

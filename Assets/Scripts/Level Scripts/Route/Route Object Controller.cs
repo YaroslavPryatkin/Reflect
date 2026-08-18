@@ -11,7 +11,7 @@ public class RouteObjectController : Poolable<RouteObjectController>
 
     private Transform _previousTransform;
     private Transform _nextTransform;
-    private readonly UtilityClasses.FractionBlockingValueTimer<int> _currentPoint = 0;
+    private readonly UtilityTimers.FractionBlockingValueTimer<int> _currentPoint = 0;
 
     private void Update()
     {

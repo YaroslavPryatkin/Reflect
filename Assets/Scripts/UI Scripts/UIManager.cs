@@ -28,7 +28,7 @@ public class UIManager : MonoBehaviour
     {
         Escape, Active, Death
     }
-    private readonly UtilityClasses.FractionBlockingValueTimerUnscaled<StateEnum> _state = 
+    private readonly UtilityTimers.FractionBlockingValueTimerUnscaled<StateEnum> _state = 
         StateEnum.Active;
     public static bool IsGameActive => _instance._state.Value == StateEnum.Active;
     public static bool IsDeathScreen => _instance._state.Value == StateEnum.Death;

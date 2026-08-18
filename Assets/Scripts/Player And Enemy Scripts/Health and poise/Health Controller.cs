@@ -20,17 +20,16 @@ public class HealthController : MonoBehaviour
     public float HealthFraction => CurrentHealth / maxHealth;
 
     private MeleeController _meleeController;
-    protected GettingHitController GettingHitController;
+    public GettingHitController GettingHitController { get; private set; }
     private GunController _gunController;
     private bool _haveGunController;
-    private bool _haveGettingHitController = false;
     private bool _haveMelee;
     protected Sensors Sensors;
     
     protected ArenaController ArenaController;
     protected bool HaveArenaController = false;
 
-    private readonly UtilityClasses.TemporaryValue<bool> _canKillPlain =
+    private readonly UtilityTimers.TemporaryValue<bool> _canKillPlain =
         new (true, false);
     public bool CanBeKilledByPlain => _canKillPlain.Value;
     
@@ -52,7 +51,7 @@ public class HealthController : MonoBehaviour
 
     private readonly UtilityClasses.ChangeableFractionValueReference _iFrames = new();
 
-    public void ActivateIFrames(UtilityClasses.IFractionTimer<bool> timer)
+    public void ActivateIFrames(UtilityTimers.IFractionTimer<bool> timer)
     {
         _iFrames.Set(timer);
     }
@@ -77,7 +76,7 @@ public class HealthController : MonoBehaviour
         CurrentHealth = maxHealth;
         Sensors =  GetComponent<Sensors>();
         _haveMelee = TryGetComponent(out _meleeController);
-        _haveGettingHitController = TryGetComponent(out GettingHitController);
+        GettingHitController = GetComponent<GettingHitController>();
         _haveGunController = TryGetComponent(out _gunController);
     }
     
@@ -86,7 +85,7 @@ public class HealthController : MonoBehaviour
         GettingHitController.Revive();
     }
 
-    public void OnArenaReset()
+    public virtual void OnArenaReset()
     {
         CurrentHealth = maxHealth;
         
@@ -117,7 +116,7 @@ public class HealthController : MonoBehaviour
         }
     }
 
-    public void DoDeflectDamage(float damage, float poiseDamage, float bulletRechargeFraction, DamageDealer damageDealer)
+    public void DoDeflectDamage(bool triggerReaction, float damage, float poiseDamage, float bulletRechargeFraction, DamageDealer damageDealer)
     {
         if (IsDead) return;
     
@@ -127,37 +126,30 @@ public class HealthController : MonoBehaviour
 
         if (_iFrames.Value) return;
 
-        if (_haveGettingHitController)
             GettingHitController.Stun(poiseDamage, true);
         
     }
 
-    public void DoNormalDamage(float damage, float poiseDamage, DamageDealer damageDealer)
+    public void DoNormalDamage(bool triggerReaction, float damage, float poiseDamage, DamageDealer damageDealer)
     {
         if (IsDead || _iFrames.Value) return;
         
-        if (_haveGettingHitController)
-        {
-            if (GettingHitController.IsStunned)
-                ChangeHealth(-damage * damageFractionWhileStunned);
-            else
-                ChangeHealth(-damage);
-        }
+        if (GettingHitController.IsStunned)
+            ChangeHealth(-damage * damageFractionWhileStunned);
         else
             ChangeHealth(-damage);
         
 
         if (!IsDead)
         {
-            if(_haveGettingHitController)
-                GettingHitController.Stun(poiseDamage, false);
+            GettingHitController.Stun(poiseDamage, false);
             
-            OnDamageTaken(damage, damageDealer);
+            OnDamageTaken(triggerReaction, damage, damageDealer);
         }
     }
 
 
-    protected virtual void OnDamageTaken(float damage, DamageDealer damageDealer)
+    protected virtual void OnDamageTaken(bool triggerReaction, float damage, DamageDealer damageDealer)
     {
     }
 

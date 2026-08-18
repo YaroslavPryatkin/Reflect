@@ -8,8 +8,22 @@ public abstract class MeleeTransformController : MonoBehaviour
 {
     [SerializeField] private float parabolaTargetFollowingSpeed = 20f;
     [SerializeField] private float targetDistanceToTarget = 0.9f;
-    [SerializeField] private float targetSnapDistanceToTarget = 0.9f;
+    [SerializeField] private float distanceToUseForwardInSnap = 1f;
+    [SerializeField] private MeleeWeaponHitboxController weaponHitboxController;
+    
+    private float _sqrDistanceToUseForwardInSnap;
+
+    //private bool _isActive= false;
+
     public bool IsActive { get; private set; } = false;
+    // {
+    //     get => _isActive;
+    //     private set
+    //     {
+    //         _isActive = value;
+    //     }
+    // } 
+
     private readonly UtilityClasses.ChangeableFractionValueReference _isActiveTimer = new();
     
     public bool IsControllingMovement { get;private set; } = false;
@@ -31,7 +45,8 @@ public abstract class MeleeTransformController : MonoBehaviour
     /// <summary>
     /// different purpose for different modes <br/>
     /// move or moveThrough - speed multiplier<br/>
-    /// parabola - angle up
+    /// parabola - angle up<br/>
+    /// snap - override target distance to target
     /// </summary>
     private float _currentFloatValue;
     /// <summary>
@@ -44,6 +59,7 @@ public abstract class MeleeTransformController : MonoBehaviour
     /// different purpose for different modes <br/>
     /// parabola - target position on start<br/>
     /// snap - start transform pos
+    /// moveThrough - x = overshootToStopMoving, y = angleHorizontal
     /// </summary>
     private Vector3 _currentVector3Value;
     
@@ -74,7 +90,7 @@ public abstract class MeleeTransformController : MonoBehaviour
         AnimationCurve speedCurve,
         float rotationSpeed,
         bool forceLookToTarget,
-        UtilityClasses.FractionTemporaryValue<bool> moveRequest)
+        UtilityTimers.FractionTemporaryValue<bool> moveRequest)
     {
         if (IsActive)
         {
@@ -101,8 +117,9 @@ public abstract class MeleeTransformController : MonoBehaviour
         AnimationCurve speedCurve,
         float rotationSpeed,
         float angleHorizontal,
+        float overshootToStopMoving,
         bool forceLookToTarget,
-        UtilityClasses.FractionTemporaryValue<bool> moveRequest)
+        UtilityTimers.FractionTemporaryValue<bool> moveRequest)
     {
         if (IsActive)
         {
@@ -110,25 +127,14 @@ public abstract class MeleeTransformController : MonoBehaviour
         }
         _wasKinematic = _rb.isKinematic;
         _wasExcludeLayers = _rb.excludeLayers;
-
-
-        if (forceLookToTarget && (_haveTarget = DoesHaveTarget()))
-        {
-            SetTargetPositionAndDirection(out _targetPosition, out _targetDirection);
-            _targetLookDirection = _targetDirection;
-        }
-        else
-        {
-            SetTargetLookDirection(out _targetLookDirection);
-        }
-
-        _targetLookDirection = Quaternion.AngleAxis(angleHorizontal, Vector3.up) * _targetLookDirection;
         
         _isActiveTimer.Set(moveRequest);
         IsActive = true;
         _mode = Mode.MoveThrough;
         
         _currentFloatValue = transformSpeedMultiplier;
+        _currentVector3Value.x = overshootToStopMoving;
+        _currentVector3Value.y = angleHorizontal;
         _currentCurve = speedCurve;
         _rotationSpeed = rotationSpeed;
         _forceLookToTarget = forceLookToTarget;
@@ -142,7 +148,7 @@ public abstract class MeleeTransformController : MonoBehaviour
         float rotationSpeed,
         bool forceLookToTarget,
         bool standInPlace,
-        UtilityClasses.FractionTemporaryValue<bool> moveRequest)
+        UtilityTimers.FractionTemporaryValue<bool> moveRequest)
     {
         if (IsActive)
         {
@@ -165,7 +171,7 @@ public abstract class MeleeTransformController : MonoBehaviour
     public bool ActivateParabola(
         float angleUp,
         AnimationCurve distanceCurve,
-        UtilityClasses.FractionTemporaryValue<bool> moveRequest)
+        UtilityTimers.FractionTemporaryValue<bool> moveRequest)
     {
         if (IsActive)
         {
@@ -203,9 +209,10 @@ public abstract class MeleeTransformController : MonoBehaviour
     }
 
     public bool ActivateSnapping(
+        float overrideTargetDistanceToTarget,
         bool forceLookToTarget,
         AnimationCurve distanceCurve,
-        UtilityClasses.FractionTemporaryValue<bool> moveRequest)
+        UtilityTimers.FractionTemporaryValue<bool> moveRequest)
     {
         
         if (IsActive)
@@ -219,7 +226,6 @@ public abstract class MeleeTransformController : MonoBehaviour
         
         if (!_haveTarget)
         {
-            Debug.Log("No snap" + ", time = " + Time.frameCount);
             return false;
         }
         
@@ -233,8 +239,9 @@ public abstract class MeleeTransformController : MonoBehaviour
         
         _currentCurve = distanceCurve;
         _currentVector3Value = transform.position;
+        _currentFloatValue = overrideTargetDistanceToTarget;
         
-        _rotationSpeed = 400;
+        _rotationSpeed = 400f;
         _forceLookToTarget = forceLookToTarget;
         IsControllingMovement = true;
         
@@ -265,14 +272,22 @@ public abstract class MeleeTransformController : MonoBehaviour
             return;
         }
 
+        if (_mode switch
+            {
+                Mode.Parabola=> !DoesHaveTarget() || weaponHitboxController.DidHit,
+                Mode.Move => weaponHitboxController.DidHit,
+                Mode.Snap => !DoesHaveTarget(),
+                Mode.MoveThrough => CheckMoveThrough(),
+                _ => false
+            })
+        {
+            InterruptMove();
+            return;
+        }
+        
         switch (_mode)
         {
             case Mode.Parabola:
-                if (!DoesHaveTarget())
-                {
-                    InterruptMove();
-                    return;
-                }
                 SetTargetPositionAndDirection(out _targetPosition, out _targetDirection);
                 _targetLookDirection = _targetDirection;
                 break;
@@ -297,12 +312,19 @@ public abstract class MeleeTransformController : MonoBehaviour
                 }
                 break;
             case Mode.Snap:
-                if (!DoesHaveTarget())
-                {
-                    InterruptMove();
-                    return;
-                }
                 SetTargetPositionAndDirection(out _targetPosition, out _targetDirection);
+                
+                var dir = _targetPosition - transform.position;
+                if (dir.sqrMagnitude < _sqrDistanceToUseForwardInSnap || Mathf.Abs(_targetDirection.y) > 0.995f)
+                {
+                    _targetDirection = transform.forward;
+                }
+                else
+                {
+                    _targetDirection.y = 0f;
+                    _targetDirection = _targetDirection.normalized;
+                }
+                
                 if (_forceLookToTarget)
                 {
                     _targetLookDirection = _targetDirection;
@@ -312,7 +334,40 @@ public abstract class MeleeTransformController : MonoBehaviour
                     SetTargetLookDirection(out _targetLookDirection);
                 }
                 break;
+            case Mode.MoveThrough:
+                if (DoesHaveTarget())
+                {
+                    _haveTarget = true;
+                    SetTargetPositionAndDirection(out _targetPosition, out _targetDirection);
+                    
+                    if (_forceLookToTarget)
+                    {
+                        _targetLookDirection = _targetDirection;
+                    }
+                    else
+                    {
+                        SetTargetLookDirection(out _targetLookDirection);
+                    }
+                }
+                else
+                {
+                    _haveTarget = false;
+                    SetTargetLookDirection(out _targetLookDirection);
+                }
+                
+                _targetLookDirection = Quaternion.AngleAxis(_currentVector3Value.y, Vector3.up) * _targetLookDirection;
+                break;
         }
+    }
+
+    private bool CheckMoveThrough()
+    {
+        if (!weaponHitboxController.DidHit) return false;
+
+        var res = Vector3.Distance(transform.position, weaponHitboxController.LastHitTargetPosition) >
+                  _currentVector3Value.x;
+        
+        return res;
     }
 
     public void InterruptMove()
@@ -322,9 +377,13 @@ public abstract class MeleeTransformController : MonoBehaviour
             _rb.isKinematic = _wasKinematic;
             IsActive = false;
             _rb.excludeLayers = _wasExcludeLayers;
-            
+
             if (_mode is Mode.Move or Mode.MoveThrough)
+            {
+                //Debug.Log("Interrupted");
                 _rb.linearVelocity = Vector3.zero;
+                _sensors.UpdateVelocity();
+            }
         }
     }
     
@@ -332,23 +391,23 @@ public abstract class MeleeTransformController : MonoBehaviour
     {
         var endPos = Vector3.zero;
 
-        switch (_mode)
-        {
-            case Mode.Parabola or Mode.Move:
-                endPos = _targetPosition - _targetDirection * targetDistanceToTarget;
-                if (Vector3.Distance(transform.position, endPos) < 0.1f || 
-                    Vector3.Distance(transform.position, _targetPosition) < targetDistanceToTarget)
-                {
-                    InterruptMove();
-                    return;
-                }
-                break;
-        }
+        // switch (_mode)
+        // {
+        //     case Mode.Parabola or Mode.Move:
+        //         endPos = _targetPosition - _targetDirection * targetDistanceToTarget;
+        //         if (Vector3.Distance(transform.position, endPos) < 0.1f || 
+        //             Vector3.Distance(transform.position, _targetPosition) < targetDistanceToTarget)
+        //         {
+        //             InterruptMove();
+        //             return;
+        //         }
+        //         break;
+        // }
         
         switch (_mode)
         {
             case Mode.Standing:
-                _rb.linearVelocity=Vector3.zero;
+                _rb.linearVelocity = Vector3.zero;
                 break;
             case Mode.Parabola:
                 _currentVector3Value = Vector3.MoveTowards(_currentVector3Value, endPos,
@@ -363,16 +422,7 @@ public abstract class MeleeTransformController : MonoBehaviour
                         );
                 break;
             case Mode.Snap:
-                if (Mathf.Abs(_targetDirection.y) > 0.995f)
-                {
-                    _targetDirection = transform.forward;
-                }
-                else
-                {
-                    _targetDirection.y = 0f;
-                    _targetDirection = _targetDirection.normalized;
-                }
-                endPos =  _targetPosition - _targetDirection * targetSnapDistanceToTarget;
+                endPos = _targetPosition - _targetDirection * _currentFloatValue;
                 
                 _rb.MovePosition(
                     UtilityFunctions.LerpByDistance(
@@ -421,6 +471,7 @@ public abstract class MeleeTransformController : MonoBehaviour
         
         if (!IsActive) return;
         
+        
         Rotate();
         
         if(IsControllingMovement)
@@ -431,5 +482,6 @@ public abstract class MeleeTransformController : MonoBehaviour
     {
         _sensors = GetComponent<Sensors>();
         _rb = GetComponent<Rigidbody>();
+        _sqrDistanceToUseForwardInSnap = distanceToUseForwardInSnap * distanceToUseForwardInSnap;
     }
 }

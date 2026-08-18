@@ -19,6 +19,8 @@ public class CrossHairAndTargetCircleController : MonoBehaviour
         crosshair.SetShowing(_playerGunController.GunStateValue!=UtilityFunctions.BaseActionTransitionsEnum.Base);
         crosshair.WorldTarget = _playerGunController.TargetPoint;
         targetLockCircle.SetShowing(_playerTargetLockController.IsLocked);
-        targetLockCircle.WorldTarget = _playerTargetLockController.TargetPosition;
+        
+        if(_playerTargetLockController.IsLocked)
+            targetLockCircle.WorldTarget = _playerTargetLockController.TargetPosition;
     }
 }

@@ -29,7 +29,7 @@ public class EnemyGunController : GunController
     private GettingHitController _gettingHitController;
     
     private enum FireStateEnum{Non, Telegraph, Shooting}
-    private readonly UtilityClasses.FractionBlockingValueTimer<FireStateEnum> _fireState = FireStateEnum.Non;
+    private readonly UtilityTimers.FractionBlockingValueTimer<FireStateEnum> _fireState = FireStateEnum.Non;
     private int _bulletsShotInThisBurst = 0;
     
     public bool IsStateNon => _fireState.Value == FireStateEnum.Non;
@@ -52,7 +52,7 @@ public class EnemyGunController : GunController
     }
 
 
-    private readonly UtilityClasses.TemporaryValue<bool> _useFastTelegraphTime = new(false, true);
+    private readonly UtilityTimers.TemporaryValue<bool> _useFastTelegraphTime = new(false, true);
     public bool IsUsingFastTelegraphTime => _useFastTelegraphTime.Value;
     private float _fastTelegraphTime;
     private float _fastTelegraphAngleIncrease;

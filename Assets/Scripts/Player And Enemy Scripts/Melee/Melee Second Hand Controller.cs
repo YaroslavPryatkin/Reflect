@@ -20,12 +20,12 @@ public class MeleeSecondHandController : MonoBehaviour
 
     private UtilityClasses.BaseActionAutomaticTransition _transitionState;
 
-    public void SetSecondHand(UtilityClasses.FractionTemporaryValue<bool> secondHandTimer)
+    public void SetSecondHand(UtilityTimers.FractionTemporaryValue<bool> secondHandTimer)
     {
         _useSecondHand.Set(secondHandTimer);
     }
 
-    public bool SetSecondHandIfWasSecondHand(UtilityClasses.FractionTemporaryValue<bool> secondHandTimer)
+    public bool SetSecondHandIfWasSecondHand(UtilityTimers.FractionTemporaryValue<bool> secondHandTimer)
     {
         if (_transitionState.Value == BaseActionTransitionsEnum.Action ||
             _transitionState.Value == BaseActionTransitionsEnum.ActionToBase)

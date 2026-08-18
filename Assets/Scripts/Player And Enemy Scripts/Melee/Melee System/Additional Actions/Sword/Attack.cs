@@ -10,7 +10,7 @@ namespace MeleeSystem
     [CreateAssetMenu(fileName = "Attack", menuName = "Melee/MeleeAdditionalActions/Sword/Attack")]
     public class Attack : MeleeAdditionalActionWithTimeFractionSerialized
     {
-
+        [SerializeField] private bool triggerReaction = true;
         [SerializeField] private float damage;
         [SerializeField] private float poiseDamage;
 
@@ -29,9 +29,9 @@ namespace MeleeSystem
             MeleeController meleeController,
             MeleePlayable meleePlayable,
             MeleeAdditionalActionOverhead overheadRaw,
-            UtilityClasses.FractionTemporaryValue<bool> thisActivityTimer)
+            UtilityTimers.FractionTemporaryValue<bool> thisActivityTimer)
         {
-            meleeController.MeleeHitboxController.StartSwing(damage, poiseDamage);
+            meleeController.MeleeHitboxController.StartSwing(triggerReaction, damage, poiseDamage);
         }
 
     }

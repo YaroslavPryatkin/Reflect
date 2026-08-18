@@ -19,7 +19,27 @@ public class HazardCollider : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.TryGetComponent(out HazardDamageTaker damageTaker))
+        ProcessEnter(other.gameObject);
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        ProcessExit(other.gameObject);
+    }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        ProcessEnter(collision.gameObject);
+    }
+
+    private void OnCollisionExit(Collision collision)
+    {
+        ProcessExit(collision.gameObject);
+    }
+
+    private void ProcessEnter(GameObject obj)
+    {
+        if (obj.TryGetComponent(out HazardDamageTaker damageTaker))
         {
             if (_occupants.Add(damageTaker))
             {
@@ -28,9 +48,9 @@ public class HazardCollider : MonoBehaviour
         }
     }
 
-    private void OnTriggerExit(Collider other)
+    private void ProcessExit(GameObject obj)
     {
-        if (other.TryGetComponent(out HazardDamageTaker damageTaker))
+        if (obj.TryGetComponent(out HazardDamageTaker damageTaker))
         {
             if (_occupants.Remove(damageTaker))
             {

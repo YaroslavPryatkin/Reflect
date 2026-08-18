@@ -27,7 +27,7 @@ public class DoorController : MonoBehaviour
         Closed, Opening, Opened, Closing
     }
 
-    private readonly UtilityClasses.FractionBlockingValueTimer<StateEnum> _state = 
+    private readonly UtilityTimers.FractionBlockingValueTimer<StateEnum> _state = 
         StateEnum.Closed;
 
     private float _startDistance;

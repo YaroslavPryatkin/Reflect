@@ -59,13 +59,13 @@ public abstract class GunController : MonoBehaviour
     public float TargetAngle { get; private set; } = 0f;
     public float RawTargetAngle { get; private set; } = 0f;
 
-    public  UtilityClasses.FractionBlockingValueTimer<BaseActionTransitionsEnum> GunState { get;  } = BaseActionTransitionsEnum.Base;
+    public  UtilityTimers.FractionBlockingValueTimer<BaseActionTransitionsEnum> GunState { get;  } = BaseActionTransitionsEnum.Base;
     
     protected Sensors Sensors;
 
     
-    private readonly UtilityClasses.FractionDelayedValueTimer<bool> _rechargingBulletTimer = false;
-    private readonly UtilityClasses.FractionTemporaryValue<bool> _canShootAfterPreviousShot = new(true, false);
+    private readonly UtilityTimers.FractionDelayedValueTimer<bool> _rechargingBulletTimer = false;
+    private readonly UtilityTimers.FractionTemporaryValue<bool> _canShootAfterPreviousShot = new(true, false);
 
     protected bool CanShootAfterPreviousShot => _canShootAfterPreviousShot.Value;
     

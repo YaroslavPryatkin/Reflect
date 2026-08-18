@@ -39,7 +39,7 @@ public class RouteController : MonoBehaviour
         return false;
     }
 
-    private readonly UtilityClasses.TemporaryValue<bool> _canSpawnNext = new(true, false);
+    private readonly UtilityTimers.TemporaryValue<bool> _canSpawnNext = new(true, false);
     
     private AutoPool<RouteObjectController> _pool;
     

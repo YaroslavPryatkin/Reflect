@@ -81,13 +81,13 @@ public class PlayerJumpController : MonoBehaviour
         Non, Ground, Wall, Line
     }
     
-    private readonly UtilityClasses.DelayedValueTimer<JumpPlaceEnum> _possibleJumpPlace = JumpPlaceEnum.Non;
+    private readonly UtilityTimers.DelayedValueTimer<JumpPlaceEnum> _possibleJumpPlace = JumpPlaceEnum.Non;
 
     public enum StateEnum
     {
         Non, Starting, Continuing
     }
-    private readonly UtilityClasses.BlockingValueTimer<StateEnum> _jumpState = StateEnum.Non;
+    private readonly UtilityTimers.BlockingValueTimer<StateEnum> _jumpState = StateEnum.Non;
 
     public enum JumpTypeEnum
     {
@@ -98,7 +98,7 @@ public class PlayerJumpController : MonoBehaviour
     public StateEnum State => _jumpState.Value;
     public JumpTypeEnum Type => _currentJumpType;
     
-    private readonly UtilityClasses.TemporaryValue<bool> _shouldSuppressGroundFriction = new(false, true);
+    private readonly UtilityTimers.TemporaryValue<bool> _shouldSuppressGroundFriction = new(false, true);
     public bool ShouldSuppressGroundFriction => _shouldSuppressGroundFriction.Value;
 
 

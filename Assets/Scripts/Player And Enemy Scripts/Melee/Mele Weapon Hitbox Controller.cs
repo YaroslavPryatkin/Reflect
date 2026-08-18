@@ -5,15 +5,20 @@ public class MeleeWeaponHitboxController : MonoBehaviour
 {
     [SerializeField] private Transform myTransform;
     [SerializeField] private float bulletRechargeOnParryFraction = 0f;
+    [SerializeField] private ParticleSystem bloodParticles;
 
     private SparkSpawner _sparkSpawner;
     
     private int _targetLayers; 
-    private HashSet<HealthController> _alreadyHitTargets = new ();
+    private readonly HashSet<HealthController> _alreadyHitTargets = new ();
     private float _attackDamage;
     private float _poiseDamage;
+    private bool _triggerReaction;
 
     private Collider _collider;
+    
+    public bool DidHit => _alreadyHitTargets.Count != 0;
+    public Vector3 LastHitTargetPosition { get; private set; }
 
     private void Awake()
     {
@@ -35,8 +40,9 @@ public class MeleeWeaponHitboxController : MonoBehaviour
         _targetLayers = targetLayers;
     }
     
-    public void StartSwing(float damage,float poiseDamage)
+    public void StartSwing(bool triggerReaction, float damage,float poiseDamage)
     {
+        _triggerReaction = triggerReaction;
         _attackDamage = damage;
         _alreadyHitTargets.Clear();
         _collider.enabled = true;
@@ -46,6 +52,7 @@ public class MeleeWeaponHitboxController : MonoBehaviour
     public void FinishSwing()
     {
         _collider.enabled = false;
+        _alreadyHitTargets.Clear();
     }
     
 
@@ -55,17 +62,20 @@ public class MeleeWeaponHitboxController : MonoBehaviour
 
         if (other.TryGetComponent<HealthController>(out var health))
         {
-            if (!_alreadyHitTargets.Contains(health))
+            if (!health.IsDead && !_alreadyHitTargets.Contains(health))
             {
                 var dir = other.transform.position -  myTransform.position;
                 if (health.TryDeflecting(dir))
                 {
-                    health.DoDeflectDamage(_attackDamage, _poiseDamage,bulletRechargeOnParryFraction, HealthController.DamageDealer.Melee);
+                    health.DoDeflectDamage(_triggerReaction, _attackDamage, _poiseDamage,bulletRechargeOnParryFraction, HealthController.DamageDealer.Melee);
                 }
                 else
                 {
-                    health.DoNormalDamage(_attackDamage, _poiseDamage, HealthController.DamageDealer.Melee);
+                    bloodParticles.Play();
+                    health.DoNormalDamage(_triggerReaction, _attackDamage, _poiseDamage, HealthController.DamageDealer.Melee);
                 }
+                
+                LastHitTargetPosition = _collider.transform.position;
                 
                 _alreadyHitTargets.Add(health);
             }

@@ -28,7 +28,7 @@ public class PlayerLedgeClimbController : MonoBehaviour
         Non, Active, Ending
     }
 
-    private readonly UtilityClasses.FractionBlockingValueTimer<StateEnum> _state = StateEnum.Non;
+    private readonly UtilityTimers.FractionBlockingValueTimer<StateEnum> _state = StateEnum.Non;
 
     private Vector3 _horizontalDir;
     private Vector3 _obstaclePoint;

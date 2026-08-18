@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -13,7 +14,7 @@ public class GettingHitController : MonoBehaviour
     /// <summary>
     /// stun timer or slow death timer
     /// </summary>
-    private readonly UtilityClasses.FractionTemporaryValue<bool> _timer = new(false, true);
+    private readonly UtilityTimers.FractionTemporaryValue<bool> _timer = new(false, true);
     private AnimationClip _lastClip;
 
     public bool CanBeFinished => _canBeFinished && _timer;
@@ -21,6 +22,9 @@ public class GettingHitController : MonoBehaviour
     private bool _canBeFinished = false;
 
     private bool _isBeingFinished = false;
+
+    private bool _needRotate = false;
+    private Vector3 _rotateTarget;
     
     public bool IsBeingFinished
     {
@@ -63,7 +67,7 @@ public class GettingHitController : MonoBehaviour
     }
     
     
-    public void ActivateHyperArmor(UtilityClasses.FractionTemporaryValue<bool> timer)
+    public void ActivateHyperArmor(UtilityTimers.FractionTemporaryValue<bool> timer)
     {
         _hyperArmor.Set(timer);
     }
@@ -100,6 +104,20 @@ public class GettingHitController : MonoBehaviour
         }
     }
 
+    private void LateUpdate()
+    {
+        if (_needRotate)
+        {
+            _needRotate = false;
+            var dir =  _rotateTarget - transform.position;
+            dir.y = 0f;
+            if (dir.sqrMagnitude > 0.01f)
+            {
+                transform.rotation =  Quaternion.LookRotation(dir);
+            }
+        }
+    }
+
     public void Stun(float poiseDamage, bool haveParried)
     {
         if (_timer.TimeFraction < settings.stunDurationFractionToGetStunnedAgain || !CanGetStunned || _hyperArmor.Value) return;
@@ -115,6 +133,16 @@ public class GettingHitController : MonoBehaviour
     {
         settings.RestoreDeathAnimationSpeed(_animationLayerController, ref _lastClip);
         _canBeFinished = false;
+    }
+
+    public void GetStabbedDuringDeath(Vector3 stabSource)
+    {
+        if (_isBeingFinished)
+        {
+            _needRotate = true;
+            _rotateTarget = stabSource;
+            settings.GetStabbed(_animationLayerController, ref _lastClip);
+        }
     }
     
     public void Death()

@@ -3,7 +3,8 @@ using UnityEngine;
 public class EnemyHealthController : HealthController
 {
     [Header("Player health regen upon death")]
-    [SerializeField] protected float playerHpRegen=0f;
+    [SerializeField] private float playerHpRegen=0f;
+    [SerializeField] private float playerBulletRegen = 1f;
     
     private EnemyDodgeController _enemyDodgeController;
     private EnemyAI _enemyAI;
@@ -12,6 +13,12 @@ public class EnemyHealthController : HealthController
     private LayerMask _wasExcludeLayers;
     
     private Collider _collider;
+    
+    
+    public bool CanBeFinished => IsDead && GettingHitController.CanBeFinished;
+    
+    public float PlayerRegenHpAmount => playerHpRegen;
+    public float PlayerBulletRegenAmount => playerBulletRegen;
     
     protected override void Awake()
     {
@@ -35,36 +42,23 @@ public class EnemyHealthController : HealthController
         ArenaController.EnemyDied();
         TurnOffCollisionWithPlayer();
     }
-
-    public bool CanBeFinished => IsDead && GettingHitController.CanBeFinished;
-
-    public void StartBeingFinished()
-    {
-        GettingHitController.IsBeingFinished = true;
-    }
-    
-    public void StopBeingFinished(bool shouldRegen)
-    {
-        GettingHitController.IsBeingFinished = false;
-        
-        if(shouldRegen)
-            ArenaController.RegenPlayerHp(playerHpRegen);
-    }
     
     private void TurnOnCollisionWithPlayer()
     {
-        _collider.excludeLayers = _wasExcludeLayers;
+        //_collider.excludeLayers = _wasExcludeLayers;
+        _collider.isTrigger=false;
     }
 
     private void TurnOffCollisionWithPlayer()
     {
-        _wasExcludeLayers = _collider.excludeLayers;
-        _collider.excludeLayers = _wasExcludeLayers | Sensors.EnemyLayer;
+        // _wasExcludeLayers = _collider.excludeLayers;
+        // _collider.excludeLayers = _wasExcludeLayers | Sensors.EnemyLayer;
+        _collider.isTrigger=true;
     }
 
-    protected override void OnDamageTaken(float damage, DamageDealer damageDealer)
+    protected override void OnDamageTaken(bool triggerReaction, float damage, DamageDealer damageDealer)
     {
-        if(_haveDodgeController)
+        if(triggerReaction && _haveDodgeController)
             _enemyDodgeController.GettingHit(damageDealer);
     }
 }

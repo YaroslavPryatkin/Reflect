@@ -36,6 +36,9 @@ MonoBehaviour:
   - {fileID: 7400000, guid: 067649ee0f4dad640a6e6ad2d6eaef5e, type: 2}
   deathAvatarMask: {fileID: 31900000, guid: 2a459eb9762384e43b380ec4cc8b96ba, type: 2}
   shouldSlowDeath: 1
-  slowDeathDuration: 5
-  slowDeathSpeed: 0.02
+  slowDeathDuration: 4
+  slowDeathSpeed: 0.03
+  getStabbedClip: {fileID: 7400000, guid: 9800c153bea1dde45805e8125975c13e, type: 2}
+  gettingStubbedClipDuration: 0.07
   durationForPoiseFraction: 100
+  gettingStubbedClipSpeed: 3.333334

@@ -14,7 +14,7 @@ public abstract class Sensors : MonoBehaviour
     [SerializeField] private LayerMask enemyLayer;
     [SerializeField] private LayerMask ignoreLayers;
     
-    public const QueryTriggerInteraction QueryTriggerInteractionShooting = QueryTriggerInteraction.Collide;
+    public const QueryTriggerInteraction QueryTriggerInteractionShooting = QueryTriggerInteraction.Ignore;
     
     protected abstract Vector3 GetVelocity();
     
