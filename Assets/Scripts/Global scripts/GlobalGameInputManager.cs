@@ -3,10 +3,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 [DefaultExecutionOrder(-200 )]
-public class GlobalGameInputManager : MonoBehaviour
+public class GlobalGameInputManager : SceneLocalSingleton<GlobalGameInputManager>
 {
-    public static GlobalGameInputManager Instance;
-
     public event System.Action OnPauseEvent;
     
     public event System.Action<Vector2> OnMoveEvent;
@@ -28,29 +26,16 @@ public class GlobalGameInputManager : MonoBehaviour
     [SerializeField] private string gameInputMapName = "Player";
     [SerializeField] private string uiInputMapName = "UI";
     
-    private PlayerInput _playerInput;
+    public PlayerInput PlayerInput { get; private set; }
+    private bool _firstTimeSwitchingMap = true;
 
     private void Awake()
     {
-        if (Instance == null)
-        {
-            Instance = this;
-        }
-        else
-        {
-            Destroy(gameObject);
-            return;
-        }
-
-        _playerInput = GetComponent<PlayerInput>();
+        PlayerInput = GetComponent<PlayerInput>();
+        _firstTimeSwitchingMap = true;
+        GameSettings.ApplyAllBindings(PlayerInput);
     }
-
-    private void Start()
-    {
-        _playerInput.SwitchCurrentActionMap(gameInputMapName);//to immediately disable it
-        SwitchInputMapInternal(InputMaps.UI);
-    }
-
+    
     public void OnMove(InputAction.CallbackContext context) 
         => OnMoveEvent?.Invoke(context.ReadValue<Vector2>());
     
@@ -137,19 +122,38 @@ public class GlobalGameInputManager : MonoBehaviour
     {
         UI, Game
     }
-
-
+    
     public static void SwitchInputMap(InputMaps map) => Instance.SwitchInputMapInternal(map);
+    
+    private static void SetCursorLocked(bool locked){
+        Cursor.visible = !locked;
+        Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
+    }
     
     private void SwitchInputMapInternal(InputMaps map)
     {
+        if (_firstTimeSwitchingMap)
+        {
+            PlayerInput.SwitchCurrentActionMap(gameInputMapName);
+            PlayerInput.currentActionMap.Disable();
+            PlayerInput.SwitchCurrentActionMap(uiInputMapName);
+            PlayerInput.currentActionMap.Disable();
+            _firstTimeSwitchingMap = false;
+        }
+
+        SetCursorLocked(map switch
+        {
+            InputMaps.Game => true,
+            _ => false
+        });
+        
         var mapName = map switch
         {
             InputMaps.Game => gameInputMapName,
             _ => uiInputMapName
         };
-        _playerInput.currentActionMap.Disable();
-        _playerInput.SwitchCurrentActionMap(mapName);
-        _playerInput.currentActionMap.Enable();
+        PlayerInput.currentActionMap.Disable();
+        PlayerInput.SwitchCurrentActionMap(mapName);
+        PlayerInput.currentActionMap.Enable();
     }
 }

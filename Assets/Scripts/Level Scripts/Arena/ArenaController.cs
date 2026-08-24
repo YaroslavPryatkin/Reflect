@@ -3,6 +3,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using CustomAttributes;
 
+[DefaultExecutionOrder(-10)]
 public class ArenaController : MonoBehaviour
 {
     public enum ArenaFinishEnum
@@ -11,7 +12,6 @@ public class ArenaController : MonoBehaviour
     }
     
     [Header("Flags")]
-    [SerializeField] private bool activateArenaOnStart = false;
     [SerializeField] private ArenaFinishEnum finishCondition = ArenaFinishEnum.Trigger;
     [SerializeField] private bool canRegenerate = true;
     [Header("Finish")] 
@@ -33,7 +33,7 @@ public class ArenaController : MonoBehaviour
     private Transform _playerSpawnPoint;
     private readonly List<Vector3> _enemiesSpawnPositions=new();
     private readonly List<Quaternion> _enemiesSpawnRotations=new();
-    private readonly List<HealthController> _enemiesHealth=new();
+    private readonly List<EnemyHealthController> _enemiesHealth=new();
     private readonly List<EnemyAI> _enemyAis = new();
     private HealthController _playerHealth;
     private PlayerManager _playerManager;
@@ -42,6 +42,7 @@ public class ArenaController : MonoBehaviour
     private int _amountOfAliveEnemies=0;
     private int _amountOfPlayerTriggerEntered = 0;
     private ArenaController _lastTriggerNextArena;
+    private bool _lastHaveNextArena = false;
 
     private void Awake()
     {
@@ -76,8 +77,8 @@ public class ArenaController : MonoBehaviour
         }
         
         
-        _playerHealth=GlobalGameManager.Player.GetComponent<HealthController>();
-        _playerManager = GlobalGameManager.Player.GetComponent<PlayerManager>();
+        _playerHealth = PlayerManager.Player.GetComponent<HealthController>();
+        _playerManager = PlayerManager.Player.GetComponent<PlayerManager>();
 
         if (setActiveFalseWhenArenaNotActive)
         {
@@ -116,20 +117,11 @@ public class ArenaController : MonoBehaviour
         _amountOfAliveEnemies = _enemiesHealth.Count;
     }
 
-    private void Start()
-    {
-        if (activateArenaOnStart)
-        {
-            ActivateArena();
-        }
-    }
-
     public void ActivateArena()
     {
         if (!IsActive)
         {
             IsActive = true;
-            _playerHealth.SetArenaController(this);
             
             if (setActiveFalseWhenArenaNotActive)
             {
@@ -151,7 +143,6 @@ public class ArenaController : MonoBehaviour
         if (IsActive)
         {
             IsActive = false;
-            _playerHealth.RemoveArenaController(this);
             
             if (setActiveFalseWhenArenaNotActive)
             {
@@ -169,6 +160,29 @@ public class ArenaController : MonoBehaviour
         }
     }
 
+    public void SetArenaFinishedOnStart()
+    {
+        IsActive = false;
+
+        SetOpenSigns(true);
+        
+        if (setActiveFalseWhenArenaNotActive)
+        {
+            SetActiveSigns(false);
+        }
+        
+        foreach (var enemyAi in _enemyAis)
+        {
+            enemyAi.Deactivate();
+            enemyAi.gameObject.SetActive(false);
+        }
+
+        foreach (var door in doorsToOpenOnFinish)
+        {
+            door.SetOpenSkipAnimation(true);
+        }
+    }
+
     public void ResetArena()
     {
         for(var i=0;i<_enemiesHealth.Count;i++)
@@ -178,9 +192,6 @@ public class ArenaController : MonoBehaviour
             _enemiesHealth[i].transform.rotation = _enemiesSpawnRotations[i];
             _enemiesHealth[i].OnArenaReset();
         }
-
-
-
         ActivateArena();
         _playerHealth.OnArenaReset();
         ReturnPlayerToSpawnPoint();
@@ -196,8 +207,8 @@ public class ArenaController : MonoBehaviour
 
     public void ReturnPlayerToSpawnPoint()
     {
-        GlobalGameManager.Player.transform.position = _playerSpawnPoint.position;
-        GlobalGameManager.Player.transform.rotation = _playerSpawnPoint.rotation;
+        PlayerManager.Player.transform.position = _playerSpawnPoint.position;
+        PlayerManager.Player.transform.rotation = _playerSpawnPoint.rotation;
         Physics.SyncTransforms();
         var newYaw = Vector3.SignedAngle(Vector3.forward, _playerSpawnPoint.forward, Vector3.up);
         GlobalLookDirectionManager.SetNewYaw(newYaw);
@@ -216,13 +227,13 @@ public class ArenaController : MonoBehaviour
         {
             if (finishCondition == ArenaFinishEnum.Enemies)
             {
-                FinishArena(nextArena);
+                FinishArena(true, nextArena);
             }
             else if (finishCondition == ArenaFinishEnum.EnemiesAndTrigger)
             {
                 if (_amountOfPlayerTriggerEntered > 0)
                 {
-                    FinishArena(_lastTriggerNextArena);
+                    FinishArena(_lastHaveNextArena, _lastTriggerNextArena);
                 }
             }
             _amountOfAliveEnemies = 0;
@@ -237,22 +248,24 @@ public class ArenaController : MonoBehaviour
         SetOpenSigns(false);
     }
     
-    public void PlayerEnteredTrigger(ArenaController next)
+    public void PlayerEnteredTrigger(bool lastHaveNextArena, ArenaController next)
     {
         ++_amountOfPlayerTriggerEntered;
 
         if (!IsActive) return;
         
         _lastTriggerNextArena = next;
+        _lastHaveNextArena = lastHaveNextArena;
+        
         if (finishCondition == ArenaFinishEnum.Trigger)
         {
-            FinishArena(next);
+            FinishArena(lastHaveNextArena, next);
         }
         else if (finishCondition == ArenaFinishEnum.EnemiesAndTrigger)
         {
             if (_amountOfAliveEnemies <= 0)
             {
-                FinishArena(next);
+                FinishArena(lastHaveNextArena, next);
             }
         }
     }
@@ -264,11 +277,12 @@ public class ArenaController : MonoBehaviour
             _amountOfPlayerTriggerEntered = 0;
     }
 
-    private void FinishArena(ArenaController next)
+    private void FinishArena(bool lastHaveNextArena, ArenaController next)
     {
-        DeactivateArena();
-        if(next)
-            next.ActivateArena();
+        if (lastHaveNextArena && !ReferenceEquals(next, null))
+            LevelController.ChangeArena(next);
+        else
+            LevelController.FinishLevel();
     }
 
 

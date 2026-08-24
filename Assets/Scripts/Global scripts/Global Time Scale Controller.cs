@@ -8,8 +8,6 @@ public static class GlobalTimeScaleController
 
     public static void ChangeTimePace(object caller, float scale)
     {
-        InitializeIfNeeded();
-        
         TimeScales[caller] = scale;
         
         RecalculateAndApply();
@@ -23,8 +21,17 @@ public static class GlobalTimeScaleController
         }
     }
 
+    public static void ReturnTimePaceAll()
+    {
+        TimeScales.Clear();
+        RecalculateAndApply();
+    }
+
     private static void RecalculateAndApply()
     {
+        
+        InitializeIfNeeded();
+        
         var totalScale = 1f;
         
         foreach (var scale in TimeScales.Values)

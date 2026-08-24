@@ -1,3 +1,4 @@
+using System;
 using CustomAttributes;
 using UnityEngine;
 using UnityEngine.UI;
@@ -15,7 +16,6 @@ public class ScreenChangeButtonController : MonoBehaviour
     private void Awake()
     {
         _button = GetComponent<Button>();
-        _button.onClick.AddListener(ChangeScreen);
 
         if (father == null)
         {
@@ -35,6 +35,16 @@ public class ScreenChangeButtonController : MonoBehaviour
         {
             CheckFather();
         }
+    }
+
+    private void OnEnable()
+    {
+        _button.onClick.AddListener(ChangeScreen);
+    }
+
+    private void OnDisable()
+    {
+        _button.onClick.RemoveListener(ChangeScreen);
     }
 
     private void CheckFather()

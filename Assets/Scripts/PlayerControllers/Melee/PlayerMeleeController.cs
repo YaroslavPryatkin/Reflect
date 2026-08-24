@@ -145,7 +145,7 @@ public class PlayerMeleeController : MeleeController
     protected override bool ShouldHold()
     {
         return _playerTargetLockController.IsLocked || 
-               _playerHealthController.ShouldHoldSwordOnArena || 
+               LevelController.ShouldHoldSwordOnArena || 
                _playerTargetLockController.HaveFinishHimTarget;
     }
 

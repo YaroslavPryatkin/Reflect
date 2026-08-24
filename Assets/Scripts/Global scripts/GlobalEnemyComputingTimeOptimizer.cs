@@ -2,21 +2,8 @@ using UnityEngine;
 using System.Collections.Generic;
 
 [DefaultExecutionOrder(-150)]
-public class GlobalEnemyComputingTimeOptimizer : MonoBehaviour
+public class GlobalEnemyComputingTimeOptimizer : SceneLocalSingleton<GlobalEnemyComputingTimeOptimizer>
 {
-    private static GlobalEnemyComputingTimeOptimizer Instance;
-    private void Awake()
-    {
-        if (Instance == null)
-        {
-            Instance = this;
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
-    }
-
     public const float CalculatingTargetDuration = 0.7f;
     public static bool CanStartCalculation(int index)
     {

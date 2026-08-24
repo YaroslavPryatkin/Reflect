@@ -56,7 +56,7 @@ public class PlayerTargetLockController : MonoBehaviour
     private int _ignoreMyLayerMask;
     
     public Vector3 NormalizedHorizontalDirectionToLockedTarget { get; private set; } = Vector3.zero;
-    public Vector3 TargetCameraDirection => TargetPosition - GlobalCameraManager.GetPlayerCameraPosition();
+    public Vector3 TargetCameraDirection => TargetPosition - GlobalCameraManager.PlayerCameraPosition;
     public Vector3 TargetPosition => _targetTransform.position;
 
     public bool HaveFinishHimTarget { get; private set; } = false;
@@ -140,8 +140,8 @@ public class PlayerTargetLockController : MonoBehaviour
         
         IsMeleeLocked = false;
         var minScore = float.MaxValue;
-        
-        var camPos = GlobalCameraManager.GetPlayerCameraPosition();
+
+        var camPos = GlobalCameraManager.PlayerCameraPosition;
 
         for (var i = 0; i < amount; ++i)
         {
@@ -175,7 +175,7 @@ public class PlayerTargetLockController : MonoBehaviour
         
         var foundTarget = false;
         var minScore = float.MaxValue;
-        var camPos = GlobalCameraManager.GetPlayerCameraPosition();
+        var camPos = GlobalCameraManager.PlayerCameraPosition;
         
         var screenCenter = new Vector2(0.5f, 0.5f);
 
@@ -249,7 +249,7 @@ public class PlayerTargetLockController : MonoBehaviour
         
         var foundTarget = false;
         var minScore = float.MaxValue;
-        var camPos = GlobalCameraManager.GetPlayerCameraPosition();
+        var camPos = GlobalCameraManager.PlayerCameraPosition;
 
         for (var i = 0; i < amount; ++i)
         {
@@ -357,7 +357,7 @@ public class PlayerTargetLockController : MonoBehaviour
         if (!IsLocked)
             return;
         
-        if (Vector3.Distance(GlobalCameraManager.GetPlayerCameraPosition(), _targetTransform.position) >=
+        if (Vector3.Distance(GlobalCameraManager.PlayerCameraPosition, _targetTransform.position) >=
             unlockDistance)
         {
             IsLocked = false;

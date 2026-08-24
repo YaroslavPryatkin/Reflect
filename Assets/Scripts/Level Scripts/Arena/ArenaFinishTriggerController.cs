@@ -18,7 +18,7 @@ public class ArenaFinishTriggerController : MonoBehaviour
             enabled = false;
             return;
         }
-        _targetLayers = GlobalGameManager.PlayerLayerBitMask;
+        _targetLayers = PlayerManager.PlayerLayerBitMask;
         gameObject.layer = 2;
     }
     public void SetArenaController(ArenaController arenaController)
@@ -30,7 +30,7 @@ public class ArenaFinishTriggerController : MonoBehaviour
     {
         if (((1 << other.gameObject.layer) & _targetLayers) == 0) return;
         
-        _arenaController.PlayerEnteredTrigger(nextArena);
+        _arenaController.PlayerEnteredTrigger(!finishLevel, nextArena);
     }
 
     private void OnTriggerExit(Collider other)

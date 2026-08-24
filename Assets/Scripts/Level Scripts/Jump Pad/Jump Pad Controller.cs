@@ -16,7 +16,7 @@ public class JumpPadController : MonoBehaviour
     
     private void Awake()
     {
-        _player = GlobalGameManager.Player.GetComponent<Collider>();
+        _player = PlayerManager.Player.GetComponent<Collider>();
         _playerJumpController = _player.GetComponent<PlayerJumpController>();
         if(jumpDirection==null)
             JumpForceVector = transform.up * jumpForce;

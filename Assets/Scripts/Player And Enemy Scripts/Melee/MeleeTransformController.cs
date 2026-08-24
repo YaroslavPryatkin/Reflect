@@ -57,7 +57,7 @@ public abstract class MeleeTransformController : MonoBehaviour
     private AnimationCurve _currentCurve;
     /// <summary>
     /// different purpose for different modes <br/>
-    /// parabola - target position on start<br/>
+    /// parabola - target position for smooth target position change<br/>
     /// snap - start transform pos
     /// moveThrough - x = overshootToStopMoving, y = angleHorizontal
     /// </summary>
@@ -180,7 +180,6 @@ public abstract class MeleeTransformController : MonoBehaviour
         }
         _wasKinematic = _rb.isKinematic;
         _wasExcludeLayers = _rb.excludeLayers;
-        
         
         
         _haveTarget = DoesHaveTarget();
@@ -389,12 +388,10 @@ public abstract class MeleeTransformController : MonoBehaviour
     
     private void Move()
     {
-        var endPos = Vector3.zero;
-
         // switch (_mode)
         // {
         //     case Mode.Parabola or Mode.Move:
-        //         endPos = _targetPosition - _targetDirection * targetDistanceToTarget;
+        //         
         //         if (Vector3.Distance(transform.position, endPos) < 0.1f || 
         //             Vector3.Distance(transform.position, _targetPosition) < targetDistanceToTarget)
         //         {
@@ -410,7 +407,9 @@ public abstract class MeleeTransformController : MonoBehaviour
                 _rb.linearVelocity = Vector3.zero;
                 break;
             case Mode.Parabola:
-                _currentVector3Value = Vector3.MoveTowards(_currentVector3Value, endPos,
+                _currentVector3Value = Vector3.MoveTowards(
+                    _currentVector3Value, 
+                    _targetPosition - _targetDirection * targetDistanceToTarget,
                     parabolaTargetFollowingSpeed * Time.fixedDeltaTime);
                 _parabolaCurve.EndPos = _currentVector3Value;
                 _parabolaCurve.MakeStartAngleParabola(_currentFloatValue);
@@ -422,11 +421,10 @@ public abstract class MeleeTransformController : MonoBehaviour
                         );
                 break;
             case Mode.Snap:
-                endPos = _targetPosition - _targetDirection * _currentFloatValue;
-                
                 _rb.MovePosition(
                     UtilityFunctions.LerpByDistance(
-                        _currentVector3Value, endPos,
+                        _currentVector3Value, 
+                        _targetPosition - _targetDirection * _currentFloatValue,
                         _currentCurve.Evaluate(_isActiveTimer.TimeFraction)
                         )
                     );

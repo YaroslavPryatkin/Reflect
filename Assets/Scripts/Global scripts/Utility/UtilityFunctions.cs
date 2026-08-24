@@ -15,6 +15,58 @@ public static class UtilityFunctions
         public bool ShouldResetTimeOfPlayableAnyway => false;
     }
 
+    
+    public static bool Contains(this int mask, int layer)
+    {
+        return (mask & (1 << layer)) != 0;
+    }
+
+    public static bool Contains(this int mask, GameObject gameObject)
+    {
+        return mask.Contains(gameObject.layer);
+    }
+
+    public static bool Contains(this int mask, Transform transform)
+    {
+        return mask.Contains(transform.gameObject.layer);
+    }
+
+    public static bool Contains(this int mask, Collider collider)
+    {
+        return mask.Contains(collider.gameObject.layer);
+    }
+
+    public static bool Contains(this int mask, RaycastHit hit)
+    {
+        return mask.Contains(hit.collider.gameObject.layer);
+    }
+    
+    public static bool Contains(this LayerMask mask, int layer)
+    {
+        return (mask.value & (1 << layer)) != 0;
+    }
+
+    public static bool Contains(this LayerMask mask, GameObject gameObject)
+    {
+        return mask.Contains(gameObject.layer);
+    }
+
+    public static bool Contains(this LayerMask mask, Transform transform)
+    {
+        return mask.Contains(transform.gameObject.layer);
+    }
+
+    public static bool Contains(this LayerMask mask, Collider collider)
+    {
+        return mask.Contains(collider.gameObject.layer);
+    }
+
+    public static bool Contains(this LayerMask mask, RaycastHit hit)
+    {
+        return mask.Contains(hit.collider.gameObject.layer);
+    }
+    
+    
     public enum BaseActionTransitionsEnum { Base, BaseToAction, Action, ActionToBase }
 
     public static T GetRandomElement<T>(this IList<T> list, ref int lastIndex)
@@ -33,6 +85,24 @@ public static class UtilityFunctions
         }
         lastIndex = newIndex;
         return list[newIndex];
+    }
+    
+    public static T GetRandomElement<T>(this T[] array, ref int lastIndex)
+    {
+        if (array.Length <= 1)
+        {
+            lastIndex = 0;
+            return array[0];
+        }
+        
+        var newIndex = Random.Range(0, array.Length - 1);
+            
+        if (newIndex >= lastIndex)
+        {
+            ++newIndex;
+        }
+        lastIndex = newIndex;
+        return array[newIndex];
     }
     
     public static void DrawColliderGizmo(this Transform transform, Color color, float insideAlphaFraction=0.1f)
@@ -61,121 +131,6 @@ public static class UtilityFunctions
 
         Gizmos.matrix = prevMatrix;
         Gizmos.color = prevColor;
-    }
-    
-    public static Mesh CreateCylinderZ(float length, float radius, int radialSegments = 8, bool includeCaps = true)
-    {
-        Mesh mesh = new Mesh { name = "CylinderZ" };
-
-        if (radialSegments < 3) radialSegments = 3;
-        float halfLength = length * 0.5f;
-
-        int sideVertCount = (radialSegments + 1) * 2;
-        int capVertCount = includeCaps ? (radialSegments + 1) * 2 + 2 : 0;
-        int totalVerts = sideVertCount + capVertCount;
-
-        Vector3[] vertices = new Vector3[totalVerts];
-        Vector2[] uvs = new Vector2[totalVerts];
-
-        int sideTrianglesCount = radialSegments * 6;
-        int capTrianglesCount = includeCaps ? radialSegments * 6 : 0;
-        int[] triangles = new int[sideTrianglesCount + capTrianglesCount];
-
-        int vertIdx = 0;
-
-        for (int i = 0; i <= radialSegments; i++)
-        {
-            float progress = (float)i / radialSegments;
-            float angle = progress * Mathf.PI * 2f;
-            float x = Mathf.Cos(angle) * radius;
-            float y = Mathf.Sin(angle) * radius;
-
-            vertices[vertIdx] = new Vector3(x, y, -halfLength);
-            uvs[vertIdx] = new Vector2(progress, 0f);
-            vertIdx++;
-
-            vertices[vertIdx] = new Vector3(x, y, halfLength);
-            uvs[vertIdx] = new Vector2(progress, 1f);
-            vertIdx++;
-        }
-
-        int triIdx = 0;
-        for (int i = 0; i < radialSegments; i++)
-        {
-            int b0 = i * 2;
-            int f0 = i * 2 + 1;
-            int b1 = (i + 1) * 2;
-            int f1 = (i + 1) * 2 + 1;
-
-            triangles[triIdx++] = b0;
-            triangles[triIdx++] = f1;
-            triangles[triIdx++] = f0;
-
-            triangles[triIdx++] = b0;
-            triangles[triIdx++] = b1;
-            triangles[triIdx++] = f1;
-        }
-
-        
-        
-        if (includeCaps)
-        {
-            int backCenterIdx = vertIdx;
-            vertices[vertIdx] = new Vector3(0, 0, -halfLength);
-            uvs[vertIdx] = new Vector2(0.5f, 0.5f);
-            vertIdx++;
-
-            int frontCenterIdx = vertIdx;
-            vertices[vertIdx] = new Vector3(0, 0, halfLength);
-            uvs[vertIdx] = new Vector2(0.5f, 0.5f);
-            vertIdx++;
-
-            int backRingStart = vertIdx;
-            for (int i = 0; i <= radialSegments; i++)
-            {
-                float angle = ((float)i / radialSegments) * Mathf.PI * 2f;
-                float x = Mathf.Cos(angle) * radius;
-                float y = Mathf.Sin(angle) * radius;
-
-                vertices[vertIdx] = new Vector3(x, y, -halfLength);
-                uvs[vertIdx] = new Vector2((Mathf.Cos(angle) + 1f) * 0.5f, (Mathf.Sin(angle) + 1f) * 0.5f);
-                vertIdx++;
-            }
-
-            int frontRingStart = vertIdx;
-            for (int i = 0; i <= radialSegments; i++)
-            {
-                float angle = ((float)i / radialSegments) * Mathf.PI * 2f;
-                float x = Mathf.Cos(angle) * radius;
-                float y = Mathf.Sin(angle) * radius;
-
-                vertices[vertIdx] = new Vector3(x, y, halfLength);
-                uvs[vertIdx] = new Vector2((Mathf.Cos(angle) + 1f) * 0.5f, (Mathf.Sin(angle) + 1f) * 0.5f);
-                vertIdx++;
-            }
-
-            for (int i = 0; i < radialSegments; i++)
-            {
-                triangles[triIdx++] = backCenterIdx;
-                triangles[triIdx++] = backRingStart + i;
-                triangles[triIdx++] = backRingStart + i + 1;
-            }
-
-            for (int i = 0; i < radialSegments; i++)
-            {
-                triangles[triIdx++] = frontCenterIdx;
-                triangles[triIdx++] = frontRingStart + i + 1;
-                triangles[triIdx++] = frontRingStart + i;
-            }
-        }
-
-        mesh.vertices = vertices;
-        mesh.uv = uvs;
-        mesh.triangles = triangles;
-        mesh.RecalculateNormals();
-        mesh.RecalculateBounds();
-
-        return mesh;
     }
     
     public static List<Transform> GetAllLeaves(Transform root, ISet<Transform> ignore)
@@ -331,18 +286,14 @@ public static class UtilityFunctions
         var count = Physics.OverlapSphereNonAlloc(origin, 0.02f, CollidersForNonAlloc, layerMask, queryTriggerInteraction);
         for(var i=0;i<count;++i)
         {
-            if (((1<<CollidersForNonAlloc[i].gameObject.layer) & targetLayerMask) == 0) 
-            {
+            if(!targetLayerMask.Contains(CollidersForNonAlloc[i]))
                 return false;
-            }
         }
         
         if (Physics.Linecast(origin, target, out var hit, layerMask, queryTriggerInteraction))
         {
-            if (((1<<hit.collider.gameObject.layer) & targetLayerMask) != 0) 
-            {
+            if (targetLayerMask.Contains(hit)) 
                 return true;
-            }
         }
         return false;
     }

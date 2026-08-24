@@ -21,6 +21,7 @@ public abstract class Sensors : MonoBehaviour
     public bool IsGrounded { get; private set; }
     public bool FoundGroundNormal { get; private set; } = true;
     public Vector3 GroundNormal { get; private set; } = Vector3.up;
+    public Vector3 GroundNormalPoint { get; private set; } = Vector3.zero;
     
     public Vector3 Velocity { get; private set; } = Vector3.zero;
     public Vector3 VelocityAlignedWithGround { get; private set; } = Vector3.zero;
@@ -64,7 +65,7 @@ public abstract class Sensors : MonoBehaviour
         UpdateVelocity();
     }
     
-    protected virtual void FixedUpdate()
+    protected void FixedUpdate()
     {
         UpdateVelocity();
     }
@@ -98,11 +99,13 @@ public abstract class Sensors : MonoBehaviour
         {
             FoundGroundNormal = true;
             GroundNormal = hit.normal;
+            GroundNormalPoint = hit.point;
         }
         else
         {
             FoundGroundNormal = false;
             GroundNormal = Vector3.up;
+            GroundNormalPoint = Vector3.zero;
         }
     }
 

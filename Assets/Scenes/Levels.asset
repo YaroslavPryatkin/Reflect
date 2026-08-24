@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 66db5d459d0f411982ef836de5097eb0, type: 3}
+  m_Name: Levels
+  m_EditorClassIdentifier: Assembly-CSharp::LevelsNameHolder
+  levels:
+  - sceneAsset: {fileID: 102900000, guid: 7d0c72527e42169478fafd41cbddbe0b, type: 3}
+    sceneName: Level 1
+    availableOnStart: 1
+  - sceneAsset: {fileID: 102900000, guid: 99c9720ab356a0642a771bea13969a05, type: 3}
+    sceneName: Test
+    availableOnStart: 0

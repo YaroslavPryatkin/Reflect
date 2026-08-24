@@ -63,14 +63,16 @@ public class PlayerInputController : MonoBehaviour
         _attackBuffer.Deactivate();
         _parryBuffer.DeactivateAll();
         _shouldTriggerAttackOnAttackRelease = false;
-        _weaponArtBuffer.Release();
+        if (_weaponArtBuffer.IsPressed)
+        {
+            HandleParryPress();
+        }
     }
 
     public void ConsumeParry()
     {
         _parryBuffer.Deactivate(); 
         _attackBuffer.DeactivateAll();
-        _heavyAttackBuffer.Release();
     }
 
     public void ClearAllBuffers()

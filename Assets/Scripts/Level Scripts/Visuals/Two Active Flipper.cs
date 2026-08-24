@@ -1,5 +1,6 @@
 using UnityEngine;
 
+[DefaultExecutionOrder(-20)]
 public class TwoActiveFlipper : MonoBehaviour
 {
     [SerializeField] private GameObject open;

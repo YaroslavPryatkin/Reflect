@@ -45,11 +45,6 @@ public class PlayerSensors : Sensors
     [SerializeField] private float forceFrontGroundMinimalCheckDistance = 0.7f;
     [SerializeField] private float forceFrontGroundMaximalCheckDistance = 10f;
     
-    [Header("Layer Masks for front jumps")]
-    [SerializeField] private LayerMask frontGroundLayer;
-    [SerializeField] private LayerMask forceFrontGroundLayer;
-    [SerializeField] private LayerMask blockingFrontGroundLayer;
-    
     [Header("Front jump overshoot")]
     [SerializeField] private float minOvershoot = 0.5f;
     [SerializeField] private float speedAtMinOvershoot = 5;
@@ -57,12 +52,20 @@ public class PlayerSensors : Sensors
     [SerializeField] private float speedAtMaxOvershoot = 10;
     [SerializeField] private float rayCastDownDistance = 20f;
     
+    [Header("Layer Masks for front jumps")]
+    [SerializeField] private LayerMask frontGroundLayer;
+    [SerializeField] private LayerMask forceFrontGroundLayer;
+    [SerializeField] private LayerMask forbiddenFrontGroundLayer;
+    [SerializeField] private LayerMask blockingFrontGroundLayer;
+    
     [Header("Ground sensors for ledge climb")] 
     [SerializeField] private float ledgeCheckDistance = 1f;
     [SerializeField] private float ledgeCheckMinimalHeight = -0.1f;
     [SerializeField] private float ledgeCheckMaximalHeight = 1f;
     [SerializeField] private LayerMask ledgeLayer;
+    [SerializeField] private LayerMask blockingLedgeLayer;
 
+    
     [Header("Has something in the collider")] 
     [SerializeField] private float hasSomethingInTheColliderCheckRadius = 0.5f;
 
@@ -80,10 +83,10 @@ public class PlayerSensors : Sensors
 
     public int DashLayerMask => IgnoreMyLayerMask -  (IgnoreMyLayerMask & playerCanDashTroughLayers);
     
-    private Vector3 frontGroundNormal  = Vector3.zero;
-    private Vector3 frontGroundObstaclePoint = Vector3.zero;
-    private float frontGroundObstacleHeight;
-    private FrontGroundStateEnum frontGroundState;
+    private Vector3 _frontGroundNormal  = Vector3.zero;
+    private Vector3 _frontGroundObstaclePoint = Vector3.zero;
+    private float _frontGroundObstacleHeight;
+    private FrontGroundStateEnum _frontGroundState;
     
     private Vector3 _ledgeNormal  = Vector3.zero;
     private Vector3 _ledgeObstaclePoint = Vector3.zero;
@@ -98,9 +101,9 @@ public class PlayerSensors : Sensors
     
     public bool IsForceFrontGround { get; private set; } = false;
     
-    public FrontGroundStateEnum FrontGroundState => frontGroundState;
+    public FrontGroundStateEnum FrontGroundState => _frontGroundState;
 
-    public float FrontGroundObstacleHeight => frontGroundObstacleHeight;
+    public float FrontGroundObstacleHeight => _frontGroundObstacleHeight;
     
     public bool IsNearLeftWall { get; private set; }
     public bool IsNearRightWall { get; private set; }
@@ -131,7 +134,7 @@ public class PlayerSensors : Sensors
 
     private PlayerInputController _playerInputController;
     private PlayerSlidingController _playerSlidingController;
-    private Rigidbody rb;
+    private Rigidbody _rb;
     private PlayerFixedDirectionMovementController _playerFixedDirectionMovementController;
     
     private float _speedToDistanceFraction = 0f;
@@ -149,7 +152,7 @@ public class PlayerSensors : Sensors
     protected override void Awake()
     {
         base.Awake();
-        rb = GetComponent<Rigidbody>();
+        _rb = GetComponent<Rigidbody>();
         
         _speedToDistanceFraction = (frontGroundMaximalCheckDistance - frontGroundMinimalCheckDistance) /
                                   (speedAtMaximalCheckDistance - speedAtMinimalCheckDistance);
@@ -186,7 +189,7 @@ public class PlayerSensors : Sensors
 
     protected override Vector3 GetVelocity()
     {
-        return rb.linearVelocity;
+        return _rb.linearVelocity;
     }
 
     public void GatherFinishEnemySensors()
@@ -289,7 +292,7 @@ public class PlayerSensors : Sensors
             
             var rayDirection = Quaternion.AngleAxis(currentAngle * angleSign, transform.up) * baseDirection;
             
-            if (Physics.Raycast(rb.position, rayDirection, out RaycastHit hit, wallRunCheckDistance, wallRunLayer | blockingWallRunLayer, QueryTriggerInteraction.Collide))
+            if (Physics.Raycast(_rb.position, rayDirection, out RaycastHit hit, wallRunCheckDistance, wallRunLayer | blockingWallRunLayer, QueryTriggerInteraction.Collide))
             {
                 if ( ((1 << hit.collider.gameObject.layer) & blockingWallRunLayer) == 0 && Vector3.Angle(transform.up, hit.normal) > wallRunMinimalWallAngle)
                 {
@@ -311,7 +314,7 @@ public class PlayerSensors : Sensors
     private ChainSegmentController _chainSegmentController;
     private float _railMovementDirection = 0f;
     
-    private Collider[] railColliders = new Collider[3];
+    private Collider[] _railColliders = new Collider[3];
     public void GatherRailSensors()
     {
         if (IsGrounded)
@@ -320,10 +323,10 @@ public class PlayerSensors : Sensors
             return;
         }
         
-        var point1 = rb.position + Vector3.up * railLineCheckDistanceStart;
-        var point2 = rb.position + Vector3.up * railLineCheckDistanceEnd;
+        var point1 = _rb.position + Vector3.up * railLineCheckDistanceStart;
+        var point2 = _rb.position + Vector3.up * railLineCheckDistanceEnd;
         int res = Physics.OverlapCapsuleNonAlloc(point1, point2,
-            railLineCheckRadius, railColliders, railLayer, QueryTriggerInteraction.Collide);
+            railLineCheckRadius, _railColliders, railLayer, QueryTriggerInteraction.Collide);
         if (res == 0)
         {
             IsRailLine = false;
@@ -337,7 +340,7 @@ public class PlayerSensors : Sensors
             {
                 for (var i = 0; i < res; ++i)
                 {
-                    var tr = railColliders[i].transform;
+                    var tr = _railColliders[i].transform;
                     if (tr.gameObject == RailLine.gameObject)
                     {
                         foundThis = true;
@@ -356,7 +359,7 @@ public class PlayerSensors : Sensors
             {
                 for (var i = 0; i < res; ++i)
                 {
-                    var tr = railColliders[i].transform;
+                    var tr = _railColliders[i].transform;
                     if (tr.gameObject == RailLine.gameObject)
                     {
                         foundThis = true;
@@ -375,7 +378,7 @@ public class PlayerSensors : Sensors
             var bestDot = -1f;
             for (var i = 0; i < res; ++i)
             {
-                var tr = railColliders[i].transform;
+                var tr = _railColliders[i].transform;
                 var dot = Mathf.Abs(Vector3.Dot(tr.forward, _playerInputController.NonZeroInputMoveVector));
                 if (dot > bestDot)
                 {
@@ -393,17 +396,18 @@ public class PlayerSensors : Sensors
     private void GatherLedgeSensors()
     {
         CheckFrontGround(out _ledgeState, out _ledgeObstacleHeight, out _ledgeNormal, out _ledgeObstaclePoint,
-            ledgeCheckMinimalHeight, ledgeCheckMaximalHeight, ledgeCheckDistance, ledgeLayer);
+            ledgeCheckMinimalHeight, ledgeCheckMaximalHeight, ledgeCheckDistance, 
+            blockingLedgeLayer | ledgeLayer,  ledgeLayer);
     }
     
     private void GatherFrontGroundSensor()
     {
         if (!_playerInputController.IsPlayerPressingWASD)
         {
-            frontGroundState = FrontGroundStateEnum.Nothing;
-            frontGroundObstacleHeight = 0f;
-            frontGroundNormal = Vector3.zero;
-            frontGroundObstaclePoint = Vector3.zero;
+            _frontGroundState = FrontGroundStateEnum.Nothing;
+            _frontGroundObstacleHeight = 0f;
+            _frontGroundNormal = Vector3.zero;
+            _frontGroundObstaclePoint = Vector3.zero;
             return;
         }
 
@@ -413,40 +417,45 @@ public class PlayerSensors : Sensors
             speedAtMinimalCheckDistance, _speedToDistanceFraction, frontGroundMinimalCheckDistance,
             frontGroundMaximalCheckDistance);
         
-        if (TryCheckHeight(frontGroundMaximalHeight, _currentFrontGroundCheckDistance, blockingFrontGroundLayer,
+        if (TryCheckHeight(frontGroundMaximalHeight, _currentFrontGroundCheckDistance, 
+                forbiddenFrontGroundLayer,forbiddenFrontGroundLayer,
                 QueryTriggerInteraction.Ignore, out var normalBlocking, out var pointBlocking))
         {
-            frontGroundState = FrontGroundStateEnum.Wall;
-            frontGroundObstacleHeight = frontGroundMaximalHeight;
-            frontGroundNormal = normalBlocking;
-            frontGroundObstaclePoint = pointBlocking;
+            _frontGroundState = FrontGroundStateEnum.Wall;
+            _frontGroundObstacleHeight = frontGroundMaximalHeight;
+            _frontGroundNormal = normalBlocking;
+            _frontGroundObstaclePoint = pointBlocking;
             return;
         }
-        if (TryCheckHeight(frontGroundMinimalHeight, _currentFrontGroundCheckDistance, blockingFrontGroundLayer, QueryTriggerInteraction.Ignore, out normalBlocking, out pointBlocking))
+        if (TryCheckHeight(frontGroundMinimalHeight, _currentFrontGroundCheckDistance,
+                forbiddenFrontGroundLayer,forbiddenFrontGroundLayer,
+                QueryTriggerInteraction.Ignore, out normalBlocking, out pointBlocking))
         {
-            frontGroundState = FrontGroundStateEnum.Wall;
-            frontGroundObstacleHeight = 0f;
-            frontGroundNormal = Vector3.zero;
-            frontGroundObstaclePoint = Vector3.zero;
+            _frontGroundState = FrontGroundStateEnum.Wall;
+            _frontGroundObstacleHeight = 0f;
+            _frontGroundNormal = Vector3.zero;
+            _frontGroundObstaclePoint = Vector3.zero;
             return;
         }
         
-        CheckFrontGround(out frontGroundState, out frontGroundObstacleHeight, out frontGroundNormal,
-            out frontGroundObstaclePoint,
-            frontGroundMinimalHeight, frontGroundMaximalHeight, _currentFrontGroundCheckDistance, frontGroundLayer);
+        CheckFrontGround(out _frontGroundState, out _frontGroundObstacleHeight, out _frontGroundNormal,
+            out _frontGroundObstaclePoint, frontGroundMinimalHeight, frontGroundMaximalHeight, 
+            _currentFrontGroundCheckDistance, blockingFrontGroundLayer | frontGroundLayer, frontGroundLayer);
         
         _forceCurrentFrontGroundCheckDistance = UtilityFunctions.ChangeMeasurementScaleFraction(HorizontalSpeed,
             speedAtMinimalCheckDistance, _forceSpeedToDistanceFraction, forceFrontGroundMinimalCheckDistance,
             forceFrontGroundMaximalCheckDistance);
 
-        if (TryCheckHeight(forceFrontGroundCheckHeight,_forceCurrentFrontGroundCheckDistance,forceFrontGroundLayer, QueryTriggerInteraction.Collide,out var forceNormal, out var forcePoint))
+        if (TryCheckHeight(
+                forceFrontGroundCheckHeight,_forceCurrentFrontGroundCheckDistance,
+                blockingFrontGroundLayer | forceFrontGroundLayer,forceFrontGroundLayer, QueryTriggerInteraction.Collide,out var forceNormal, out var forcePoint))
         {
             if (FrontGroundState == 0)
             {
-                frontGroundState = FrontGroundStateEnum.Ledge;
-                frontGroundObstacleHeight = frontGroundMinimalHeight;
-                frontGroundNormal = forceNormal;
-                frontGroundObstaclePoint = forcePoint;
+                _frontGroundState = FrontGroundStateEnum.Ledge;
+                _frontGroundObstacleHeight = frontGroundMinimalHeight;
+                _frontGroundNormal = forceNormal;
+                _frontGroundObstaclePoint = forcePoint;
             }
 
             IsForceFrontGround = true;
@@ -457,10 +466,19 @@ public class PlayerSensors : Sensors
         }
     }
 
-    private void CheckFrontGround(out FrontGroundStateEnum state, out float obstacleHeight, out Vector3 groundNormal, out Vector3 obstaclePoint, float minHeight, float maxHeight, float checkDistance, int layer)
+    private void CheckFrontGround(
+        out FrontGroundStateEnum state, 
+        out float obstacleHeight, 
+        out Vector3 groundNormal, 
+        out Vector3 obstaclePoint, 
+        float minHeight, 
+        float maxHeight, 
+        float checkDistance, 
+        int layerMask,
+        int targetLayerMask)
     {
-        bool hitMin = TryCheckHeight(minHeight, checkDistance, layer, QueryTriggerInteraction.Ignore, out var normalMin, out var pointMin);
-        bool hitMax = TryCheckHeight(maxHeight, checkDistance, layer, QueryTriggerInteraction.Ignore, out var normalMax, out var pointMax);
+        var hitMin = TryCheckHeight(minHeight, checkDistance, layerMask, targetLayerMask, QueryTriggerInteraction.Ignore, out var normalMin, out var pointMin);
+        var hitMax = TryCheckHeight(maxHeight, checkDistance, layerMask, targetLayerMask,QueryTriggerInteraction.Ignore, out var normalMax, out var pointMax);
 
         if (!hitMin && !hitMax)
         {
@@ -496,7 +514,7 @@ public class PlayerSensors : Sensors
             {
                 float mid = low + (high - low) / 2f;
                 
-                if (TryCheckHeight(mid, checkDistance,layer, QueryTriggerInteraction.Ignore, out var midNormal, out var midPoint))
+                if (TryCheckHeight(mid, checkDistance,layerMask,targetLayerMask, QueryTriggerInteraction.Ignore, out var midNormal, out var midPoint))
                 {
                     low = mid;
                     bestNormal = midNormal; 
@@ -514,34 +532,50 @@ public class PlayerSensors : Sensors
         }
     }
 
-    private bool TryCheckHeight(float localHeight, float checkDistance, int layerMask, QueryTriggerInteraction triggerInteraction, out Vector3 closestNormal, out Vector3 closestPoint)
+    private bool TryCheckHeight(float localHeight, float checkDistance, int layerMask, int targetLayerMask, QueryTriggerInteraction triggerInteraction, out Vector3 closestNormal, out Vector3 closestPoint)
     {
-        bool hasHit = false;
         closestNormal = Vector3.zero;
         closestPoint = Vector3.zero;
         
-        float minAngleAbs = float.MaxValue;
-        
-        Vector3 origin = transform.position + Vector3.up * localHeight;
+        var origin = transform.position + Vector3.up * localHeight;
 
-        for (int i = 0; i < frontGroundRayCount; i++)
+        // if (Physics.CheckSphere(origin, 0.04f, layerMask, triggerInteraction))
+        // {
+        //     // if (Physics.CheckSphere(origin, 0.04f, targetLayerMask, triggerInteraction))
+        //     // {
+        //     //     closestNormal = Vector3.zero;
+        //     //     closestPoint = Vector3.zero;
+        //     //     return true;
+        //     // }
+        //     Debug.Log("origin hit");
+        //
+        //     return false;
+        // }
+        
+        var hasHit = false;
+        var minAngleAbs = float.MaxValue;
+        
+        for (var i = 0; i < frontGroundRayCount; i++)
         {
             float t = (float)i / (frontGroundRayCount - 1);
             
             float currentAngle = Mathf.Lerp(-frontGroundCheckAngle, frontGroundCheckAngle, t);
             
-            Vector3 direction = Quaternion.AngleAxis(currentAngle, transform.up) * _inputForward;
+            var direction = Quaternion.AngleAxis(currentAngle, transform.up) * _inputForward;
 
-            if (Physics.Raycast(origin, direction, out RaycastHit hit, checkDistance, layerMask, triggerInteraction))
+            if (Physics.Raycast(origin, direction, out var hit, checkDistance, layerMask, triggerInteraction))
             {
-                float absAngle = Mathf.Abs(currentAngle);
-                
-                if (absAngle < minAngleAbs)
+                if (targetLayerMask.Contains(hit))
                 {
-                    minAngleAbs = absAngle;
-                    closestNormal = hit.normal;
-                    closestPoint = hit.point;
-                    hasHit = true;
+                    var absAngle = Mathf.Abs(currentAngle);
+
+                    if (absAngle < minAngleAbs)
+                    {
+                        minAngleAbs = absAngle;
+                        closestNormal = hit.normal;
+                        closestPoint = hit.point;
+                        hasHit = true;
+                    }
                 }
             }
         }
@@ -549,25 +583,26 @@ public class PlayerSensors : Sensors
         return hasHit;
     }
 
-    public Vector3 GetForwardGroundEndPoint()
+    public bool TryGetForwardGroundEndPoint(out Vector3 endPos)
     {
         var overshoot = UtilityFunctions.ChangeMeasurementScaleFraction(HorizontalSpeed, speedAtMinOvershoot,
             _speedToOvershootFraction, minOvershoot, maxOvershoot);
 
         var velocityOvershoot = NormalizedHorizontalVelocity * overshoot;
         
-        var horizontalGroundNormal = new Vector3(frontGroundNormal.x,0,frontGroundNormal.z).normalized;
-        var xzEndPos =  frontGroundObstaclePoint + velocityOvershoot - horizontalGroundNormal * 
+        var horizontalGroundNormal = new Vector3(_frontGroundNormal.x,0,_frontGroundNormal.z).normalized;
+        var xzEndPos =  _frontGroundObstaclePoint + velocityOvershoot - horizontalGroundNormal * 
             (ColliderRadius-Mathf.Min(Vector3.Dot(velocityOvershoot, -horizontalGroundNormal), ColliderRadius));
         
         xzEndPos = new Vector3(xzEndPos.x, transform.position.y + frontGroundMaximalHeight, xzEndPos.z);
         
         if (Physics.Raycast(xzEndPos, Vector3.down, out RaycastHit hit, rayCastDownDistance, groundLayer))
         {
-            xzEndPos =  hit.point;
+            endPos = hit.point + ColliderHalfHeightVector;
+            return true;
         }
-
-        return xzEndPos + ColliderHalfHeightVector;
+        endPos=Vector3.zero;
+        return false;
     }
     
     protected override void OnDrawGizmosSelected()

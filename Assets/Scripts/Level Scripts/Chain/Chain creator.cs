@@ -6,8 +6,11 @@ public class ChainCreator : BaseChainCreator
 {
     [Header("Collision logic")]
     [SerializeField] private bool addCollisionLogic = false;
+    [SerializeField, EnableIf("addCollisionLogic")] private bool makeTrigger = true;
+    [SerializeField, EnableIf("addCollisionLogic")] private bool addChainSegmentController = true;
     [SerializeField, EnableIf("addCollisionLogic")] private float colliderRadius = 0.1f;
     [SerializeField, EnableIf("addCollisionLogic")] private LayerMask colliderLayer;
+    
     private int _realLayer = 31;
 
     [Header("Segment joint settings")]
@@ -51,7 +54,8 @@ public class ChainCreator : BaseChainCreator
         _firstSegmentController = null;
     }
 
-    protected override void BuildSegment(Transform pointA, Transform pointB, int index, int totalSegments, List<Transform> points, Transform parent)
+    protected override void BuildSegment(
+        Transform pointA, Transform pointB, int index, int totalSegments, List<Transform> points, Transform parent)
     {
         Vector3 posA = pointA.position;
         Vector3 posB = pointB.position;
@@ -71,22 +75,25 @@ public class ChainCreator : BaseChainCreator
             col.direction = 2; // Z-axis
             col.radius = colliderRadius;
             col.height = distance + (colliderRadius * 2f);
-            col.isTrigger = true;
+            col.isTrigger = makeTrigger;
 
-            var controller = segmentRoot.AddComponent<ChainSegmentController>();
-
-            if (_wasSegmentController)
+            if (addChainSegmentController)
             {
-                _previousSegmentController.SetForward(controller);
-                controller.SetBackward(_previousSegmentController);
-            }
-            else
-            {
-                _firstSegmentController = controller;
-                _wasSegmentController = true;
-            }
+                var controller = segmentRoot.AddComponent<ChainSegmentController>();
 
-            _previousSegmentController = controller;
+                if (_wasSegmentController)
+                {
+                    _previousSegmentController.SetForward(controller);
+                    controller.SetBackward(_previousSegmentController);
+                }
+                else
+                {
+                    _firstSegmentController = controller;
+                    _wasSegmentController = true;
+                }
+
+                _previousSegmentController = controller;
+            }
         }
 
         if (piecePrefab == null) return;
@@ -117,7 +124,7 @@ public class ChainCreator : BaseChainCreator
 
     protected override void PostGenerate(List<Transform> points, Transform root)
     {
-        if (addCollisionLogic && isLoop && _wasSegmentController)
+        if (addCollisionLogic && addChainSegmentController && isLoop && _wasSegmentController)
         {
             _previousSegmentController.SetForward(_firstSegmentController);
             _firstSegmentController.SetBackward(_previousSegmentController);
@@ -278,11 +285,7 @@ public class ChainCreator : BaseChainCreator
     {
         if (Application.isPlaying) return;
 
-        var points = new List<Transform>();
-        foreach (Transform child in transform)
-        {
-            if (!child.name.StartsWith(RootName)) points.Add(child);
-        }
+        var points = GetPoints(transform);
         if (points.Count < 2) return;
 
         Gizmos.color = addCollisionLogic ? Color.green : Color.red;

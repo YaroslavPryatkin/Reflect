@@ -12,10 +12,8 @@ public class PlayerHealthController : HealthController
     [SerializeField] private bool resetArenaOnDeath = true;
     
     private readonly UtilityTimers.TemporaryValue<bool> _canRegenerate = new(true, false);
+    
 
-    public bool CanRegenerateOnArena => !HaveArenaController || ArenaController.CanRegenerate;
-
-    public bool ShouldHoldSwordOnArena => HaveArenaController && ArenaController.IsStillHaveEnemies;
     
     private PlayerInputController _playerInputController;
     private PlayerTargetLockController _playerTargetLockController;
@@ -34,14 +32,15 @@ public class PlayerHealthController : HealthController
         _playerInputController.ClearAllBuffers();
         _playerTargetLockController.UnlockEverything();
         base.OnDeath();
+        GameSavings.IncreaseAmountOfDeaths(gameObject.scene.name);
         UIManager.ShowDeath();
     }
 
     public void TryResetArena()
     {
-        if(resetArenaOnDeath && HaveArenaController)
+        if(resetArenaOnDeath)
         {
-            ArenaController.ResetArena();
+            LevelController.TryResetArena();
         }
     }
 
@@ -59,16 +58,15 @@ public class PlayerHealthController : HealthController
     
     public override void OnHazardEntered()
     {
-        if (HaveArenaController && !ArenaController.IsArenaWithEnemies)
+        if (LevelController.TryReturnPlayerToSpawnPoint())
         {
-            ArenaController.ReturnPlayerToSpawnPoint();
             _rb.linearVelocity = Vector3.zero;
         }
     }
 
     protected void Update()
     {
-        if (CanRegenerateOnArena && _canRegenerate.Value && !IsFullHealth)
+        if (LevelController.CanRegenerateOnArena && _canRegenerate.Value && !IsFullHealth)
         {
             ChangeHealth(regenerationRate * Time.deltaTime);
         }

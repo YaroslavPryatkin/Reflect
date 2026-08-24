@@ -20,6 +20,13 @@ public class EnemySensors : Sensors
 
     public bool CanShootToPlayer { get; private set; } = false;
     public bool IsDetectingPlayer { get; private set; } = false;
+
+    private bool _hasSeenPlayer = false;
+
+    public void ResetHasSeenPlayer()
+    {
+        _hasSeenPlayer = false;
+    }
     
     public Vector3 MyPosition => transform.position;
     public Vector3 HorizontalDirectionToPlayer{get; private set;} = Vector3.forward;
@@ -33,7 +40,7 @@ public class EnemySensors : Sensors
     {
         base.Awake();
         
-        _player = GlobalGameManager.Player;
+        _player = PlayerManager.Player;
         _playerHitBoxController = _player.GetComponent<PlayerHitBoxController>();
         _playerSensors = _player.GetComponent<PlayerSensors>();
         _agent = GetComponent<NavMeshAgent>();
@@ -59,12 +66,18 @@ public class EnemySensors : Sensors
 
     private void ChangeSeePlayer()
     {
-        if (Vector3.Distance(PlayerPosition, transform.position) > seeDistance)
+        if (Vector3.Distance(PlayerPosition, transform.position) > seeDistance || 
+                (!_hasSeenPlayer && 
+                 !UtilityFunctions.HasLineOfSight(shoulderPoint.position, PlayerPosition,
+                    IgnoreMyLayerMask, EnemyLayer, QueryTriggerInteractionShooting)
+                )
+            )
         {
             CanShootToPlayer = false;
             IsDetectingPlayer = false;
             return;
         }
+        _hasSeenPlayer = true;
         
         var playerDir =  PlayerPosition - transform.position;
         DistanceToPlayer = playerDir.magnitude;

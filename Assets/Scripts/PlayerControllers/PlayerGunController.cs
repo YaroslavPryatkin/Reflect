@@ -34,16 +34,16 @@ public class PlayerGunController : GunController
         }
         else
         {
-            if (Physics.Raycast(GlobalCameraManager.GetPlayerCameraPosition(),
-                    GlobalCameraManager.GetPlayerCameraForward(), out var hit,
+            if (Physics.Raycast(GlobalCameraManager.PlayerCameraPosition,
+                    GlobalCameraManager.PlayerCameraForward, out var hit,
                     maximumTargetDistance, DestructionLayerMask, Sensors.QueryTriggerInteractionShooting))
             {
                 wantedTargetPoint = hit.point;
             }
             else
             {
-                wantedTargetPoint = GlobalCameraManager.GetPlayerCameraPosition() +
-                                    GlobalCameraManager.GetPlayerCameraForward() * targetDistanceIfNotFound;
+                wantedTargetPoint = GlobalCameraManager.PlayerCameraPosition +
+                                    GlobalCameraManager.PlayerCameraForward * targetDistanceIfNotFound;
             }
         }
     }
@@ -82,7 +82,7 @@ public class PlayerGunController : GunController
 
     protected override void Update()
     {
-        CanRechargeBulletsWithTime = _playerHealthController.CanRegenerateOnArena;
+        CanRechargeBulletsWithTime = LevelController.CanRegenerateOnArena;
         if (CanRechargeBulletsWithTime || CurrentAmountOfBullets >= MagazineCapacity)
             _bulletEarnFraction = 0f;
         base.Update();

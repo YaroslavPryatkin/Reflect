@@ -2,49 +2,44 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 [DefaultExecutionOrder(-150)]
-public class GlobalLookDirectionManager : MonoBehaviour
+public class GlobalLookDirectionManager : SceneLocalSingleton<GlobalLookDirectionManager>
 {
-    public static GlobalLookDirectionManager Instance { get; private set; }
-
     [SerializeField] private float baseMouseSensitivityX = 0.8f;
     [SerializeField] private float baseMouseSensitivityY = 0.8f;
     [SerializeField] private float baseAimingMouseSensitivity= 0.6f;
     [SerializeField] private float minCamAngle = 10f;
     [SerializeField] private float maxCamAngle = 70f;
-    [SerializeField] private PlayerGunController playerGunController;
     [SerializeField] private float startingYaw = 0f;
-    
-    private InputSlider mouseSensSliderX;
-    private InputSlider mouseSensSliderY;
-    private InputSlider mouseSensSliderAiming;
+
+
+    private PlayerGunController _playerGunController;
+    private FloatSettingsValue _mouseSensX;
+    private FloatSettingsValue _mouseSensY;
+    private FloatSettingsValue _mouseSensAim;
     
     private Vector3 _currentLookDirection  = Vector3.forward;
 
     public static Vector3 CurrentLookDirection => Instance._currentLookDirection;
     
-    private float currentYaw;
-    private float currentPitch = 20f;
+    private float _currentYaw;
+    private float _currentPitch = 20f;
     
     private void Awake()
     {
-        if (Instance == null)
-        {
-            Instance = this;
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
-        mouseSensSliderX = EscapeMenuController.MouseSensX;
-        mouseSensSliderY = EscapeMenuController.MouseSensY;
-        mouseSensSliderAiming = EscapeMenuController.MouseSensAim;
-        currentYaw = startingYaw;
+        _currentYaw = startingYaw;
+        
+        _mouseSensX = GameSettings.Get<FloatSettingsValue>("mouseSensX");
+        _mouseSensY = GameSettings.Get<FloatSettingsValue>("mouseSensY");
+        _mouseSensAim = GameSettings.Get<FloatSettingsValue>("mouseSensAim");
+
+        _playerGunController = PlayerManager.Player.GetComponent<PlayerGunController>();
+        
         CalculateLookDirection();
     }
     
     private void Start()
     {
-        currentPitch = (minCamAngle + maxCamAngle)/2;
+        _currentPitch = (minCamAngle + maxCamAngle)/2;
     }
     
     private void OnEnable()
@@ -60,10 +55,10 @@ public class GlobalLookDirectionManager : MonoBehaviour
     private void HandleLook(Vector2 lookVec)
     {
         
-        currentYaw += lookVec.x * baseMouseSensitivityX * GetMouseSensitivityScale(mouseSensSliderX.Value) * GetAimingMouseSensitivityScale();
-        currentPitch -= lookVec.y * baseMouseSensitivityY * GetMouseSensitivityScale(mouseSensSliderY.Value) * GetAimingMouseSensitivityScale();
+        _currentYaw += lookVec.x * baseMouseSensitivityX * GetMouseSensitivityScale(_mouseSensX.Value) * GetAimingMouseSensitivityScale();
+        _currentPitch -= lookVec.y * baseMouseSensitivityY * GetMouseSensitivityScale( _mouseSensY.Value) * GetAimingMouseSensitivityScale();
         
-        currentPitch = Mathf.Clamp(currentPitch, minCamAngle, maxCamAngle);
+        _currentPitch = Mathf.Clamp(_currentPitch, minCamAngle, maxCamAngle);
 
 
         CalculateLookDirection();
@@ -71,7 +66,7 @@ public class GlobalLookDirectionManager : MonoBehaviour
 
     private void CalculateLookDirection()
     {
-        _currentLookDirection = Quaternion.Euler(currentPitch, currentYaw, 0f) * Vector3.forward;
+        _currentLookDirection = Quaternion.Euler(_currentPitch, _currentYaw, 0f) * Vector3.forward;
     }
 
     private float GetMouseSensitivityScale(float userInput)
@@ -82,7 +77,7 @@ public class GlobalLookDirectionManager : MonoBehaviour
 
     private float GetAimingMouseSensitivityScale()
     {
-        return playerGunController.GunStateValue!=UtilityFunctions.BaseActionTransitionsEnum.Base ? baseAimingMouseSensitivity * mouseSensSliderAiming.Value : 1;
+        return _playerGunController.GunStateValue!=UtilityFunctions.BaseActionTransitionsEnum.Base ? baseAimingMouseSensitivity * _mouseSensAim.Value : 1;
     }
     
     public static Vector3 FromCameraLocalToGlobalByZX(Vector3 localVector)
@@ -90,11 +85,11 @@ public class GlobalLookDirectionManager : MonoBehaviour
         return UtilityFunctions.FromLocalToGlobalByZX(CurrentLookDirection, localVector);
     }
 
-    public static float CurrentYaw => Instance.currentYaw;
+    public static float CurrentYaw => Instance._currentYaw;
     
     public static void SetNewYaw(float yaw)
     {
-        Instance.currentYaw =  yaw;
+        Instance._currentYaw =  yaw;
         Instance.CalculateLookDirection();
     }
 }

@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1d94696ba9344e89bac8646e480bfadd, type: 3}
+  m_Name: Player MultidirectionalMovementSettings
+  m_EditorClassIdentifier: Assembly-CSharp::MultidirectionalMovementSettings
+  movementClips:
+  - animationClip: {fileID: 7400000, guid: 74a991a6d0001c04c864ed79a5f99f8c, type: 2}
+    angle: 0
+  - animationClip: {fileID: 7400000, guid: b07d80c7e0f53d24e82a805604bf14db, type: 2}
+    angle: 45
+  - animationClip: {fileID: 7400000, guid: d903ae4063b250e4b816235f0730280d, type: 2}
+    angle: 90
+  - animationClip: {fileID: 7400000, guid: e5b85c69f3f3f70418bf5d1e1fe4aa32, type: 2}
+    angle: 135
+  - animationClip: {fileID: 7400000, guid: 5d318074bf1dd334e80a6348bd8fa934, type: 2}
+    angle: 180
+  - animationClip: {fileID: 7400000, guid: e9f145d6ccaf3aa41830ba56a83a6fb0, type: 2}
+    angle: 225
+  - animationClip: {fileID: 7400000, guid: 61a3a538799d2e2409449e37aad4362c, type: 2}
+    angle: 270
+  - animationClip: {fileID: 7400000, guid: 1cc5af29f5873794ea72be3b6466475d, type: 2}
+    angle: 315
+  normalSpeedForForwardMovement: 7
+  crossFadeDuration: 0.15
+  directionsCount: 8
+  multipliers:
+  - 1
+  - 0.86363643
+  - 0.95000005
+  - 0.95000005
+  - 1
+  - 0.95000005
+  - 0.95000005
+  - 0.86363643

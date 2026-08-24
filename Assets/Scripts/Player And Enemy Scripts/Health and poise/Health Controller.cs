@@ -26,29 +26,10 @@ public class HealthController : MonoBehaviour
     private bool _haveMelee;
     protected Sensors Sensors;
     
-    protected ArenaController ArenaController;
-    protected bool HaveArenaController = false;
-
     private readonly UtilityTimers.TemporaryValue<bool> _canKillPlain =
         new (true, false);
     public bool CanBeKilledByPlain => _canKillPlain.Value;
     
-    public void SetArenaController(ArenaController arenaController)
-    {
-        HaveArenaController = true;
-        ArenaController = arenaController;
-    }
-
-    public void RemoveArenaController(ArenaController arenaController)
-    {
-        if (arenaController == ArenaController)
-        {
-            HaveArenaController = false;
-            ArenaController=null;
-        }
-    }
-
-
     private readonly UtilityClasses.ChangeableFractionValueReference _iFrames = new();
 
     public void ActivateIFrames(UtilityTimers.IFractionTimer<bool> timer)

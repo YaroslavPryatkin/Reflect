@@ -3,7 +3,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using FixedMovementStateEnum = PlayerFixedDirectionMovementController.StateEnum;
 
-public class PlayerManager : MonoBehaviour
+public class PlayerManager : SceneLocalSingleton<PlayerManager>
 {
     [Header("Speeds")] 
     [SerializeField] private float groundSpeed = 9f;
@@ -42,6 +42,10 @@ public class PlayerManager : MonoBehaviour
     private PlayerHealthController _playerHealthController;
     private Rigidbody _rb;
 
+    
+    public static GameObject Player => Instance.gameObject;
+    public static int PlayerLayerBitMask => 1 << Instance.gameObject.layer;
+    
     private void Awake()
     {
         _rb = GetComponent<Rigidbody>();

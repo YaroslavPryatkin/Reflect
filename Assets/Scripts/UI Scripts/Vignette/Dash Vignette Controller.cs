@@ -9,7 +9,7 @@ public class DashVignetteController : VignetteController
     protected override void Awake()
     {
         base.Awake();
-        _playerDashController = GlobalGameManager.Player.GetComponent<PlayerDashController>();
+        _playerDashController = PlayerManager.Player.GetComponent<PlayerDashController>();
     }
 
     protected override bool ShouldBeActive()

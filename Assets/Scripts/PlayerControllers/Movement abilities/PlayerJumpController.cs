@@ -285,9 +285,9 @@ public class PlayerJumpController : MonoBehaviour
                 _jumpState.SetForce(StateEnum.Starting, startingRailJumpTime);
                 break;
             case JumpPlaceEnum.Ground:
-                if (_playerSensors.FrontGroundState == PlayerSensors.FrontGroundStateEnum.Ledge)
+                if (_playerSensors.FrontGroundState == PlayerSensors.FrontGroundStateEnum.Ledge && _playerSensors.TryGetForwardGroundEndPoint(out var endPos))
                 {
-                    _playerForwardJumpingController.PerformForwardJump(transform.position, _playerSensors.GetForwardGroundEndPoint(),transform.position.y + _playerSensors.FrontGroundObstacleHeight);
+                    _playerForwardJumpingController.PerformForwardJump(transform.position, endPos,transform.position.y + _playerSensors.FrontGroundObstacleHeight);
                 }
                 else
                 {

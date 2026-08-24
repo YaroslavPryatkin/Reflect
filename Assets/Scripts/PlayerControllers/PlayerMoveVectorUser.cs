@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 [DefaultExecutionOrder(50)]
 public class PlayerTargetMoveVectorUser : MonoBehaviour
@@ -28,6 +29,11 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
     [SerializeField] private float airTurnDeadzone = 60f;
     [SerializeField] private float airTurnPow = 3f;
     [SerializeField] private float airTurnMaxLossPerFrame = 0.08f;
+
+    [Header("Ground snapping")] 
+    [SerializeField] private float distanceToSnap = 1.07f;
+    [SerializeField] private float snapSpeed = 0.5f;
+    
     
     private PlayerSensors _playerSensors;
     private PlayerFixedDirectionMovementController _playerFixedDirectionMovementController;
@@ -59,7 +65,6 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
         _targetSpeed = _playerManager.TargetMoveSpeed;
         _targetDir = _playerManager.TargetMoveDirection;
         
-
         
         if (_playerManager.CanUseTargetMoveVector)
         {
@@ -92,16 +97,16 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
             newHorizontalVelocity = _playerSensors.VelocityAlignedWithGround;
 
             SmartVelocityChange(ref newHorizontalVelocity, groundAcceleration, groundDeceleration, groundAccelerationIfDotIsLow, groundLowDot);
+            
+            if (_playerSensors.IsGrounded && _playerSensors.FoundGroundNormal && 
+                Vector3.Distance(transform.position, _playerSensors.GroundNormalPoint) > distanceToSnap)
+            {
+                newHorizontalVelocity -= snapSpeed * _playerSensors.GroundNormal;
+            }
 
-             
             if (_playerSensors.FoundGroundNormal)
             {
-                var normal = _playerSensors.GroundNormal;
-            
-                if (normal.y > 0.01f) 
-                {
-                    newY = -(normal.x * newHorizontalVelocity.x + normal.z * newHorizontalVelocity.z) / normal.y;
-                }
+                newY = newHorizontalVelocity.y;
             }
         }
         else
@@ -167,6 +172,7 @@ public class PlayerTargetMoveVectorUser : MonoBehaviour
                 }
             }
         }
+        
         _rb.linearVelocity = new Vector3(newHorizontalVelocity.x, newY, newHorizontalVelocity.z);
     }
     

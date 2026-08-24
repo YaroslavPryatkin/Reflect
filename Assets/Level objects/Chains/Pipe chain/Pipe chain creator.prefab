@@ -1,0 +1,68 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &8700810140444320640
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2581590386083220377}
+  - component: {fileID: 4455223682354939532}
+  m_Layer: 0
+  m_Name: Pipe chain creator
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2581590386083220377
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8700810140444320640}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 2.15, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4455223682354939532
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8700810140444320640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 18be0eb2aca3c0a49827eb033a8b9423, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ChainCreator
+  isLoop: 0
+  useMyTransformAsFirstAnchor: 1
+  preAnchors: []
+  postAnchors: []
+  piecePrefab: {fileID: 2695296554604926412, guid: e7133981f9d3d9a47ab3eb813b683357, type: 3}
+  pieceLength: 3
+  angleToRotateNextPieceBy: 0
+  isPrefabPivotInCenter: 0
+  addCollisionLogic: 1
+  makeTrigger: 0
+  addChainSegmentController: 0
+  colliderRadius: 0.1
+  colliderLayer:
+    serializedVersion: 2
+    m_Bits: 128
+  cutByBisector: 0
+  segmentExtension: 0.3
+  endCapPrefab: {fileID: 0}
+  jointPrefab: {fileID: 0}
+  placeVertically: 0
+  placeOneJoint: 1
+  sideShift: 0

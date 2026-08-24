@@ -13,6 +13,7 @@ public class CaplessCylinderGenerator : EditorWindow
     private float height = 1f;
     private int segments = 32;
     private RadiusType radiusType = RadiusType.ToVertices;
+    private bool generateCaps = false; 
     private string savePath = "Assets/CaplessCylinder.asset";
 
     [MenuItem("Tools/Generate Capless Cylinder (Tube)")]
@@ -29,6 +30,7 @@ public class CaplessCylinderGenerator : EditorWindow
         radiusType = (RadiusType)EditorGUILayout.EnumPopup("Radius type", radiusType);
         height = EditorGUILayout.FloatField("height", height);
         segments = EditorGUILayout.IntSlider("Segments", segments, 3, 256);
+        generateCaps = EditorGUILayout.Toggle("Generate caps", generateCaps); // Переключатель в GUI
 
         EditorGUILayout.Space();
         savePath = EditorGUILayout.TextField("Save path", savePath);
@@ -52,12 +54,19 @@ public class CaplessCylinderGenerator : EditorWindow
         }
 
         Mesh mesh = new Mesh();
-        mesh.name = "CaplessCylinder";
+        mesh.name = generateCaps ? "CylinderWithCaps" : "CaplessCylinder";
+        
+        int sideVerticesCount = (segments + 1) * 2;
+        int capsVerticesCount = generateCaps ? (segments + 2) * 2 : 0; 
+        int totalVerticesCount = sideVerticesCount + capsVerticesCount;
 
-        int verticesCount = (segments + 1) * 2;
-        Vector3[] vertices = new Vector3[verticesCount];
-        Vector2[] uvs = new Vector2[verticesCount];
-        int[] triangles = new int[segments * 6];
+        int sideTrianglesCount = segments * 6;
+        int capsTrianglesCount = generateCaps ? segments * 6 : 0;
+        int totalTrianglesCount = sideTrianglesCount + capsTrianglesCount;
+
+        Vector3[] vertices = new Vector3[totalVerticesCount];
+        Vector2[] uvs = new Vector2[totalVerticesCount];
+        int[] triangles = new int[totalTrianglesCount];
 
         for (int i = 0; i <= segments; i++)
         {
@@ -89,6 +98,55 @@ public class CaplessCylinderGenerator : EditorWindow
             triangles[t++] = v0;
             triangles[t++] = v3;
             triangles[t++] = v2;
+        }
+
+        if (generateCaps)
+        {
+            int capOffset = sideVerticesCount;
+
+            int topCenterIndex = capOffset;
+            vertices[topCenterIndex] = new Vector3(0f, height / 2f, 0f);
+            uvs[topCenterIndex] = new Vector2(0.5f, 0.5f);
+
+            int topRingStart = topCenterIndex + 1;
+            for (int i = 0; i <= segments; i++)
+            {
+                float angle = i * angleStep;
+                float x = Mathf.Sin(angle) * actualRadius;
+                float z = Mathf.Cos(angle) * actualRadius;
+
+                vertices[topRingStart + i] = new Vector3(x, height / 2f, z);
+                uvs[topRingStart + i] = new Vector2(0.5f + Mathf.Sin(angle) * 0.5f, 0.5f + Mathf.Cos(angle) * 0.5f);
+            }
+
+            for (int i = 0; i < segments; i++)
+            {
+                triangles[t++] = topCenterIndex;
+                triangles[t++] = topRingStart + i;
+                triangles[t++] = topRingStart + i + 1;
+            }
+
+            int bottomCenterIndex = topRingStart + segments + 1;
+            vertices[bottomCenterIndex] = new Vector3(0f, -height / 2f, 0f);
+            uvs[bottomCenterIndex] = new Vector2(0.5f, 0.5f);
+
+            int bottomRingStart = bottomCenterIndex + 1;
+            for (int i = 0; i <= segments; i++)
+            {
+                float angle = i * angleStep;
+                float x = Mathf.Sin(angle) * actualRadius;
+                float z = Mathf.Cos(angle) * actualRadius;
+
+                vertices[bottomRingStart + i] = new Vector3(x, -height / 2f, z);
+                uvs[bottomRingStart + i] = new Vector2(0.5f + Mathf.Sin(angle) * 0.5f, 0.5f - Mathf.Cos(angle) * 0.5f);
+            }
+
+            for (int i = 0; i < segments; i++)
+            {
+                triangles[t++] = bottomCenterIndex;
+                triangles[t++] = bottomRingStart + i + 1;
+                triangles[t++] = bottomRingStart + i;
+            }
         }
 
         mesh.vertices = vertices;

@@ -8,29 +8,40 @@ public class EnemyHealthController : HealthController
     
     private EnemyDodgeController _enemyDodgeController;
     private EnemyAI _enemyAI;
+    private EnemySensors _enemySensors;
     private bool _haveDodgeController;
 
     private LayerMask _wasExcludeLayers;
     
     private Collider _collider;
     
-    
     public bool CanBeFinished => IsDead && GettingHitController.CanBeFinished;
     
     public float PlayerRegenHpAmount => playerHpRegen;
     public float PlayerBulletRegenAmount => playerBulletRegen;
+    
+        
+    private ArenaController _arenaController;
+    
+    public void SetArenaController(ArenaController arenaController)
+    {
+        _arenaController = arenaController;
+    }
+    
+    
     
     protected override void Awake()
     {
         base.Awake();
         _enemyAI = GetComponent<EnemyAI>();
         _collider = GetComponent<Collider>();
+        _enemySensors = GetComponent<EnemySensors>();
         _haveDodgeController = TryGetComponent(out _enemyDodgeController);
     }
 
     protected override void OnRevive()
     {
-        ArenaController.EnemyRevived();
+        _arenaController.EnemyRevived();
         TurnOnCollisionWithPlayer();
         base.OnRevive();
     }
@@ -39,10 +50,16 @@ public class EnemyHealthController : HealthController
     {
         base.OnDeath();
         _enemyAI.Deactivate();
-        ArenaController.EnemyDied();
+        _arenaController.EnemyDied();
         TurnOffCollisionWithPlayer();
     }
-    
+
+    public override void OnArenaReset()
+    {
+        base.OnArenaReset();
+        _enemySensors.ResetHasSeenPlayer();
+    }
+
     private void TurnOnCollisionWithPlayer()
     {
         //_collider.excludeLayers = _wasExcludeLayers;

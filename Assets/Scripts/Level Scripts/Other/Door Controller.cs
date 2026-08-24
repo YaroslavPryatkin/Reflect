@@ -2,6 +2,8 @@ using System;
 using CustomAttributes;
 using UnityEngine;
 
+
+[DefaultExecutionOrder(-30)]
 public class DoorController : MonoBehaviour
 {
 
@@ -45,13 +47,10 @@ public class DoorController : MonoBehaviour
         {
             _startDistance = Vector3.Distance(pivot.position, door.position);
            
-            var initDirClose = (door.position - pivot.position).normalized;
-
-            if (initDirClose.sqrMagnitude == 0) initDirClose = transform.up;
-
-            var initDirOpen = transform.up;
+            var initDirClose = (pointClose.position - pivot.position).normalized;
+            var initDirOpen = (pointOpen.position - pivot.position).normalized;
+            
             var initXAxis = Vector3.Cross(initDirClose, initDirOpen);
-
             if (initXAxis.sqrMagnitude < 0.001f)
             {
                 initDirOpen = transform.forward;
@@ -71,31 +70,31 @@ public class DoorController : MonoBehaviour
 
     private void Update()
     {
-        if (_state.Value == StateEnum.Closed)
+
+        switch (_state.Value)
         {
-            switch (type)
-            {
-                case TypeEnum.Slide:
-                    door.SetPositionAndRotation(pointClose.position, pointClose.rotation);
-                    break;
-                case TypeEnum.Rotate:
-                    UpdateDoorRotation(0f);
-                    break;
-            }
-            return;
-        }
-        if (_state.Value == StateEnum.Opened)
-        {
-            switch (type)
-            {
-                case TypeEnum.Slide:
-                    door.SetPositionAndRotation(pointOpen.position, pointOpen.rotation);
-                    break;
-                case TypeEnum.Rotate:
-                    UpdateDoorRotation(1f);
-                    break;
-            }
-            return;
+            case StateEnum.Closed:
+                switch (type)
+                {
+                    case TypeEnum.Slide:
+                        door.SetPositionAndRotation(pointClose.position, pointClose.rotation);
+                        break;
+                    case TypeEnum.Rotate:
+                        UpdateDoorRotationType(0f);
+                        break;
+                }
+                return;
+            case StateEnum.Opened:
+                switch (type)
+                {
+                    case TypeEnum.Slide:
+                        door.SetPositionAndRotation(pointOpen.position, pointOpen.rotation);
+                        break;
+                    case TypeEnum.Rotate:
+                        UpdateDoorRotationType(1f);
+                        break;
+                }
+                return;
         }
         
         var fraction = 0f;
@@ -121,12 +120,12 @@ public class DoorController : MonoBehaviour
                     Quaternion.Lerp(pointClose.rotation, pointOpen.rotation, fraction));
                 break;
             case TypeEnum.Rotate:
-                UpdateDoorRotation(fraction);
+                UpdateDoorRotationType(fraction);
                 break;
         }
     }
     
-    private void UpdateDoorRotation(float fraction)
+    private void UpdateDoorRotationType(float fraction)
     {
         var dirClose = (pointClose.position - pivot.position).normalized;
         var dirOpen = (pointOpen.position - pivot.position).normalized;
@@ -172,6 +171,12 @@ public class DoorController : MonoBehaviour
                     _state.SetForce(StateEnum.Opening, animationDuration, 1f - _state.TimeFraction);
                 break;
         }
+    }
+
+    public void SetOpenSkipAnimation(bool isOpen)
+    {
+        _state.SetForce(isOpen ? StateEnum.Opened : StateEnum.Closed);
+        Update();
     }
 }
 
