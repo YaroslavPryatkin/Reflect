@@ -10226,8 +10226,8 @@ MonoBehaviour:
   frontGroundHeightPrecision: 0.05
   frontGroundMinimalCheckDistance: 4
   speedAtMinimalCheckDistance: 4
-  frontGroundMaximalCheckDistance: 6
-  speedAtMaximalCheckDistance: 10
+  frontGroundMaximalCheckDistance: 6.5
+  speedAtMaximalCheckDistance: 7
   frontGroundMinimalHeight: -0.6
   frontGroundMaximalHeight: 0.6
   forceFrontGroundCheckHeight: -0.9
