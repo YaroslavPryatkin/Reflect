@@ -2,25 +2,38 @@ using UnityEngine;
 
 [ExecuteAlways]
 [RequireComponent(typeof(RectTransform))]
-[DefaultExecutionOrder(1)]
+[DefaultExecutionOrder(5)]
 public class ControlWidthAndHeight : MonoBehaviour
 {
     [SerializeField] private bool shouldInvert = false;
     [SerializeField] private RectTransform parentRect;
 
     [Header("Layout")] 
-    [SerializeField] private Vector2 applyFractions = new(1f, 1f);
-    [SerializeField] private Vector2 fractions = new (1f, 1f);
+    [SerializeField] private Vector2 fractionsFromParent = new (1f, 1f);
     [SerializeField] private Vector2 staticChange = new (0f, 0f);
     [SerializeField] private Vector2 crossAddFractions = new (0f, 0f);
+    [SerializeField] private Vector2 applyFractions = new (1f, 1f);
     
     private RectTransform _rectTransform;
     private RectTransform _currentParentRect;
+    private void OnEnable()
+    {
+        Canvas.willRenderCanvases += ScheduledUpdate;
+    }
 
-    private void OnEnable()=>UpdateLayout();
+    private void OnDisable()
+    {
+        Canvas.willRenderCanvases -= ScheduledUpdate;
+    }
 
-    private void OnRectTransformDimensionsChange()=>UpdateLayout();
-    
+    private void ScheduledUpdate()
+    {
+        Canvas.willRenderCanvases -= ScheduledUpdate;
+        UpdateLayout();
+    }
+
+    private void OnRectTransformDimensionsChange() => ScheduledUpdate();
+
     private void OnValidate()
     {
 #if UNITY_EDITOR
@@ -58,17 +71,18 @@ public class ControlWidthAndHeight : MonoBehaviour
         }
 
 
-        if (_currentParentRect == null || _rectTransform == null) return;
+        if (_currentParentRect == null || _rectTransform == null)
+        {
+            return;
+        }
         
-        var almostFinalWidth = _currentParentRect.rect.width * fractions.x + staticChange.x;
-        var almostFinalHeight = _currentParentRect.rect.height * fractions.y + staticChange.y;
+        var almostFinalWidth = _currentParentRect.rect.width * fractionsFromParent.x + staticChange.x;
+        var almostFinalHeight = _currentParentRect.rect.height * fractionsFromParent.y + staticChange.y;
 
-        var finalWidth = almostFinalWidth + crossAddFractions.x * almostFinalHeight;
-        var finalHeight = almostFinalHeight + crossAddFractions.y * almostFinalWidth;
+        var finalWidth = (almostFinalWidth + crossAddFractions.x * almostFinalHeight)*applyFractions.x;
+        var finalHeight = (almostFinalHeight + crossAddFractions.y * almostFinalWidth)*applyFractions.y;
 
-        if(shouldInvert)
-            _rectTransform.sizeDelta = new Vector2(finalHeight * applyFractions.x, finalWidth * applyFractions.y);
-        else
-            _rectTransform.sizeDelta = new Vector2(finalWidth * applyFractions.x, finalHeight * applyFractions.y);
+        _rectTransform.sizeDelta = shouldInvert ? 
+            new Vector2(finalHeight, finalWidth) : new Vector2(finalWidth, finalHeight);
     }
 }

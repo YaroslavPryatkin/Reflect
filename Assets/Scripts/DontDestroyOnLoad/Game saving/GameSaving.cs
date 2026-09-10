@@ -5,13 +5,14 @@ using System.IO;
 [DefaultExecutionOrder(-300)]
 public class GameSavings : MonoBehaviour
 {
+    [SerializeField] private string versionName = "V";
     private static GameSavings _instance;
     
     
     private readonly Dictionary<string, LevelSave> _levels = new();
     
     
-    private static string FileName = "gameSave.yaml";
+    private string _savePath;
     
     public static LevelSave GetOrCreate(string key, bool isAvailable)
     {
@@ -67,6 +68,7 @@ public class GameSavings : MonoBehaviour
 
     public static void IncreaseAmountOfDeaths(string key)
     {
+
         if (_instance == null)
         {
             Debug.LogError("[Settings] No instance found!");
@@ -86,6 +88,8 @@ public class GameSavings : MonoBehaviour
     {
         if (_instance == null) { _instance = this; DontDestroyOnLoad(gameObject); }
         else { Destroy(gameObject); return; }
+
+        _savePath = ISaveValue.GetSavePath(versionName+"_GameSave.yaml");
         
         LoadInternal();
     }
@@ -96,9 +100,9 @@ public class GameSavings : MonoBehaviour
     {
         _levels.Clear();
 
-        if (!File.Exists(ISaveValue.GetSavePath(FileName))) return;
+        if (!File.Exists(_savePath)) return;
 
-        var lines = File.ReadAllLines(ISaveValue.GetSavePath(FileName));
+        var lines = File.ReadAllLines(_savePath);
         foreach (var line in lines)
         {
             var split = line.Split(new[] { ": " }, 2, System.StringSplitOptions.RemoveEmptyEntries);
@@ -122,7 +126,7 @@ public class GameSavings : MonoBehaviour
     
     private void SaveInternal()
     {
-        using var writer = new StreamWriter(ISaveValue.GetSavePath(FileName));
+        using var writer = new StreamWriter(_savePath);
         foreach (var kvp in _levels)
         {
             writer.WriteLine($"{kvp.Key}: {kvp.Value.Get()}");

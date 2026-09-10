@@ -10561,12 +10561,13 @@ MonoBehaviour:
   startingRailJumpTime: 0.05
   continuingRailJumpTime: 0.1
   railJumpRechargeTime: 0.4
-  groundSpeedSuppressAfterJump: 0.3
+  groundSpeedSuppressAfterJump: 0.2
   afterJumpFromWall: 0.5
   afterJumpFromGround: 0.2
   afterJumpFromLine: 0.5
   interruptionRechargeTime: 0.1
-  jumpPadForceToJumpDuration: 0.01
+  jumpPadForceToJumpDurationMultiplier: 0.01
+  jumpPadBufferTime: 0.1
 --- !u!114 &7668316343776724473
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10607,7 +10608,7 @@ MonoBehaviour:
   leftGunHorizontalAngle: -120
   rightGunHorizontalAngle: 100
   headHorizontalAngle: 100
-  magazineCapacity: 6
+  magazineCapacity: 5
   timeBetweenShots: 0.1
   rechargeTime: 0.3
   startAimTime: 0.1
@@ -10682,7 +10683,6 @@ MonoBehaviour:
   deflectBulletDamageReduction: 5
   regenerationRate: 20
   canNotHealAfterTakingDamageTime: 2
-  resetArenaOnDeath: 1
 --- !u!114 &7551535607096338083
 MonoBehaviour:
   m_ObjectHideFlags: 0

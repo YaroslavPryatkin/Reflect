@@ -7,16 +7,19 @@ using System;
 [DefaultExecutionOrder(-300)]
 public class GameSettings : MonoBehaviour
 {
+    [SerializeField] private string versionName = "V";
     private static GameSettings  _instance;
 
     private readonly Dictionary<string, ISaveValue> _values = new();
 
-    private static string FileName = "controlSettings.yaml";
+    private string _savePath;
     
     private void Awake()
     {
         if (_instance == null) { _instance = this; DontDestroyOnLoad(gameObject); }
         else { Destroy(gameObject); return; }
+
+        _savePath = ISaveValue.GetSavePath(versionName+"_ControlSettings.yaml");
         
         LoadValuesInternal();
     }
@@ -62,7 +65,7 @@ public class GameSettings : MonoBehaviour
     
     private void SaveInternal()
     {
-        using var writer = new StreamWriter(ISaveValue.GetSavePath(FileName));
+        using var writer = new StreamWriter(_savePath);
         foreach (var kvp in _values)
         {
             writer.WriteLine($"{kvp.Key}: {kvp.Value.GetType().Name}|{kvp.Value.Get()}");
@@ -85,9 +88,9 @@ public class GameSettings : MonoBehaviour
         _values.Add("mouseSensAim", new FloatSettingsValue(1f));
         
         
-        if (!File.Exists(ISaveValue.GetSavePath(FileName))) return;
+        if (!File.Exists(_savePath)) return;
 
-        string[] lines = File.ReadAllLines(ISaveValue.GetSavePath(FileName));
+        string[] lines = File.ReadAllLines(_savePath);
         foreach (var line in lines)
         {
             var split = line.Split(new[] { ": " }, 2, System.StringSplitOptions.RemoveEmptyEntries);

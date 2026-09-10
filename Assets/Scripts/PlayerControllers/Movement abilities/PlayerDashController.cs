@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class PlayerDashController : MonoBehaviour
+public class PlayerDashController : SceneLocalSingleton<PlayerDashController>
 {
 
     [SerializeField] private GameObject ghost;
@@ -28,13 +28,18 @@ public class PlayerDashController : MonoBehaviour
     private PlayerForwardJumpingController  _playerForwardJumpingController;
     private PlayerFixedDirectionMovementController _playerFixedDirectionMovementController;
     
-    
-    
-    private UtilityTimers.FractionBlockingValueTimer<bool> isDashing = new(false);
+    private readonly UtilityTimers.FractionBlockingValueTimer<bool> _isDashing = new(false);
 
+    private readonly UtilityClasses.MultipleBoolValue _isDashBlocked = new();
+
+    public bool IsDashBlocked => _isDashBlocked.Value;
+
+    public static void SetDashBlocked() => Instance._isDashBlocked.Set();
+    public static void UnsetDashBlocked() => Instance._isDashBlocked.Unset();
     
-    public bool IsDashing => isDashing.Value;
-    public float DashRechargeFraction => isDashing.TimeFraction;
+    
+    public bool IsDashing => _isDashing.Value;
+    public float DashRechargeFraction => _isDashing.TimeFraction;
     
     private Vector3 newHorizontalVelocityDirection = Vector3.zero;
     private Vector3 newVelocityDirection = Vector3.zero;
@@ -64,35 +69,40 @@ public class PlayerDashController : MonoBehaviour
 
     void Update()
     {
-        if (_playerInputController.IsDashPressed)
+        if (_isDashBlocked.Value)
         {
-            if (isDashing.CanBeChanged)
-            {
-                if (isDashing)
-                {
-                    FinishDash();
-                }
-                else
-                {
-                    if (_playerForwardJumpingController.IsForwardJumping)
-                        _playerForwardJumpingController.Interrupt();
-
-                    firstUpdateAfterPressedDash = true;
-                    GlobalTimeScaleController.ChangeTimePace(this, slowMotionCoefficient);
-                    isDashing.SetForce(true, maxDashDurationTime);
-                    ghost.SetActive(true);
-                }
-            }
+            InterruptDash();
         }
         else
         {
-            if (isDashing)
+            if (_playerInputController.IsDashPressed)
+            {
+                if (_isDashing.CanBeChanged)
+                {
+                    if (_isDashing)
+                    {
+                        FinishDash();
+                    }
+                    else
+                    {
+                        if (_playerForwardJumpingController.IsForwardJumping)
+                            _playerForwardJumpingController.Interrupt();
+
+                        firstUpdateAfterPressedDash = true;
+                        GlobalTimeScaleController.ChangeTimePace(this, slowMotionCoefficient);
+                        _isDashing.SetForce(true, maxDashDurationTime);
+                        ghost.SetActive(true);
+                    }
+                }
+            }
+            else if (_isDashing)
             {
                 FinishDash();
             }
         }
-        
-        if (isDashing)
+
+
+        if (_isDashing)
         {
             MoveGhost();
             firstUpdateAfterPressedDash = false;
@@ -144,8 +154,6 @@ public class PlayerDashController : MonoBehaviour
         }
 
         newVelocityDirection = targetRotation;
-
-        //HandleDashRelease();
     }
 
     public void InterruptDash()
@@ -154,7 +162,7 @@ public class PlayerDashController : MonoBehaviour
         {
             firstUpdateAfterPressedDash = false;
             GlobalTimeScaleController.ReturnTimePace(this);
-            isDashing.SetForce(false, dashRechargeTime);
+            _isDashing.SetForce(false, dashRechargeTime);
             ghost.SetActive(false);
         }
     }

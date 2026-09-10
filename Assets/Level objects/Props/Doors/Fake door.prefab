@@ -11,12 +11,12 @@ GameObject:
   - component: {fileID: 2104365840078369185}
   - component: {fileID: 6299749085853920096}
   - component: {fileID: 4093278264806705956}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Fake door
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!4 &2104365840078369185
 Transform:

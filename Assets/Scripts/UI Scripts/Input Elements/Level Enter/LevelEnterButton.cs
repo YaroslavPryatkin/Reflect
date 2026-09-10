@@ -14,7 +14,7 @@ public class LevelEnterButton : GenericButtonController
     {
         _sceneName = sceneName;
     }
-    
+
     private void LoadTargetScene()
     {
         if (string.IsNullOrEmpty(_sceneName)) return;

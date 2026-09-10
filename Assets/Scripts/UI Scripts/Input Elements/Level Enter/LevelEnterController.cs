@@ -11,12 +11,19 @@ public class LevelEnterController : MonoBehaviour
     [Header("Buttons")]
     [SerializeField] private LevelEnterButton enterButton;
     [SerializeField] private LevelResetButton resetButton;
-    
-    [Header("UI")]
+
+    [Header("UI")] 
+    [SerializeField] private Image levelOpenCloseFieldImage;
     [SerializeField] private GameObject levelOpen;
     [SerializeField] private GameObject levelClose;
     [SerializeField] private TextMeshProUGUI enterButtonText;
 
+    [Header("Level finished color")] 
+    [SerializeField] private Color levelFinishedColor = Color.lawnGreen;
+
+    private Image _enterImage;
+    private Image _resetImage;
+    
     private void Awake()
     {
         if (sceneName == null || string.IsNullOrEmpty(sceneName))
@@ -24,7 +31,12 @@ public class LevelEnterController : MonoBehaviour
             Debug.LogError($"[LevelEnterController] Missing scene name");
             return;
         }
-
+        
+        _enterImage = enterButton.GetComponent<Image>();
+        _resetImage = resetButton.GetComponent<Image>();
+        
+        SetImageColor(Color.white);
+        
         InitializeInternal();
     }
 
@@ -59,5 +71,14 @@ public class LevelEnterController : MonoBehaviour
         resetButton.SetInteractionState(myLevelSave.IsAvailable && myLevelSave.CurrentArenaIndex != -1);
         levelOpen.SetActive(myLevelSave.IsAvailable);
         levelClose.SetActive(!myLevelSave.IsAvailable);
+        
+        SetImageColor(myLevelSave.IsFinished ?  levelFinishedColor : Color.white);
+    }
+
+    private void SetImageColor(Color color)
+    {
+        _enterImage.color = color;
+        _resetImage.color = color;
+        levelOpenCloseFieldImage.color = color;
     }
 }

@@ -3,6 +3,8 @@ using NUnit.Framework;
 using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.Pool;
+using System.Diagnostics;
+using Debug = UnityEngine.Debug;
 
 public static class UtilityClasses
 {
@@ -351,6 +353,34 @@ public static class UtilityClasses
         }
         
         public static implicit operator bool(ChangeableFractionValueReference holder)
+        {
+            return holder.Value;
+        }
+    }
+    
+    public class MultipleBoolValue
+    {
+        private int _setCounter = 0;
+        
+        public bool Value => _setCounter > 0;
+        public int Count => _setCounter;
+        
+        public void Set()
+        {
+            ++_setCounter;
+        }
+
+        public void Unset()
+        {
+            --_setCounter;
+            if (_setCounter < 0)
+            {
+                _setCounter = 0;
+                Debug.LogError("[MultipleBoolValue] Set counter went below zero. Check your set-unset operations.");
+            }
+        }
+        
+        public static implicit operator bool(MultipleBoolValue holder)
         {
             return holder.Value;
         }

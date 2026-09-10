@@ -276,8 +276,6 @@ public class EnemyAI : MonoBehaviour
         }
         
         _directions.Clear();
-       // _distances.Clear();
-
         
         for (var i = 0; i < _directionsToCheck; i++)
         {
@@ -286,16 +284,6 @@ public class EnemyAI : MonoBehaviour
             var angle = multiplier * DirectionsStep;
             _directions.Add(angle);
         }
-
-        
-        // var distancesToCheck = Math.Max(1,(int)Math.Floor((hMax-hMin) / DistanceStep));
-        //
-        // for (var i = 1; i <= distancesToCheck; i++)
-        // {
-        //     _distances.Add(hMin + i * DistanceStep);
-        // }
-        // _distances.Sort((a, b) => Mathf.Abs(a - hPref).CompareTo(Mathf.Abs(b - hPref)));
-
         _lookingForPosition = true;
         _currentCheckedDirection = 0;
     }
@@ -309,7 +297,34 @@ public class EnemyAI : MonoBehaviour
     
     private readonly PriorityQueue.PriorityQueue<SearchSegment, float> _segmentsPool = new ();
 
-    private bool CheckDirectionBestFirst(in Vector3 start, in Vector3 dir)
+    
+    private void FindShootingPosition()
+    {
+        var baseDir = -_enemySensors.HorizontalDirectionToPlayer;
+        if (baseDir.sqrMagnitude < 0.001f) baseDir = Vector3.forward;
+        baseDir.Normalize();
+    
+        var end = Math.Min(
+            _currentCheckedDirection + 5 + Mathf.CeilToInt(
+                _directionsToCheck / GlobalEnemyComputingTimeOptimizer.CalculatingTargetDuration * Time.deltaTime), 
+            _directionsToCheck);
+        var startPos = _enemySensors.PlayerPosition;
+        startPos.y = _enemySensors.MyPosition.y;
+        for (; _currentCheckedDirection < end; ++_currentCheckedDirection)
+        {
+            var dir = Quaternion.Euler(0, _directions[_currentCheckedDirection], 0) * baseDir;
+
+            if (CheckDirection(startPos, dir))
+            {
+                _lookingForPosition = false;
+                _goingToPosition = true;
+                ChangeState(shootingMovingSpeed, traversalSpeed, shootWhileMoving, shootAngleIncreaseWhileMoving);
+                return;
+            }
+        }
+    }
+    
+    private bool CheckDirection(in Vector3 start, in Vector3 dir)
     {
         _segmentsPool.Clear();
         
@@ -371,32 +386,7 @@ public class EnemyAI : MonoBehaviour
         return false;
     } 
     
-    private void FindShootingPosition()
-    {
-        
-        var baseDir = -_enemySensors.HorizontalDirectionToPlayer;
-        if (baseDir.sqrMagnitude < 0.001f) baseDir = Vector3.forward;
-        baseDir.Normalize();
     
-        var end = Math.Min(
-            _currentCheckedDirection + 5 + Mathf.CeilToInt(
-                _directionsToCheck / GlobalEnemyComputingTimeOptimizer.CalculatingTargetDuration * Time.deltaTime), 
-            _directionsToCheck);
-        var startPos = _enemySensors.PlayerPosition;
-        startPos.y = _enemySensors.MyPosition.y;
-        for (; _currentCheckedDirection < end; ++_currentCheckedDirection)
-        {
-            var dir = Quaternion.Euler(0, _directions[_currentCheckedDirection], 0) * baseDir;
-
-            if (CheckDirectionBestFirst(startPos, dir))
-            {
-                _lookingForPosition = false;
-                _goingToPosition = true;
-                ChangeState(shootingMovingSpeed, traversalSpeed, shootWhileMoving, shootAngleIncreaseWhileMoving);
-                return;
-            }
-        }
-    }
 
     private void ExecuteFallbacks()
     {

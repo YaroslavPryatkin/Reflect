@@ -188,6 +188,8 @@ MonoBehaviour:
   angleToRotateNextPieceBy: 0
   isPrefabPivotInCenter: 0
   addCollisionLogic: 1
+  makeTrigger: 1
+  addChainSegmentController: 1
   colliderRadius: 0.08
   colliderLayer:
     serializedVersion: 2
@@ -261,6 +263,8 @@ MonoBehaviour:
   angleToRotateNextPieceBy: 0
   isPrefabPivotInCenter: 0
   addCollisionLogic: 1
+  makeTrigger: 1
+  addChainSegmentController: 1
   colliderRadius: 0.08
   colliderLayer:
     serializedVersion: 2
@@ -431,6 +435,8 @@ MonoBehaviour:
   angleToRotateNextPieceBy: 0
   isPrefabPivotInCenter: 0
   addCollisionLogic: 1
+  makeTrigger: 1
+  addChainSegmentController: 1
   colliderRadius: 0.08
   colliderLayer:
     serializedVersion: 2
@@ -3206,6 +3212,8 @@ MonoBehaviour:
   angleToRotateNextPieceBy: 0
   isPrefabPivotInCenter: 0
   addCollisionLogic: 1
+  makeTrigger: 1
+  addChainSegmentController: 1
   colliderRadius: 0.08
   colliderLayer:
     serializedVersion: 2
@@ -6732,7 +6740,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1821332009
 Transform:
   m_ObjectHideFlags: 0

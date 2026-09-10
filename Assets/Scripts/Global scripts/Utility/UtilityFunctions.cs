@@ -369,26 +369,26 @@ public static class UtilityFunctions
     {
         direction.Normalize();
         
-        int iterations = 70;
+        var iterations = 70;
         var capsuleUp = centerToTop.normalized;
 
-        Vector3 result = origin;
+        var result = origin;
         //String resultCouse = "Origin";
 
         var binSearchResPoint = Vector3.zero;
         var binSearchResNormal = Vector3.zero;
         
-        float distLeft = 0;
-        float distRight = distance;
+        var distLeft = 0f;
+        var distRight = distance;
         while (distRight - distLeft > distancePrecision)
         {
             var distMid = (distLeft + distRight) / 2;
 
 
-            bool found = false;
+            var found = false;
             //this internal binary search projects the point origin + direction * distMid onto the closest surface touched by capsule
-            float fracLeft = 0f;
-            float fracRight = 1f;
+            var fracLeft = 0f;
+            var fracRight = 1f;
             while (fracRight - fracLeft > fractionPrecision)
             {
                 iterations--;
@@ -419,7 +419,6 @@ public static class UtilityFunctions
 
             if (found)
             {
-                //some capsule touched some surface
                 Vector3 targetPos;
 
                 float dot = Vector3.Dot(binSearchResNormal, capsuleUp);
@@ -443,14 +442,12 @@ public static class UtilityFunctions
                 }
                 else
                 {
-                    //Debug.Log("Distance checking = " + distMid + " === making less");
                     distRight = distMid;
                 }
             }
             else
             {
                 //we are free to move to that position since no capsule touched anything
-                //Debug.Log("Distance checking = " + distMid + " === making more by free to move");
                 //resultCouse = "Free place";
                 result = origin + direction * distMid;
                 distLeft = distMid;

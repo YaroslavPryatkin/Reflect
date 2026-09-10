@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 4456601044010179923}
   - component: {fileID: 5856640608343540017}
   - component: {fileID: 641025009135014547}
-  - component: {fileID: 2251377716860662405}
+  - component: {fileID: 2966622183923063700}
   m_Layer: 5
   m_Name: Image
   m_TagString: Untagged
@@ -35,11 +35,11 @@ RectTransform:
   - {fileID: 6037028142970360489}
   m_Father: {fileID: 8825836827678700756}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.7, y: 0}
-  m_AnchorMax: {x: 0.7, y: 1}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 0, y: -0}
   m_SizeDelta: {x: 0, y: 0}
-  m_Pivot: {x: 0.5, y: 1}
+  m_Pivot: {x: 0, y: 1}
 --- !u!222 &5856640608343540017
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -78,7 +78,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &2251377716860662405
+--- !u!114 &2966622183923063700
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -124,8 +124,8 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 8453563722869339775}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0.2}
-  m_AnchorMax: {x: 1, y: 0.8}
+  m_AnchorMin: {x: 0.1, y: 0.2}
+  m_AnchorMax: {x: 0.9, y: 0.8}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -498,9 +498,11 @@ MonoBehaviour:
   sceneName: 
   enterButton: {fileID: 1794843546926898226}
   resetButton: {fileID: 7095994372424342932}
+  levelOpenCloseFieldImage: {fileID: 641025009135014547}
   levelOpen: {fileID: 8868093588726981134}
   levelClose: {fileID: 5725733613583466965}
   enterButtonText: {fileID: 1060031963407034433}
+  levelFinishedColor: {r: 0.5411765, g: 0.9843137, b: 0.6039216, a: 1}
 --- !u!1 &7508710183290235430
 GameObject:
   m_ObjectHideFlags: 0
@@ -513,6 +515,7 @@ GameObject:
   - component: {fileID: 5577809982010753393}
   - component: {fileID: 2138698718148147045}
   - component: {fileID: 3409051746673591441}
+  - component: {fileID: 8267515502087612060}
   - component: {fileID: 134062410387923148}
   - component: {fileID: 1794843546926898226}
   m_Layer: 5
@@ -539,7 +542,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 70, y: 0}
   m_SizeDelta: {x: -35, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &5577809982010753393
@@ -624,6 +627,24 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &8267515502087612060
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7508710183290235430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3c5a34b4a2c543d4f859a6e7cb56dbf1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ControlWidthAndHeight
+  shouldInvert: 0
+  parentRect: {fileID: 8825836827678700756}
+  fractionsFromParent: {x: 0, y: 1}
+  staticChange: {x: 0, y: 0}
+  crossAddFractions: {x: 1, y: 0}
+  applyFractions: {x: 1, y: 0}
 --- !u!114 &134062410387923148
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -638,10 +659,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ControlWidthAndHeight
   shouldInvert: 0
   parentRect: {fileID: 8825836827678700756}
-  applyFractions: {x: 1, y: 0}
-  fractions: {x: 0.7, y: 1}
+  fractionsFromParent: {x: 0.5, y: 1}
   staticChange: {x: 0, y: 0}
   crossAddFractions: {x: -0.5, y: 0}
+  applyFractions: {x: 1, y: 0}
 --- !u!114 &1794843546926898226
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -791,10 +812,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ControlWidthAndHeight
   shouldInvert: 0
   parentRect: {fileID: 8825836827678700756}
-  applyFractions: {x: 1, y: 0}
-  fractions: {x: 0.3, y: 1}
+  fractionsFromParent: {x: 0.5, y: 1}
   staticChange: {x: 0, y: 0}
   crossAddFractions: {x: -0.5, y: 0}
+  applyFractions: {x: 1, y: 0}
 --- !u!114 &7095994372424342932
 MonoBehaviour:
   m_ObjectHideFlags: 0

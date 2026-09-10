@@ -52,6 +52,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4356497662466135298, guid: a21624c3a45088c4ab9f9ea1675fdb92, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5427693751924296780, guid: a21624c3a45088c4ab9f9ea1675fdb92, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7620910882176133312, guid: a21624c3a45088c4ab9f9ea1675fdb92, type: 3}
       propertyPath: m_Name
       value: Hazard Big Fan Variant

@@ -10,6 +10,7 @@ public class GlobalGameInputManager : SceneLocalSingleton<GlobalGameInputManager
     public event System.Action<Vector2> OnMoveEvent;
     public event System.Action<Vector2> OnLookEvent;
     public event System.Action OnJumpEvent;
+    public event System.Action OnInteractEvent;
     public event System.Action OnTargetLockEvent;
     public event System.Action OnDashPressEvent;
     public event System.Action OnDashReleaseEvent;
@@ -44,7 +45,8 @@ public class GlobalGameInputManager : SceneLocalSingleton<GlobalGameInputManager
 
     public void OnJump(InputAction.CallbackContext context) 
     {
-        if (context.started) OnJumpEvent?.Invoke();
+        if (context.started) 
+            OnJumpEvent?.Invoke();
     }
 
     public void OnDash(InputAction.CallbackContext context)
@@ -116,6 +118,12 @@ public class GlobalGameInputManager : SceneLocalSingleton<GlobalGameInputManager
     {
         if (context.started)
             OnTargetLockEvent?.Invoke();
+    }
+
+    public void OnInteract(InputAction.CallbackContext context)
+    {
+        if (context.started) 
+            OnInteractEvent?.Invoke();
     }
 
     public enum InputMaps

@@ -8,9 +8,6 @@ public class PlayerHealthController : HealthController
     [SerializeField] private float regenerationRate = 20f;
     [SerializeField] private float canNotHealAfterTakingDamageTime = 2f;
     
-    [Header("World interaction")] 
-    [SerializeField] private bool resetArenaOnDeath = true;
-    
     private readonly UtilityTimers.TemporaryValue<bool> _canRegenerate = new(true, false);
     
 
@@ -31,17 +28,9 @@ public class PlayerHealthController : HealthController
     {
         _playerInputController.ClearAllBuffers();
         _playerTargetLockController.UnlockEverything();
-        base.OnDeath();
         GameSavings.IncreaseAmountOfDeaths(gameObject.scene.name);
+        base.OnDeath();
         UIManager.ShowDeath();
-    }
-
-    public void TryResetArena()
-    {
-        if(resetArenaOnDeath)
-        {
-            LevelController.TryResetArena();
-        }
     }
 
     public override void OnArenaReset()
@@ -60,6 +49,7 @@ public class PlayerHealthController : HealthController
     {
         if (LevelController.TryReturnPlayerToSpawnPoint())
         {
+            GameSavings.IncreaseAmountOfDeaths(gameObject.scene.name);
             _rb.linearVelocity = Vector3.zero;
         }
     }

@@ -248,25 +248,27 @@ public class ArenaController : MonoBehaviour
         SetOpenSigns(false);
     }
     
-    public void PlayerEnteredTrigger(bool lastHaveNextArena, ArenaController next)
+    public void PlayerEnteredTrigger(bool lastHaveNextArena, ArenaController next, bool shouldImmediatelyTryFinish)
     {
         ++_amountOfPlayerTriggerEntered;
-
-        if (!IsActive) return;
-        
         _lastTriggerNextArena = next;
         _lastHaveNextArena = lastHaveNextArena;
-        
-        if (finishCondition == ArenaFinishEnum.Trigger)
+
+        if(shouldImmediatelyTryFinish)
+            TryFinishArenaFromTrigger();
+    }
+
+    public void TryFinishArenaFromTrigger()
+    {
+        if (IsActive && (
+                finishCondition == ArenaFinishEnum.Trigger ||
+                (
+                    finishCondition == ArenaFinishEnum.EnemiesAndTrigger && _amountOfAliveEnemies <= 0
+                )
+            )
+           )
         {
-            FinishArena(lastHaveNextArena, next);
-        }
-        else if (finishCondition == ArenaFinishEnum.EnemiesAndTrigger)
-        {
-            if (_amountOfAliveEnemies <= 0)
-            {
-                FinishArena(lastHaveNextArena, next);
-            }
+            FinishArena(_lastHaveNextArena, _lastTriggerNextArena);
         }
     }
 

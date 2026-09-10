@@ -79,56 +79,6 @@ public class EnemyGunController : GunController
         if(interruptTelegraphingWhenStunned)
             _gettingHitController = GetComponent<GettingHitController>();
     }
-
-    // protected override void SetWantedTargetPoint()
-    // {
-    //     if (!autoAim)
-    //     {
-    //         WantedTargetPoint = _enemySensors.PlayerPosition;
-    //         return;
-    //     }
-    //
-    //
-    //     var playerPos = _enemySensors.PlayerPosition;
-    //     var rawVelocity = _enemySensors.PlayerVelocity;
-    //
-    //     var clampedVelocity = Vector3.ClampMagnitude(rawVelocity, playerMaxSpeedToAutoAim);
-    //
-    //     var distanceVector = playerPos - GunPosition;
-    //
-    //     var a = clampedVelocity.sqrMagnitude - _sqrBulletSpeed;
-    //     var b = 2f * Vector3.Dot(distanceVector, clampedVelocity);
-    //     var c = distanceVector.sqrMagnitude;
-    //     var discriminant = b * b - 4f * a * c;
-    //
-    //     if (discriminant < 0f)
-    //     {
-    //         WantedTargetPoint = playerPos;
-    //         return;
-    //     }
-    //
-    //     var sqrtDiscriminant = Mathf.Sqrt(discriminant);
-    //     var t1 = (-b - sqrtDiscriminant) / (2f * a);
-    //     var t2 = (-b + sqrtDiscriminant) / (2f * a);
-    //
-    //     var timeToIntercept = 0f;
-    //
-    //     if (t1 > 0f && t2 > 0f)
-    //         timeToIntercept = Mathf.Min(t1, t2);
-    //     else if (t1 > 0f)
-    //         timeToIntercept = t1;
-    //     else if (t2 > 0f)
-    //         timeToIntercept = t2;
-    //     else
-    //     {
-    //         WantedTargetPoint = playerPos;
-    //         return;
-    //     }
-    //
-    //     WantedTargetPoint = playerPos + (clampedVelocity * timeToIntercept);
-    //     
-    // }
-    
     
     protected override void SetWantedTargetPoint(out Vector3 wantedTargetPoint)
     {
@@ -164,7 +114,7 @@ public class EnemyGunController : GunController
             if (Mathf.Abs(df) < 0.0001f)
                 break;
 
-            t = t - (f / df);
+            t -= f / df;
 
             if (t < 0f)
                 t = 0f;
@@ -189,6 +139,12 @@ public class EnemyGunController : GunController
     protected override bool ShouldInterruptAiming()
     {
         return _interruptAimingCounter>0;
+    }
+
+    public override void BeAbleToShootImmediately()
+    {
+        _fireState.SetForce(FireStateEnum.Non);
+        base.BeAbleToShootImmediately();
     }
 
     protected override void Update()
@@ -222,7 +178,6 @@ public class EnemyGunController : GunController
                 }
                 break;
             case FireStateEnum.Shooting:
-                
                 if (shootInBursts)
                 {
                     _bulletsShotInThisBurst += Shoot();

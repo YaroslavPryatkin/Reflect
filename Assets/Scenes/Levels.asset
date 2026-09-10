@@ -16,6 +16,9 @@ MonoBehaviour:
   - sceneAsset: {fileID: 102900000, guid: 7d0c72527e42169478fafd41cbddbe0b, type: 3}
     sceneName: Level 1
     availableOnStart: 1
+  - sceneAsset: {fileID: 102900000, guid: 6a9c71bf86f0b364e8ef3f58938b5bbe, type: 3}
+    sceneName: Level 2
+    availableOnStart: 1
   - sceneAsset: {fileID: 102900000, guid: 99c9720ab356a0642a771bea13969a05, type: 3}
     sceneName: Test
     availableOnStart: 0

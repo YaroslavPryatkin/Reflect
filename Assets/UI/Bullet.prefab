@@ -90,8 +90,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::InversWidthAndHeight
   shouldInvert: 1
   parentRect: {fileID: 2408842729562720775}
-  fractions: {x: 0.4, y: 1}
+  fractionsFromParent: {x: 0.4, y: 1}
   staticChange: {x: 0, y: 2}
+  crossAddFractions: {x: 0, y: 0}
+  applyFractions: {x: 1, y: 1}
 --- !u!1 &1569820607501452416
 GameObject:
   m_ObjectHideFlags: 0
@@ -214,7 +216,7 @@ MonoBehaviour:
   m_MinValue: 0
   m_MaxValue: 1
   m_WholeNumbers: 0
-  m_Value: 0.24
+  m_Value: 1
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []

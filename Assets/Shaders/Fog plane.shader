@@ -42,13 +42,15 @@ Shader "Custom/FogPlane"
             struct Attributes
             {
                 float4 positionOS : POSITION;
+                float2 uv         : TEXCOORD0;
             };
 
             struct Varyings
             {
                 float4 positionHCS : SV_POSITION;
-                float3 positionWS  : TEXCOORD0;
-                float4 screenPos   : TEXCOORD1;
+                float2 uv          : TEXCOORD0; // UV0(4) -> Swizzle xy
+                float2 scaleXZ     : TEXCOORD1; // Scale(3) -> Swizzle xz
+                float4 screenPos   : TEXCOORD2;
             };
 
             CBUFFER_START(UnityPerMaterial)
@@ -98,14 +100,21 @@ Shader "Custom/FogPlane"
                 
                 VertexPositionInputs vertexInput = GetVertexPositionInputs(IN.positionOS.xyz);
                 OUT.positionHCS = vertexInput.positionCS;
-                OUT.positionWS = vertexInput.positionWS;
                 OUT.screenPos = ComputeScreenPos(vertexInput.positionCS);
+                
+                OUT.uv = IN.uv;
+
+                float scaleX = length(float3(UNITY_MATRIX_M[0].x, UNITY_MATRIX_M[1].x, UNITY_MATRIX_M[2].x));
+                float scaleZ = length(float3(UNITY_MATRIX_M[0].z, UNITY_MATRIX_M[1].z, UNITY_MATRIX_M[2].z));
+                OUT.scaleXZ = float2(scaleX, scaleZ);
                 
                 return OUT;
             }
 
             half4 frag(Varyings IN) : SV_Target
             {
+                float2 scaledUV = IN.scaleXZ * IN.uv;
+                
                 float2 screenUV = IN.screenPos.xy / IN.screenPos.w;
                 
                 #if UNITY_REVERSED_Z
@@ -118,14 +127,12 @@ Shader "Custom/FogPlane"
                 float fragmentLinearDepth = IN.screenPos.w;
                 
                 float rawDepthDiff = sceneLinearDepth - fragmentLinearDepth;
-                
                 float depthAlpha = saturate(rawDepthDiff * _DepthMult + _DepthAdd);
 
-                float3 noiseCoords = float3(IN.positionWS.x * _NoiseScale, IN.positionWS.z * _NoiseScale, _Time.y * _TimeScale);
+                float3 noiseCoords = float3(scaledUV.x * _NoiseScale, scaledUV.y * _NoiseScale, _Time.y * _TimeScale);
                 float rawNoise = fbm(noiseCoords);
                 
                 float noiseAlpha = saturate(rawNoise * _NoiseMult + _NoiseAdd);
-
                 float finalAlpha = noiseAlpha * depthAlpha;
 
                 return half4(_BaseColor.rgb, _BaseColor.a * finalAlpha);

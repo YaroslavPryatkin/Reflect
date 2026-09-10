@@ -33,6 +33,12 @@ public class LevelEnterScrollViewCreator : MonoBehaviour
 
     private void OnValidate()
     {
+        if (Application.isPlaying)
+        {
+            EditorApplication.delayCall -= Rebuild;
+            return;
+        }
+        
         Unsubscribe();
         Subscribe();
         ScheduleRebuild();

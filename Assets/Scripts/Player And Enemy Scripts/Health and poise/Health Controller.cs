@@ -76,7 +76,7 @@ public class HealthController : MonoBehaviour
         IsDead = false;
         
         if(_haveGunController)
-            _gunController.SetBulletsToMaximum();
+            _gunController.BeAbleToShootImmediately();
     }
     
     public void ChangeHealth(float change)

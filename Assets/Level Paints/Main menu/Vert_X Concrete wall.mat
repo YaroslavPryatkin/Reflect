@@ -12,14 +12,15 @@ Material:
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
-  - _NON_FBP_SETTING_VERT_X
+  - _FLAT_SETTING_VERT_X
   - _ROTATION_TYPE_NONE
   - _TYPE_FLAT
   m_InvalidKeywords:
+  - _NON_FBP_SETTING_VERT_X
   - _SWIZZLE_MASK_VERT_XY
   - _TYPE_VERT
   m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
+  m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
   stringTagMap: {}
@@ -132,6 +133,7 @@ Material:
     - _DstBlend: 0
     - _DstBlendAlpha: 0
     - _EnvironmentReflections: 1
+    - _FLAT_SETTING: 1
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0

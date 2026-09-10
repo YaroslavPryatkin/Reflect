@@ -7,31 +7,29 @@ public class HazardDamageTaker : MonoBehaviour
     private class Hazard
     {
         private readonly HazardType _type; 
-        private int _hazardsEntered;
+        private readonly UtilityClasses.MultipleBoolValue _isEntered=new();
         private readonly UtilityTimers.TemporaryValue<bool> _canTakeDamage;
 
         public Hazard(HazardType type)
         {
             _type = type;
-            _hazardsEntered = 1;
+            _isEntered.Set();
             _canTakeDamage = new(true, false);
         }
         
         public void EnterHazard()
         {
-            ++_hazardsEntered;
+            _isEntered.Set();
         }
 
         public void ExitHazard()
         {
-            --_hazardsEntered;
-            if(_hazardsEntered < 0)
-                _hazardsEntered = 0;
+            _isEntered.Unset();
         }
         
         public void Update(HealthController healthController)
         {
-            if (_hazardsEntered > 0)
+            if (_isEntered.Value)
             {
                 if (_canTakeDamage)
                 {
@@ -65,6 +63,7 @@ public class HazardDamageTaker : MonoBehaviour
         {
             _hazards.Add(type, new Hazard(type));
         }
+        UpdateHazards();
         _healthController.OnHazardEntered();
     }
 
@@ -75,14 +74,18 @@ public class HazardDamageTaker : MonoBehaviour
             hazard.ExitHazard();
         }
     }
-    
 
-    
-    protected virtual void Update()
+    private void UpdateHazards()
     {
         foreach (var hazard in _hazards.Values)
         {
             hazard.Update(_healthController);
         }
+    }
+    
+    
+    private void Update()
+    {
+        UpdateHazards();
     }
 }

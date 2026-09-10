@@ -111,7 +111,7 @@ public class UIManager : SceneLocalSingleton<UIManager>
     public void ResetPressedInternal()
     {
         SetState(StateEnum.Active);
-        _playerHealthController.TryResetArena();
+        LevelController.TryResetArena();
     }
 
     public static void ShowDeath() => Instance?.SetState(StateEnum.Death);

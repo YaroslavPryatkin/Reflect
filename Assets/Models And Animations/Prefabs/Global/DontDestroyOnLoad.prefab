@@ -47,6 +47,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8f41b7c78c247cb804d91ffe7463527, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameSettings
+  versionName: V1
 --- !u!114 &5618404924121285515
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -59,6 +60,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 11cc4fcee3fa4acbaffe8e837793818e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameSavings
+  versionName: V1
 --- !u!114 &7780112759263198420
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -84,15 +86,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 288773629244992772, guid: 672e173012b1fc945a35c7de2a9d00f6, type: 3}
       propertyPath: m_fontSize
-      value: 39.95
+      value: 33.45
       objectReference: {fileID: 0}
     - target: {fileID: 600431186218429695, guid: 672e173012b1fc945a35c7de2a9d00f6, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 0.555
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 600431186218429695, guid: 672e173012b1fc945a35c7de2a9d00f6, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1370353310764985991, guid: 672e173012b1fc945a35c7de2a9d00f6, type: 3}
       propertyPath: m_Pivot.x
@@ -176,7 +178,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4936372999474383276, guid: 672e173012b1fc945a35c7de2a9d00f6, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 89.31998
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7553546974786223668, guid: 672e173012b1fc945a35c7de2a9d00f6, type: 3}
       propertyPath: m_Name

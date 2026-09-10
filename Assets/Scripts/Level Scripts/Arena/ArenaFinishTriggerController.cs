@@ -5,6 +5,7 @@ using UnityEngine;
 [DefaultExecutionOrder(-1)]
 public class ArenaFinishTriggerController : MonoBehaviour
 {
+    [SerializeField] private bool pressButtonToActivate = false;
     [SerializeField] private bool finishLevel = false;
     [SerializeField, EnableIf("!finishLevel")] private ArenaController nextArena;
     private ArenaController _arenaController;
@@ -28,20 +29,30 @@ public class ArenaFinishTriggerController : MonoBehaviour
     
     private void OnTriggerEnter(Collider other)
     {
-        if (((1 << other.gameObject.layer) & _targetLayers) == 0) return;
+        if (!_targetLayers.Contains(other)) return;
         
-        _arenaController.PlayerEnteredTrigger(!finishLevel, nextArena);
+        if (_arenaController.IsActive && pressButtonToActivate)
+        {
+            PressETextController.Activate(_arenaController);
+        }
+        
+        _arenaController.PlayerEnteredTrigger(!finishLevel, nextArena, !pressButtonToActivate);
     }
 
     private void OnTriggerExit(Collider other)
     {
-        if (((1 << other.gameObject.layer) & _targetLayers) == 0) return;
+        if (!_targetLayers.Contains(other)) return;
+        
+        if (_arenaController.IsActive && pressButtonToActivate)
+        {
+            PressETextController.Deactivate();
+        }
         
         _arenaController.PlayerExitedTrigger();
     }
 
     private void OnDrawGizmos()
     {
-        transform.DrawColliderGizmo(Color.softYellow);
+        transform.DrawColliderGizmo(Color.softGreen);
     }
 }

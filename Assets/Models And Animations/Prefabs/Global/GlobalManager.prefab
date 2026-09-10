@@ -109,7 +109,19 @@ MonoBehaviour:
     m_ActionId: 6c2ab1b8-8984-453a-af3d-a3c78ae1679a
     m_ActionName: 'Player/Attack[/Mouse/leftButton,/Keyboard/enter]'
   - m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 3719258362030212855}
+        m_TargetAssemblyTypeName: GlobalGameInputManager, Assembly-CSharp
+        m_MethodName: OnInteract
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
     m_ActionId: 852140f2-7766-474d-8707-702459ba45f3
     m_ActionName: 'Player/Interact[/Keyboard/e]'
   - m_PersistentCalls:
@@ -305,8 +317,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a38fe2af07f03274788db6c3a0394129, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GlobalParams
-  baseMouseSensitivityX: 0.8
-  baseMouseSensitivityY: 0.8
+  baseMouseSensitivityX: 0.5
+  baseMouseSensitivityY: 0.5
   baseAimingMouseSensitivity: 0.6
   minCamAngle: -30
   maxCamAngle: 70

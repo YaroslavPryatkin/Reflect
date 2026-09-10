@@ -10,6 +10,10 @@ public class RouteController : MonoBehaviour
     [SerializeField] private float speed = 1f;
     [SerializeField] private float rotationSpeed = 1000f;
 
+    [Header("Additional anchors")] 
+    [SerializeField] private List<Transform> anchorPointsBefore = new();
+    [SerializeField] private List<Transform> anchorPointsAfter = new();
+    
     [Header("Flags")]
     [SerializeField] private bool isLoop;
     [SerializeField] private bool prewarm = true;
@@ -131,12 +135,22 @@ public class RouteController : MonoBehaviour
     private void GatherPoints()
     {
         _points = new();
+        foreach (var point in anchorPointsBefore)
+        {
+            if(point!=null)
+                _points.Add(point);
+        }
         foreach (Transform child in transform)
         {
             if (child != body)
             {
                 _points.Add(child);
             }
+        }
+        foreach (var point in anchorPointsAfter)
+        {
+            if(point!=null)
+                _points.Add(point);
         }
     }
 

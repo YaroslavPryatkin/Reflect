@@ -5032,12 +5032,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BarrelController
   maxDistance: 100
   setMaxDistanceToDistanceToTarget: 0
-  initialSpeed: 30
-  acceleration: 30
-  canBeParried: 0
+  initialSpeed: 60
+  acceleration: 0
+  canBeParried: 1
   destroyAtInpact: 1
   bulletDamage: 20
   bulletPoiseDamage: 20
+  bulletRechargeOnParryFraction: 0
   centerBias: 2
   verticalScale: 0.3
   shootingConeAngle: 0
@@ -14875,10 +14876,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BulletController
   useBoxCast: 0
-  halfBoxSizes: {x: 0, y: 0, z: 0}
+  halfBoxSizes: {x: 0, y: 0}
+  useExplosiveArea: 0
+  radius: 0
   startScale: {x: 0, y: 0, z: 0}
   scaleAtUnitDistance: {x: 0, y: 0, z: 0}
-  boxSizesAtUnitDistance: {x: 0, y: 0, z: 0}
+  boxSizesAtUnitDistance: {x: 0, y: 0}
   hasOffsetHorizontal: 0
   hasOffsetVertical: 0
   speedMultiplier: 0

@@ -3,6 +3,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using FixedMovementStateEnum = PlayerFixedDirectionMovementController.StateEnum;
 
+[DefaultExecutionOrder(10)]
 public class PlayerManager : SceneLocalSingleton<PlayerManager>
 {
     [Header("Speeds")] 

@@ -95,7 +95,7 @@ public abstract class GunController : MonoBehaviour
 
     private void Start()
     {
-        SetBulletsToMaximum();
+        BeAbleToShootImmediately();
     }
 
 
@@ -194,7 +194,7 @@ public abstract class GunController : MonoBehaviour
     {
     }
 
-    public void SetBulletsToMaximum()
+    public virtual void BeAbleToShootImmediately()
     {
         SetBulletsAtLeast(magazineCapacity);
     }
@@ -213,8 +213,6 @@ public abstract class GunController : MonoBehaviour
 
     private void ChangeState()
     {
-
-        
         switch (GunState.Value)
         {
             case BaseActionTransitionsEnum.Base:
@@ -292,9 +290,4 @@ public abstract class GunController : MonoBehaviour
 
         RechargeBullet();
     }
-
-    // private void LateUpdate()
-    // {
-    //     _wantedTargetPointWasSetInThisFrame = false;
-    // }
 }

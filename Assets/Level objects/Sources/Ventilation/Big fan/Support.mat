@@ -12,10 +12,11 @@ Material:
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
-  - _NON_FBP_SETTING_HOR
+  - _FLAT_SETTING_HOR
   - _ROTATION_TYPE_NONE
   - _TYPE_FLAT
-  m_InvalidKeywords: []
+  m_InvalidKeywords:
+  - _NON_FBP_SETTING_HOR
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -131,6 +132,7 @@ Material:
     - _DstBlendAlpha: 0
     - _Emission_Multiplier: 1
     - _EnvironmentReflections: 1
+    - _FLAT_SETTING: 0
     - _GlossMapScale: 1
     - _Glossiness: 0.81117827
     - _GlossyReflections: 1

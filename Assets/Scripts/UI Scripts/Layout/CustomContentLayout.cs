@@ -3,6 +3,7 @@ using UnityEngine;
 
 [ExecuteAlways]
 [RequireComponent(typeof(RectTransform))]
+[DefaultExecutionOrder(-100)]
 public class CustomContentLayout : MonoBehaviour
 {
     [Header("References")]
