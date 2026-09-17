@@ -317,8 +317,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a38fe2af07f03274788db6c3a0394129, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GlobalParams
-  baseMouseSensitivityX: 0.5
-  baseMouseSensitivityY: 0.5
+  baseMouseSensitivityX: 0.1
+  baseMouseSensitivityY: 0.1
   baseAimingMouseSensitivity: 0.6
   minCamAngle: -30
   maxCamAngle: 70

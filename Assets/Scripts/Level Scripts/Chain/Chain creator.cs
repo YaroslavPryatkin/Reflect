@@ -223,11 +223,18 @@ public class ChainCreator : BaseChainCreator
         BakePlanesToPieces(joint, new List<GameObject> { joint }, planes, false, true);
     }
 
+    private static Vector4 GetLocalPlane(Transform localTransform, Vector3 worldPos, Vector3 worldNorm)
+    {
+        if (worldNorm == Vector3.zero) return Vector4.zero; 
+        
+        var localNorm = localTransform.InverseTransformDirection(worldNorm).normalized;
+        var localPos = localTransform.InverseTransformPoint(worldPos);
+
+        return new Vector4(localNorm.x, localNorm.y, localNorm.z, -Vector3.Dot(localNorm, localPos));
+    }
+
     private void BakePlanesToPieces(GameObject targetRoot, List<GameObject> pieces, ClipPlanes planes, bool combine = false, bool usePlaneStart = false, bool usePlaneEnd = false)
     {
-        var pStart = new Vector4(planes.NormStart.x, planes.NormStart.y, planes.NormStart.z, -Vector3.Dot(planes.NormStart, planes.PosStart));
-        var pEnd = new Vector4(planes.NormEnd.x, planes.NormEnd.y, planes.NormEnd.z, -Vector3.Dot(planes.NormEnd, planes.PosEnd));
-
         var mpb = new MaterialPropertyBlock();
         mpb.SetFloat("_UseUV1", usePlaneStart ? 1f : 0f);
         mpb.SetFloat("_UseUV2", usePlaneEnd ? 1f : 0f);
@@ -239,6 +246,9 @@ public class ChainCreator : BaseChainCreator
             var mf = targetRoot.GetComponent<MeshFilter>();
             if (mf && mr && mf.sharedMesh != null)
             {
+                var pStart = GetLocalPlane(targetRoot.transform, planes.PosStart, planes.NormStart);
+                var pEnd = GetLocalPlane(targetRoot.transform, planes.PosEnd, planes.NormEnd);
+
                 ApplyUVs(mf.sharedMesh, pStart, pEnd);
                 mr.SetPropertyBlock(mpb);
             }
@@ -251,6 +261,10 @@ public class ChainCreator : BaseChainCreator
                 {
                     var mr = mf.GetComponent<MeshRenderer>();
                     var uniqueMesh = Instantiate(mf.sharedMesh);
+
+                    var pStart = GetLocalPlane(mf.transform, planes.PosStart, planes.NormStart);
+                    var pEnd = GetLocalPlane(mf.transform, planes.PosEnd, planes.NormEnd);
+
                     ApplyUVs(uniqueMesh, pStart, pEnd);
                     mf.sharedMesh = uniqueMesh;
                     mr.SetPropertyBlock(mpb);
@@ -259,6 +273,10 @@ public class ChainCreator : BaseChainCreator
                 foreach (var smr in piece.GetComponentsInChildren<SkinnedMeshRenderer>())
                 {
                     var uniqueMesh = Instantiate(smr.sharedMesh);
+
+                    Vector4 pStart = GetLocalPlane(smr.transform, planes.PosStart, planes.NormStart);
+                    Vector4 pEnd = GetLocalPlane(smr.transform, planes.PosEnd, planes.NormEnd);
+
                     ApplyUVs(uniqueMesh, pStart, pEnd);
                     smr.sharedMesh = uniqueMesh;
                     smr.SetPropertyBlock(mpb);

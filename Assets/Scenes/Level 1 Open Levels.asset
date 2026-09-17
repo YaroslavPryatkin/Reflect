@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: Level 1 Open Levels
   m_EditorClassIdentifier: Assembly-CSharp::MakeLevelAvailableHolder
   levels:
-  - {fileID: 102900000, guid: 99c9720ab356a0642a771bea13969a05, type: 3}
+  - {fileID: 102900000, guid: 6a9c71bf86f0b364e8ef3f58938b5bbe, type: 3}
   levelNames:
-  - Test
+  - Level 2

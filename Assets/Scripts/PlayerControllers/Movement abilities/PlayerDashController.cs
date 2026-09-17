@@ -30,7 +30,7 @@ public class PlayerDashController : SceneLocalSingleton<PlayerDashController>
     
     private readonly UtilityTimers.FractionBlockingValueTimer<bool> _isDashing = new(false);
 
-    private readonly UtilityClasses.MultipleBoolValue _isDashBlocked = new();
+    private readonly UtilityClasses.BoolCounter _isDashBlocked = new();
 
     public bool IsDashBlocked => _isDashBlocked.Value;
 

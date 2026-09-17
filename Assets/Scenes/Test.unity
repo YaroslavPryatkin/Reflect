@@ -1891,11 +1891,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4650079716139603829, guid: 92645ee1f21db0b4eb42019c5a9614bc, type: 3}
   m_PrefabInstance: {fileID: 327359382}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &330585543 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 237469479991687672, guid: 5e944cf3f9591a946afbd0006c2bf709, type: 3}
-  m_PrefabInstance: {fileID: 1150657961857717801}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &332424723
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7926,11 +7921,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2921220190069234359, guid: 3f8059d0013e19d4682e53d5aa88f2c1, type: 3}
   m_PrefabInstance: {fileID: 318598300}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &24976994098707607 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 3953055859089380698, guid: d6c4e695f2a547a4a9d2e803d8df6000, type: 3}
-  m_PrefabInstance: {fileID: 2562315249476279509}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &508677741462076973
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -8594,22 +8584,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 44710465316960500, guid: 7bcf4d4c4b0f27941b6368f3453a8254, type: 3}
-      propertyPath: playerCameraObject
-      value: 
-      objectReference: {fileID: 330585543}
-    - target: {fileID: 576213456444492603, guid: 7bcf4d4c4b0f27941b6368f3453a8254, type: 3}
-      propertyPath: player
-      value: 
-      objectReference: {fileID: 24976994098707607}
     - target: {fileID: 2217797692381907356, guid: 7bcf4d4c4b0f27941b6368f3453a8254, type: 3}
       propertyPath: m_Name
       value: GlobalManager
       objectReference: {fileID: 0}
-    - target: {fileID: 5116667442691283128, guid: 7bcf4d4c4b0f27941b6368f3453a8254, type: 3}
-      propertyPath: playerGunController
-      value: 
-      objectReference: {fileID: 4695249722147296088}
     - target: {fileID: 5937439693030672398, guid: 7bcf4d4c4b0f27941b6368f3453a8254, type: 3}
       propertyPath: m_LocalPosition.x
       value: 10
@@ -8655,17 +8633,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 7bcf4d4c4b0f27941b6368f3453a8254, type: 3}
---- !u!114 &4695249722147296088 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 469719277049714260, guid: d6c4e695f2a547a4a9d2e803d8df6000, type: 3}
-  m_PrefabInstance: {fileID: 2562315249476279509}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 24976994098707607}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 33ba68eea865f4448b590b1e118424d1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerGunController
 --- !u!4 &5114692765765264659 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5222052667471964117, guid: d6c4e695f2a547a4a9d2e803d8df6000, type: 3}

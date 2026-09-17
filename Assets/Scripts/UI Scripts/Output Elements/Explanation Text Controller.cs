@@ -4,11 +4,11 @@ using TMPro;
 public class ExplanationTextController : SceneLocalSingleton<ExplanationTextController>
 {
     [SerializeField] private TextMeshProUGUI textMesh;
-
-    private readonly UtilityClasses.MultipleBoolValue _isActive = new();
-    private readonly UtilityClasses.MultipleBoolValue _isHidden = new();
     
-    private void Awake()
+    private UtilityStructures.BoolCounter _isActive;
+    private UtilityStructures.BoolCounter _isHidden;
+    
+    private void Start()
     {
         gameObject.SetActive(false);
     }
@@ -31,13 +31,13 @@ public class ExplanationTextController : SceneLocalSingleton<ExplanationTextCont
         Instance?.ChangeSetActive();
     }
     
-    public static void HideText()
+    public static void Hide()
     {
         Instance._isHidden.Set();
         Instance.ChangeSetActive();
     }
 
-    public static void StopHidingText()
+    public static void StopHiding()
     {
         Instance._isHidden.Unset();
         Instance.ChangeSetActive();

@@ -160,8 +160,11 @@ public class GlobalGameInputManager : SceneLocalSingleton<GlobalGameInputManager
             InputMaps.Game => gameInputMapName,
             _ => uiInputMapName
         };
-        PlayerInput.currentActionMap.Disable();
-        PlayerInput.SwitchCurrentActionMap(mapName);
-        PlayerInput.currentActionMap.Enable();
+        if (PlayerInput.inputIsActive)
+        {
+            PlayerInput.currentActionMap.Disable();
+            PlayerInput.SwitchCurrentActionMap(mapName);
+            PlayerInput.currentActionMap.Enable();
+        }
     }
 }

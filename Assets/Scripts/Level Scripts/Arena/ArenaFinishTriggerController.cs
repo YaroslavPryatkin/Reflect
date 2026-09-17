@@ -31,24 +31,14 @@ public class ArenaFinishTriggerController : MonoBehaviour
     {
         if (!_targetLayers.Contains(other)) return;
         
-        if (_arenaController.IsActive && pressButtonToActivate)
-        {
-            PressETextController.Activate(_arenaController);
-        }
-        
-        _arenaController.PlayerEnteredTrigger(!finishLevel, nextArena, !pressButtonToActivate);
+        _arenaController.PlayerEnteredTrigger(!finishLevel, nextArena, pressButtonToActivate);
     }
 
     private void OnTriggerExit(Collider other)
     {
         if (!_targetLayers.Contains(other)) return;
         
-        if (_arenaController.IsActive && pressButtonToActivate)
-        {
-            PressETextController.Deactivate();
-        }
-        
-        _arenaController.PlayerExitedTrigger();
+        _arenaController.PlayerExitedTrigger(pressButtonToActivate);
     }
 
     private void OnDrawGizmos()

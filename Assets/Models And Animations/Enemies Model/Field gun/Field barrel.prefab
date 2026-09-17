@@ -4942,7 +4942,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5fd84addf44b0694e81e5bfcfd314ebe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BarrelController
-  maxDistance: 25
+  maxDistance: 22
   setMaxDistanceToDistanceToTarget: 0
   initialSpeed: 20
   acceleration: -5
@@ -4950,6 +4950,7 @@ MonoBehaviour:
   destroyAtInpact: 0
   bulletDamage: 70
   bulletPoiseDamage: 20
+  bulletRechargeOnParryFraction: 0
   centerBias: 2
   verticalScale: 0.3
   shootingConeAngle: 0

@@ -358,31 +358,73 @@ public static class UtilityClasses
         }
     }
     
-    public class MultipleBoolValue
+    public class BoolCounter
     {
-        private int _setCounter = 0;
+        private int _counter = 0;
         
-        public bool Value => _setCounter > 0;
-        public int Count => _setCounter;
+        public bool Value => _counter > 0;
+        public int Count => _counter;
         
         public void Set()
         {
-            ++_setCounter;
+            ++_counter;
         }
 
         public void Unset()
         {
-            --_setCounter;
-            if (_setCounter < 0)
+            --_counter;
+            if (_counter < 0)
             {
-                _setCounter = 0;
-                Debug.LogError("[MultipleBoolValue] Set counter went below zero. Check your set-unset operations.");
+                _counter = 0;
+                Debug.LogError("[BoolCounter] Counter went below zero. Check your set-unset operations.");
             }
         }
         
-        public static implicit operator bool(MultipleBoolValue holder)
+        public static implicit operator bool(BoolCounter holder)
         {
-            return holder.Value;
+            return holder != null && holder.Value;
+        }
+        
+        public static implicit operator BoolCounter(int count)
+        {
+            if (count < 0)
+            {
+                Debug.LogError("[BoolCounter] Initial count cannot be negative. Setting to 0.");
+                count = 0;
+            }
+            
+            return new  BoolCounter { _counter = count };
+        }
+    }
+
+    public class ToggleableState
+    {
+        public bool IsActive { get; private set; }= false;
+        private readonly Action _onActivate;
+        private readonly Action _onDeactivate;
+
+        public ToggleableState(Action onActivate, Action onDeactivate)
+        {
+            _onActivate = onActivate;
+            _onDeactivate = onDeactivate;
+        }
+
+        public void Activate()
+        {
+            if (!IsActive)
+            {
+                IsActive = true;
+                _onActivate?.Invoke();
+            }
+        }
+
+        public void Deactivate()
+        {
+            if (IsActive)
+            {
+                IsActive = false;
+                _onDeactivate?.Invoke();
+            }
         }
     }
 }

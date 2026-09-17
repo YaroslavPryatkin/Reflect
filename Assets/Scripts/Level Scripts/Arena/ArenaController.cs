@@ -27,7 +27,7 @@ public class ArenaController : MonoBehaviour
     public bool IsActive { get; private set; } = false;
     public bool CanRegenerate => canRegenerate;
     public bool IsArenaWithEnemies => finishCondition != ArenaFinishEnum.Trigger;
-    public bool IsStillHaveEnemies => IsArenaWithEnemies && _amountOfAliveEnemies > 0;
+    public bool IsStillHaveEnemies => IsArenaWithEnemies && _aliveEnemies.Value;
     
     
     private Transform _playerSpawnPoint;
@@ -39,13 +39,20 @@ public class ArenaController : MonoBehaviour
     private PlayerManager _playerManager;
     
     
-    private int _amountOfAliveEnemies=0;
-    private int _amountOfPlayerTriggerEntered = 0;
+    private UtilityStructures.BoolCounter _aliveEnemies;
+    private UtilityStructures.BoolCounter _triggerEntered;
+    private UtilityStructures.BoolCounter _buttonTriggerEntered;
     private ArenaController _lastTriggerNextArena;
     private bool _lastHaveNextArena = false;
 
+    private UtilityStructures.ToggleableState _pressETextActivator;
+    private UtilityStructures.ToggleableState _pressETextHider = new(PressETextController.Hide, PressETextController.StopHiding);
+    
+
     private void Awake()
     {
+        _pressETextActivator = new (()=>PressETextController.Activate(this), PressETextController.Deactivate);
+        
         GatherEnemies();
         
         var foundSpawnPoint = false;
@@ -114,7 +121,26 @@ public class ArenaController : MonoBehaviour
             _enemiesHealth.Add(child);
             _enemyAis.Add(child.GetComponent<EnemyAI>());
         }
-        _amountOfAliveEnemies = _enemiesHealth.Count;
+        _aliveEnemies = _enemiesHealth.Count;
+    }
+    
+    private void RestartRoutes()
+    {
+        foreach (var route in routesToRestart)
+        {
+            route.Restart();
+        }
+    }
+    
+    public void ReturnPlayerToSpawnPoint()
+    {
+        PlayerManager.Player.transform.position = _playerSpawnPoint.position;
+        PlayerManager.Player.transform.rotation = _playerSpawnPoint.rotation;
+        Physics.SyncTransforms();
+        var newYaw = Vector3.SignedAngle(Vector3.forward, _playerSpawnPoint.forward, Vector3.up);
+        GlobalLookDirectionManager.SetNewYaw(newYaw);
+        _playerManager.ResetEverythingForTeleport();
+        RestartRoutes();
     }
 
     public void ActivateArena()
@@ -128,6 +154,7 @@ public class ArenaController : MonoBehaviour
                 SetActiveSigns(true);
             }
         }
+        
         foreach (var enemyAi in _enemyAis)
         {
             enemyAi.Activate();
@@ -135,6 +162,11 @@ public class ArenaController : MonoBehaviour
         foreach (var door in doorsToOpenOnFinish)
         {
             door.SetOpen(false);
+        }
+
+        if (_aliveEnemies.Value)
+        {
+            _pressETextHider.Activate();
         }
     }
 
@@ -149,6 +181,7 @@ public class ArenaController : MonoBehaviour
                 SetActiveSigns(false);
             }
         }
+        
         foreach (var enemyAi in _enemyAis)
         {
             enemyAi.Deactivate();
@@ -158,6 +191,9 @@ public class ArenaController : MonoBehaviour
         {
             door.SetOpen(true);
         }
+        
+        _pressETextActivator.Deactivate();
+        _pressETextHider.Deactivate();
     }
 
     public void SetArenaFinishedOnStart()
@@ -165,6 +201,7 @@ public class ArenaController : MonoBehaviour
         IsActive = false;
 
         SetOpenSigns(true);
+        _pressETextHider.Deactivate();
         
         if (setActiveFalseWhenArenaNotActive)
         {
@@ -196,74 +233,79 @@ public class ArenaController : MonoBehaviour
         _playerHealth.OnArenaReset();
         ReturnPlayerToSpawnPoint();
     }
-
-    private void RestartRoutes()
+    
+    public void EnemyRevived()
     {
-        foreach (var route in routesToRestart)
-        {
-            route.Restart();
-        }
-    }
-
-    public void ReturnPlayerToSpawnPoint()
-    {
-        PlayerManager.Player.transform.position = _playerSpawnPoint.position;
-        PlayerManager.Player.transform.rotation = _playerSpawnPoint.rotation;
-        Physics.SyncTransforms();
-        var newYaw = Vector3.SignedAngle(Vector3.forward, _playerSpawnPoint.forward, Vector3.up);
-        GlobalLookDirectionManager.SetNewYaw(newYaw);
-        _playerManager.ResetEverythingForTeleport();
-        RestartRoutes();
+        _aliveEnemies.Set();
+        SetOpenSigns(false);
+        
+        if(IsActive)
+            _pressETextHider.Activate();
     }
 
     public void EnemyDied()
     {
-        --_amountOfAliveEnemies;
-        
+        _aliveEnemies.Unset();
         
         if (!IsActive) return;
         
-        if (_amountOfAliveEnemies <= 0)
+        if (!_aliveEnemies.Value)
         {
             if (finishCondition == ArenaFinishEnum.Enemies)
             {
                 FinishArena(true, nextArena);
             }
-            else if (finishCondition == ArenaFinishEnum.EnemiesAndTrigger)
+            else if (finishCondition == ArenaFinishEnum.EnemiesAndTrigger && 
+                     _triggerEntered.Value &&
+                     !_buttonTriggerEntered.Value)
             {
-                if (_amountOfPlayerTriggerEntered > 0)
-                {
-                    FinishArena(_lastHaveNextArena, _lastTriggerNextArena);
-                }
+                FinishArena(_lastHaveNextArena, _lastTriggerNextArena);
             }
-            _amountOfAliveEnemies = 0;
             
+            _pressETextHider.Deactivate();
             SetOpenSigns(true);
         }
     }
     
-    public void EnemyRevived()
+    public void PlayerEnteredTrigger(bool lastHaveNextArena, ArenaController next, bool finishOnButtonPress)
     {
-        ++_amountOfAliveEnemies;
-        SetOpenSigns(false);
-    }
-    
-    public void PlayerEnteredTrigger(bool lastHaveNextArena, ArenaController next, bool shouldImmediatelyTryFinish)
-    {
-        ++_amountOfPlayerTriggerEntered;
+        _triggerEntered.Set();
         _lastTriggerNextArena = next;
         _lastHaveNextArena = lastHaveNextArena;
 
-        if(shouldImmediatelyTryFinish)
+        if (finishOnButtonPress)
+        {
+            _buttonTriggerEntered.Set();
+            
+            if(IsActive)
+                _pressETextActivator.Activate();
+        }
+        else
+        {
             TryFinishArenaFromTrigger();
+        }
     }
-
+    
+    public void PlayerExitedTrigger(bool finishOnButtonPress)
+    {
+        _triggerEntered.Unset();
+        
+        if (finishOnButtonPress)
+        {
+            _buttonTriggerEntered.Unset();
+            if (!_buttonTriggerEntered.Value)
+            {
+                _pressETextActivator.Deactivate();
+            }
+        }
+    }
+    
     public void TryFinishArenaFromTrigger()
     {
         if (IsActive && (
                 finishCondition == ArenaFinishEnum.Trigger ||
                 (
-                    finishCondition == ArenaFinishEnum.EnemiesAndTrigger && _amountOfAliveEnemies <= 0
+                    finishCondition == ArenaFinishEnum.EnemiesAndTrigger && !_aliveEnemies.Value
                 )
             )
            )
@@ -272,15 +314,9 @@ public class ArenaController : MonoBehaviour
         }
     }
 
-    public void PlayerExitedTrigger()
-    {
-        --_amountOfPlayerTriggerEntered;
-        if (_amountOfPlayerTriggerEntered <= 0)
-            _amountOfPlayerTriggerEntered = 0;
-    }
-
     private void FinishArena(bool lastHaveNextArena, ArenaController next)
     {
+        _pressETextActivator.Deactivate();
         if (lastHaveNextArena && !ReferenceEquals(next, null))
             LevelController.ChangeArena(next);
         else

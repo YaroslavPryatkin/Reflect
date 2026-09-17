@@ -5972,18 +5972,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 212a93a82a46f9f488c82932d0b3d329, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAI
-  shootingDistance: 50
-  preferredDistanceMax: 35
-  preferredDistanceMin: 13
+  shootingDistance: 100
+  preferredDistanceMax: 40
+  preferredDistanceMin: 15
   wanderingDistance: 25
-  retreatDistance: 7
+  retreatDistance: 5
   traversalSpeed: 7
   wanderingSpeed: 4
   shootingMovingSpeed: 4
   retreatSpeed: 9
   shootingRetreatSpeed: 4.5
   orbitingSpeed: 3
-  shouldInterruptActiveShootingByMovement: 1
+  shouldInterruptActiveShootingByMovement: 0
   shootWhileMoving: 0
   shootAngleIncreaseWhileMoving: 5
   shootingSpeedThreshold: 0.6

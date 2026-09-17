@@ -7,7 +7,7 @@ public class HazardDamageTaker : MonoBehaviour
     private class Hazard
     {
         private readonly HazardType _type; 
-        private readonly UtilityClasses.MultipleBoolValue _isEntered=new();
+        private readonly UtilityClasses.BoolCounter _isEntered=new();
         private readonly UtilityTimers.TemporaryValue<bool> _canTakeDamage;
 
         public Hazard(HazardType type)
