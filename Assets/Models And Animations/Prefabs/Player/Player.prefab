@@ -10326,7 +10326,8 @@ MonoBehaviour:
   targetLockSideShift: 0.5
   targetLockUpShift: 0.3
   targetLockSmoothTime: 0.1
-  minVelocityDotToChangeSide: 0.3
+  minVelocityDotToChangeSide: 0.4
+  minSpeedToChangeSide: 1
   finishHimCameraDistance: 1.7
   finishHimSideShift: 0.7
   finishHimUpShift: 0.1

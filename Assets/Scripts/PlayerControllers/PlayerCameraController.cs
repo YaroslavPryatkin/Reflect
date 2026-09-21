@@ -15,6 +15,7 @@ public class PlayerCameraController : MonoBehaviour
     [SerializeField] private float targetLockUpShift = 0.3f;
     [SerializeField] private float targetLockSmoothTime = 0.1f;
     [SerializeField] private float minVelocityDotToChangeSide = 0.3f;
+    [SerializeField] private float minSpeedToChangeSide = 1f;
     [Header("Finish him")]
     [SerializeField] private float finishHimCameraDistance = 1.5f;
     [SerializeField] private float finishHimSideShift = 0.8f;
@@ -140,11 +141,10 @@ public class PlayerCameraController : MonoBehaviour
 
     private void SetTargetLockState(float sideShift, bool canChangeSign, out float wantedSideShift)
     {
-        var velocity = _playerSensors.NormalizedHorizontalVelocity;
-        if (canChangeSign)
+        if (canChangeSign && _playerSensors.HorizontalSpeed > minSpeedToChangeSide)
         {
             var dir = _playerTargetLockController.NormalizedHorizontalDirectionToLockedTarget;
-            var dot = Vector3.Dot(velocity, Vector3.Cross(dir, Vector3.up));
+            var dot = Vector3.Dot(_playerSensors.NormalizedHorizontalVelocity, Vector3.Cross(dir, Vector3.up));
             if (Mathf.Abs(dot) > minVelocityDotToChangeSide)
                 _lastTargetLockSideShiftSign = Mathf.Sign(dot);
         }

@@ -46,18 +46,19 @@ public class RebindUIButtonController : GenericButtonController
             if (map != null) _action = map.FindAction(actionName); 
         }
 
-        UpdateUI();
         _initialized = true;
+        UpdateUI();
     }
 
     private void OnEnable()
     {
-        if(_initialized)
-            UpdateUI();
+        UpdateUI();
+        GameSettings.OnBindingsReset += UpdateUI;
     }
 
     private void OnDisable()
     {
+        GameSettings.OnBindingsReset -= UpdateUI;
         _rebindingOperation?.Dispose();
     }
 
@@ -98,10 +99,24 @@ public class RebindUIButtonController : GenericButtonController
 
     private void UpdateUI()
     {
-        if (_action == null) return;
-        var displayString = _action.GetBindingDisplayString(bindIndex, InputBinding.DisplayStringOptions.DontIncludeInteractions);
+        if (!_initialized || _action == null) return;
+        
+        var displayString = GetEnglishBindingDisplayString(_action,bindIndex);
         
 
         buttonText.text = string.IsNullOrEmpty(displayString) ? EmptyBindingText : displayString;
+    }
+    
+    private static string GetEnglishBindingDisplayString(InputAction action, int bindingIndex)
+    {
+        if (bindingIndex < 0 || bindingIndex >= action.bindings.Count)
+            return string.Empty;
+
+        string path = action.bindings[bindingIndex].effectivePath;
+
+        return InputControlPath.ToHumanReadableString(
+            path, 
+            InputControlPath.HumanReadableStringOptions.OmitDevice
+        );
     }
 }

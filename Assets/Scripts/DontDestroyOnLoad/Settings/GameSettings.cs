@@ -17,8 +17,9 @@ public class GameSettings : MonoBehaviour
     private string _bindingSavePath;
     
     public static void SaveBindings()=> _instance.SaveBindingOverridesInternal();
-    public static void LoadBindings() => _instance.LoadBindingOverridesInternal();
     public static void ResetBindings() => _instance.ResetBindingOverridesInternal();
+    public static Action OnBindingsReset;
+    
     
     private void Awake()
     {
@@ -81,5 +82,6 @@ public class GameSettings : MonoBehaviour
     {
         if (inputAsset == null) return;
         inputAsset.RemoveAllBindingOverrides();
+        OnBindingsReset?.Invoke();
     }
 }
