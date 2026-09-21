@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Events;
 
-public abstract class GenericButtonController :MonoBehaviour, ISceneLifecycleDependant
+public abstract class GenericButtonController : MonoBehaviour, ISceneLifecycleDependant
 {
     private Button _button;
 
@@ -11,8 +11,14 @@ public abstract class GenericButtonController :MonoBehaviour, ISceneLifecycleDep
 
     public void OnSceneLoad()
     {
-        _button = GetComponent<Button>();
-        _button.onClick.AddListener(FunctionToCall);
+        if (TryGetComponent(out _button))
+        {
+            _button.onClick.AddListener(FunctionToCall);
+        }
+        else
+        {
+            Debug.LogError("No button component found");
+        }
     }
     
     public void OnSceneUnload()

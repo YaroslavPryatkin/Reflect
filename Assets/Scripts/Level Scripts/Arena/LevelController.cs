@@ -21,7 +21,9 @@ public class LevelController :  SceneLocalSingleton<LevelController>
     public static void ResetLevel() => Instance.ResetLevelInternal();
 
     public static void TryResetArena() => Instance.TryResetArenaInternal();
-    public static bool TryReturnPlayerToSpawnPoint() => Instance.TryReturnPlayerToSpawnPointInternal();
+    
+    public static void TrySkipArena() => Instance.TrySkipArenaInternal();
+    public static void TryReturnPlayerToSpawnPoint(bool isDeath) => Instance.TryReturnPlayerToSpawnPointInternal(isDeath);
     
     private void Awake()
     {
@@ -98,6 +100,7 @@ public class LevelController :  SceneLocalSingleton<LevelController>
 
     private void ChangeArenaInternal(ArenaController arenaController)
     {
+        
         if (_haveCurrentArena)
         {
             _currentArena.DeactivateArena();
@@ -159,14 +162,22 @@ public class LevelController :  SceneLocalSingleton<LevelController>
             _currentArena.ResetArena();
         }
     }
+    
+    private void TrySkipArenaInternal()
+    {
+        if (_haveCurrentArena)
+        {
+            _currentArena.SkipArena();
+        }
+    }
 
-    private bool TryReturnPlayerToSpawnPointInternal()
+    private void TryReturnPlayerToSpawnPointInternal(bool isDeath)
     {
         if (_haveCurrentArena && !_currentArena.IsArenaWithEnemies)
         {
             _currentArena.ReturnPlayerToSpawnPoint();
-            return true;
+            if(isDeath)
+                GameSavings.IncreaseAmountOfDeaths(gameObject.scene.name);
         }
-        return false;
     }
 }

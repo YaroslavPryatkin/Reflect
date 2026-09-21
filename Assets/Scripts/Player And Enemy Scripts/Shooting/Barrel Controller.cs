@@ -18,6 +18,9 @@ public class BarrelController : MonoBehaviour
     [SerializeField] private float bulletDamage = 40f;
     [SerializeField] private float bulletPoiseDamage = 40f;
     [SerializeField] private float bulletRechargeOnParryFraction = 0f;
+    [Header("Noob mod: damage multiplier")]
+    [SerializeField] private BoolSettingValue settingValue;
+    [SerializeField] private float noobMultiplier = 2f;
     
     [Header("Spread")]
     [SerializeField] [Range(1f, 5f)] 
@@ -120,10 +123,14 @@ public class BarrelController : MonoBehaviour
     private int _targetLayerMask;
 
     private Transform _root;
-    
+
+    private bool _haveNoobMod = false;
+    private float BulletDamage => _haveNoobMod && settingValue.value ? bulletDamage * noobMultiplier : bulletDamage;
     
     public void AwakeBarrel(int magazineCapacity, int destructionLayerMask, int targetLayerMask)
     {
+        _haveNoobMod = settingValue != null;
+        
         _destructionLayerMask = destructionLayerMask;
         _targetLayerMask = targetLayerMask;
 
@@ -224,7 +231,7 @@ public class BarrelController : MonoBehaviour
                 var bullet = pool.Get();
                 bullet.Initialize(
                     this, _destructionLayerMask, _targetLayerMask,
-                    bulletDamage, bulletPoiseDamage, bulletRechargeOnParryFraction,
+                    BulletDamage, bulletPoiseDamage, bulletRechargeOnParryFraction,
                     dist,initialSpeed,acceleration, 
                     baskTarget, alreadyHitTargets);
             }

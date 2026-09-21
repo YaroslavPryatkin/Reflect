@@ -8,141 +8,78 @@ using System;
 public class GameSettings : MonoBehaviour
 {
     [SerializeField] private string versionName = "V";
+    [SerializeReference] private List<SettingsHolder> settingHolders=new();
+    [SerializeField] private InputActionAsset inputAsset;
+    
     private static GameSettings  _instance;
+    private readonly List<SettingsHolder> _goodHolders = new();
 
-    private readonly Dictionary<string, ISaveValue> _values = new();
-
-    private string _savePath;
+    private string _bindingSavePath;
+    
+    public static void SaveBindings()=> _instance.SaveBindingOverridesInternal();
+    public static void LoadBindings() => _instance.LoadBindingOverridesInternal();
+    public static void ResetBindings() => _instance.ResetBindingOverridesInternal();
     
     private void Awake()
     {
         if (_instance == null) { _instance = this; DontDestroyOnLoad(gameObject); }
         else { Destroy(gameObject); return; }
 
-        _savePath = ISaveValue.GetSavePath(versionName+"_ControlSettings.yaml");
-        
-        LoadValuesInternal();
-    }
-
-    public static T Get<T>(string key) where T : class, ISaveValue
-    {
-        if (_instance == null)
+        if (inputAsset == null)
         {
-            Debug.LogError("[Settings] No instance found!");
-            return null;
+            Debug.LogError("InputActionAsset is null");
+            return;
         }
-
-        if (_instance._values.TryGetValue(key, out var value))
-        {
-            return value as T;
-        }
-        return null;
-    }
-    
-    public static void SetValue(string key, ISaveValue value)
-    {
-        if (_instance == null) return;
-        _instance._values[key] = value;
-    }
-
-    public static void LoadValues()
-    {
-        _instance?.LoadValuesInternal();
-        if(GlobalGameInputManager.Instance!=null)
-            ApplyAllBindings(GlobalGameInputManager.Instance.PlayerInput);
-    }
-
-    public static void ResetToBaseSettings()
-    {
-        _instance?.ResetToBaseSettingsInternal();
-        if(GlobalGameInputManager.Instance!=null)
-            ApplyAllBindings(GlobalGameInputManager.Instance.PlayerInput);
-    }
-
-    public static void SaveSettings() => _instance?.SaveInternal();
-
-    public static void ApplyAllBindings(PlayerInput playerInput) => _instance?.ApplyAllBindingsInternal(playerInput);
-    
-    private void SaveInternal()
-    {
-        using var writer = new StreamWriter(_savePath);
-        foreach (var kvp in _values)
-        {
-            writer.WriteLine($"{kvp.Key}: {kvp.Value.GetType().Name}|{kvp.Value.Get()}");
-        }
-    }
-
-    private void ResetToBaseSettingsInternal()
-    {
-        _values.Clear();
-        _values.Add("mouseSensX", new FloatSettingsValue(1f));
-        _values.Add("mouseSensY", new FloatSettingsValue(1f));
-        _values.Add("mouseSensAim", new FloatSettingsValue(1f));
-    }
-    
-    private void LoadValuesInternal()
-    {
-        _values.Clear();
-        _values.Add("mouseSensX", new FloatSettingsValue(1f));
-        _values.Add("mouseSensY", new FloatSettingsValue(1f));
-        _values.Add("mouseSensAim", new FloatSettingsValue(1f));
         
+        _bindingSavePath = ISaveValue.GetSavePath(versionName + "_Bindings.json");
         
-        if (!File.Exists(_savePath)) return;
-
-        string[] lines = File.ReadAllLines(_savePath);
-        foreach (var line in lines)
+        var usedHolderNames = new HashSet<string>();
+        
+        foreach (var holder in settingHolders)
         {
-            var split = line.Split(new[] { ": " }, 2, System.StringSplitOptions.RemoveEmptyEntries);
-            if (split.Length != 2) continue;
-
-            string key = split[0];
-            string rawData = split[1];
-
-            var typeAndData = rawData.Split(new[] { '|' }, 2);
-            if (typeAndData.Length != 2) continue;
-
-            string typeName = typeAndData[0];
-            string data = typeAndData[1];
-
-            ISaveValue setting = CreateSettingInstance(typeName);
-            if (setting != null)
+            var holderName = holder.Initialize(versionName);
+            if (usedHolderNames.Add(holderName))
             {
-                setting.Set(data);
-                _values[key] = setting;
+                _goodHolders.Add(holder);
+            }
+            else
+            {
+                Debug.LogError($"Duplicate settings holder name: {holderName}");
             }
         }
-    }
-    
-    
-    
-    private ISaveValue CreateSettingInstance(string typeName)
-    {
-        return typeName switch
+
+        foreach (var holder in _goodHolders)
         {
-            nameof(FloatSettingsValue) => new FloatSettingsValue(1f),
-            nameof(BindSettingsValue) => new BindSettingsValue(),
-            _ => null
-        };
-    }
-
-    private void ApplyAllBindingsInternal(PlayerInput playerInput)
-    {
-        if (playerInput == null) return;
-
-        playerInput.actions.RemoveAllBindingOverrides();
-        foreach (var kvp in _values)
-        {
-            if (kvp.Value is BindSettingsValue bindValue)
-            {
-                if (string.IsNullOrEmpty(bindValue.OverridePath)) continue;
-
-                var action = playerInput.actions.FindAction(bindValue.ActionName);
-                if (action != null)
-                {
-                    action.ApplyBindingOverride(bindValue.BindingIndex, bindValue.OverridePath);
-                }
-            }
+            holder.Load();
         }
+
+        LoadBindingOverridesInternal();
+    }
+    
+    private void SaveBindingOverridesInternal()
+    {
+        if (inputAsset == null || string.IsNullOrEmpty(_bindingSavePath)) return;
+
+        var overridesJson = inputAsset.SaveBindingOverridesAsJson();
+        
+        File.WriteAllText(_bindingSavePath, overridesJson);
+    }
+
+
+    private void LoadBindingOverridesInternal()
+    {
+        if (inputAsset == null || string.IsNullOrEmpty(_bindingSavePath)) return;
+
+        if (File.Exists(_bindingSavePath))
+        {
+            var overridesJson = File.ReadAllText(_bindingSavePath);
+            inputAsset.LoadBindingOverridesFromJson(overridesJson);
+        }
+    }
+    
+    private void ResetBindingOverridesInternal()
+    {
+        if (inputAsset == null) return;
+        inputAsset.RemoveAllBindingOverrides();
     }
 }

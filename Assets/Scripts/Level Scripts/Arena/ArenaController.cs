@@ -157,8 +157,10 @@ public class ArenaController : MonoBehaviour
         
         foreach (var enemyAi in _enemyAis)
         {
+            enemyAi.gameObject.SetActive(true);
             enemyAi.Activate();
         }
+        
         foreach (var door in doorsToOpenOnFinish)
         {
             door.SetOpen(false);
@@ -201,7 +203,6 @@ public class ArenaController : MonoBehaviour
         IsActive = false;
 
         SetOpenSigns(true);
-        _pressETextHider.Deactivate();
         
         if (setActiveFalseWhenArenaNotActive)
         {
@@ -218,6 +219,10 @@ public class ArenaController : MonoBehaviour
         {
             door.SetOpenSkipAnimation(true);
         }
+        
+        
+        _pressETextActivator.Deactivate();
+        _pressETextHider.Deactivate();
     }
 
     public void ResetArena()
@@ -267,11 +272,11 @@ public class ArenaController : MonoBehaviour
         }
     }
     
-    public void PlayerEnteredTrigger(bool lastHaveNextArena, ArenaController next, bool finishOnButtonPress)
+    public void PlayerEnteredTrigger(bool haveNextArena, ArenaController triggerNextArena, bool finishOnButtonPress)
     {
         _triggerEntered.Set();
-        _lastTriggerNextArena = next;
-        _lastHaveNextArena = lastHaveNextArena;
+        _lastHaveNextArena = haveNextArena;
+        _lastTriggerNextArena = triggerNextArena;
 
         if (finishOnButtonPress)
         {
@@ -313,15 +318,42 @@ public class ArenaController : MonoBehaviour
             FinishArena(_lastHaveNextArena, _lastTriggerNextArena);
         }
     }
-
+    
+    
     private void FinishArena(bool lastHaveNextArena, ArenaController next)
     {
         _pressETextActivator.Deactivate();
-        if (lastHaveNextArena && !ReferenceEquals(next, null))
+        
+        if (lastHaveNextArena && next !=null)
             LevelController.ChangeArena(next);
         else
             LevelController.FinishLevel();
     }
 
+    public void SkipArena()
+    {
+        for(var i=0;i<_enemiesHealth.Count;i++)
+        {
+            _enemiesHealth[i].Die();
+        }
+
+        if (IsActive)
+        {
+            if (_triggerEntered.Value)
+            {
+                TryFinishArenaFromTrigger();
+            }
+            else
+            {
+                var finishes = GetComponentsInChildren<ArenaFinishTriggerController>();
+                if (finishes.Length > 0)
+                {
+                    _lastHaveNextArena = finishes[0].HaveNextArena;
+                    _lastTriggerNextArena = finishes[0].NextArena;
+                    TryFinishArenaFromTrigger();
+                }
+            }
+        }
+    }
 
 }

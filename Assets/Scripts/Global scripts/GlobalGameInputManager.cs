@@ -34,7 +34,6 @@ public class GlobalGameInputManager : SceneLocalSingleton<GlobalGameInputManager
     {
         PlayerInput = GetComponent<PlayerInput>();
         _firstTimeSwitchingMap = true;
-        GameSettings.ApplyAllBindings(PlayerInput);
     }
     
     public void OnMove(InputAction.CallbackContext context) 

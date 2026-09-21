@@ -5,6 +5,8 @@ using MeleeSystem;
 public class PlayerMeleeController : MeleeController
 {
     [SerializeField] private List<MeleePlayableSource> finishHimSources = new();
+    [Header("Noob mod: full parry window")]
+    [SerializeField] private BoolSettingValue settingValue;
     
     private PlayerInputController _playerInputController;
     private PlayerManager _playerManager;
@@ -16,6 +18,8 @@ public class PlayerMeleeController : MeleeController
 
     private readonly List<int> _finishHimIndexes = new();
     private int _lastRandomIndexFinishHim = 0;
+
+    public override bool ShouldUseMaximumParryDuration => settingValue.value;
 
     protected override void Awake()
     {

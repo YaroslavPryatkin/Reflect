@@ -18,6 +18,9 @@ public class PlayerDashController : SceneLocalSingleton<PlayerDashController>
     [SerializeField] private float angleUp = 15f;
     [SerializeField] private float slowMotionCoefficient = 0.2f;
     [SerializeField] private float ghostSmoothSpeed = 30f;
+    [Header("Noob mod: dash recharge time")]
+    [SerializeField] private BoolSettingValue settingValue;
+    [SerializeField] private float noobMultiplier = 0.5f;
 
     private Vector3 capsuleCenterToTop;
     private float capsuleRadius;
@@ -162,7 +165,7 @@ public class PlayerDashController : SceneLocalSingleton<PlayerDashController>
         {
             firstUpdateAfterPressedDash = false;
             GlobalTimeScaleController.ReturnTimePace(this);
-            _isDashing.SetForce(false, dashRechargeTime);
+            _isDashing.SetForce(false, settingValue.value ? dashRechargeTime * noobMultiplier : dashRechargeTime);
             ghost.SetActive(false);
         }
     }

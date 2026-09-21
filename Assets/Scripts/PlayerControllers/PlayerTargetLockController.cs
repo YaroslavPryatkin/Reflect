@@ -36,6 +36,10 @@ public class PlayerTargetLockController : MonoBehaviour
     [SerializeField] private float enemyFinishMaxAngle = 20f;
     [SerializeField] private float enemyFinishCameraMinRotationSpeed = 30f;
     [SerializeField] private float enemyFinishCameraMaxRotationSpeed = 80f;
+    
+    [Header("Noob mod: finisher resources")]
+    [SerializeField] private BoolSettingValue settingValue;
+    [SerializeField] private float noobMultiplier = 2f;
 
     private readonly Collider[] _candidates = new Collider[10];
     
@@ -443,8 +447,9 @@ public class PlayerTargetLockController : MonoBehaviour
     {
         //Debug.Log("UnlockFinishHim from " + _finishHimTarget.gameObject.name + ", reason: "+(shouldRegen ? "event" : "interrupt"));
         UnlockFinishHimUnsuccessful();
-        _playerHealthController.ChangeHealth(_finishHimTarget.PlayerRegenHpAmount);
-        _playerGunController.EarnBullet(_finishHimTarget.PlayerBulletRegenAmount);
+        var multiplier = settingValue.value ? noobMultiplier : 1f;
+        _playerHealthController.ChangeHealth(_finishHimTarget.PlayerRegenHpAmount *  multiplier);
+        _playerGunController.EarnBullet(_finishHimTarget.PlayerBulletRegenAmount *  multiplier);
         FindFinishHimTarget();
     }
 

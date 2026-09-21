@@ -10431,6 +10431,8 @@ MonoBehaviour:
   angleUp: 10
   slowMotionCoefficient: 0.2
   ghostSmoothSpeed: 30
+  settingValue: {fileID: 11400000, guid: e60c4ffa045e9bc47a8878a393f16254, type: 2}
+  noobMultiplier: 0.5
 --- !u!114 &1306565394898585205
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10651,6 +10653,8 @@ MonoBehaviour:
   enemyFinishMaxAngle: 60
   enemyFinishCameraMinRotationSpeed: 200
   enemyFinishCameraMaxRotationSpeed: 240
+  settingValue: {fileID: 11400000, guid: 2a8534fc9f4c70542b151503b0995421, type: 2}
+  noobMultiplier: 2
 --- !u!114 &1068146385952700354
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10683,6 +10687,8 @@ MonoBehaviour:
   deflectBulletDamageReduction: 5
   regenerationRate: 20
   canNotHealAfterTakingDamageTime: 2
+  settingValue: {fileID: 11400000, guid: 4db3f0090bd61924985c20e9e28cbff0, type: 2}
+  noobMultiplier: 0.5
 --- !u!114 &7551535607096338083
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10865,6 +10871,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 11adb96be9376154b8ffe9df88616319, type: 2}
   - {fileID: 11400000, guid: b6a472a06f8f65944af570aca3e756d4, type: 2}
   - {fileID: 11400000, guid: 5ef872bdd3fbb934cb89f95a80ef0a31, type: 2}
+  settingValue: {fileID: 11400000, guid: bc9710b5e7b870748b1527ccae89d99f, type: 2}
 --- !u!114 &3738666571554670931
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -21275,6 +21282,8 @@ MonoBehaviour:
   myTransform: {fileID: 5222052667471964117}
   bulletRechargeOnParryFraction: 0
   bloodParticles: {fileID: 3076872413419282914}
+  settingValue: {fileID: 11400000, guid: b46e52992cfaec447975cc2886b541cf, type: 2}
+  noobMultiplier: 2
 --- !u!54 &8200135961894487910
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -26661,6 +26670,10 @@ PrefabInstance:
       propertyPath: bulletDamage
       value: 15
       objectReference: {fileID: 0}
+    - target: {fileID: 9066586476447567930, guid: 9d2afe4be9e8667458057bb194b35c0f, type: 3}
+      propertyPath: settingValue
+      value: 
+      objectReference: {fileID: 11400000, guid: c753c25fac0f1874789bda3b3da87f83, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

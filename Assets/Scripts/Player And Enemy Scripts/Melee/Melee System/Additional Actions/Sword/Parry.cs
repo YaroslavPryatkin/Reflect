@@ -108,7 +108,8 @@ namespace MeleeSystem
                 overhead.ConsecutiveParriesCounter.Activate();
             }
 
-            overhead.Parrying.Activate(parryDuration);
+            
+            overhead.Parrying.Activate(meleeController.ShouldUseMaximumParryDuration ? overhead.Duration : parryDuration);
             meleeController.ActivateParrying(overhead.Parrying, thisActivityTimer, overhead.Index);
         }
     }

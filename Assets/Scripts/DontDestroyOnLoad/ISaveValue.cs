@@ -6,7 +6,7 @@ using System;
 
 public interface ISaveValue
 {
-    public void Set(string value);
+    public void Set(string data);
     public string Get();
     
     public static string GetSavePath(string fileName)

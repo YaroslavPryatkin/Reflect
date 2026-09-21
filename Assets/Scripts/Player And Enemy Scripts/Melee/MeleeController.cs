@@ -84,6 +84,8 @@ public abstract class MeleeController : MonoBehaviour
         _hasParrying = true;
     }
 
+    public virtual bool ShouldUseMaximumParryDuration => false;
+
     public void ClearParryingReferences()
     {
         _onSuccessfulParryIndex = -1;

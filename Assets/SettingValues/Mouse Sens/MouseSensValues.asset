@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f3972ff66484a55b89976d7e2664381, type: 3}
+  m_Name: MouseSensValues
+  m_EditorClassIdentifier: Assembly-CSharp::SettingsHolder
+  values:
+  - {fileID: 11400000, guid: deee28d8b47679b40a9925e49c047152, type: 2}
+  - {fileID: 11400000, guid: 763f623508e513841b45eccf2c7d14b8, type: 2}
+  - {fileID: 11400000, guid: 0d469244fe10a4544aaa59ba3b8be7ed, type: 2}

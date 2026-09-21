@@ -6,6 +6,10 @@ public class MeleeWeaponHitboxController : MonoBehaviour
     [SerializeField] private Transform myTransform;
     [SerializeField] private float bulletRechargeOnParryFraction = 0f;
     [SerializeField] private ParticleSystem bloodParticles;
+    [Header("Noob mod: damage multiplier")]
+    [SerializeField] private BoolSettingValue settingValue;
+    [SerializeField] private float noobMultiplier = 2f;
+
 
     private SparkSpawner _sparkSpawner;
     
@@ -19,6 +23,7 @@ public class MeleeWeaponHitboxController : MonoBehaviour
     
     public bool DidHit => _alreadyHitTargets.Count != 0;
     public Vector3 LastHitTargetPosition { get; private set; }
+    private bool _haveNoobMod = false;
 
     private void Awake()
     {
@@ -28,6 +33,7 @@ public class MeleeWeaponHitboxController : MonoBehaviour
         _sparkSpawner = GetComponentInChildren<SparkSpawner>();
         var poolRoot = UtilityFunctions.MakeEmptyObjectOrphan("Pool root melee for " + gameObject.name, transform);
         _sparkSpawner.Initialize(10, poolRoot);
+        _haveNoobMod = settingValue != null;
     }
 
     public void SpawnSparks()
@@ -43,7 +49,7 @@ public class MeleeWeaponHitboxController : MonoBehaviour
     public void StartSwing(bool triggerReaction, float damage,float poiseDamage)
     {
         _triggerReaction = triggerReaction;
-        _attackDamage = damage;
+        _attackDamage = _haveNoobMod && settingValue.value ? damage * noobMultiplier : damage;
         _alreadyHitTargets.Clear();
         _collider.enabled = true;
         _poiseDamage = poiseDamage;

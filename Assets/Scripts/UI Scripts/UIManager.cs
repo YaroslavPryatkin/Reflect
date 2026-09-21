@@ -108,10 +108,21 @@ public class UIManager : SceneLocalSingleton<UIManager>
     
     public static void ResetPressed() => Instance?.ResetPressedInternal();
     
+    public static void SkipArenaPressed() => Instance?.SkipArenaPressedInternal();
+    
     public void ResetPressedInternal()
     {
         SetState(StateEnum.Active);
         LevelController.TryResetArena();
+    }
+
+    private void SkipArenaPressedInternal()
+    {
+        LevelController.TrySkipArena();
+        if (_state.Value != StateEnum.Win)
+        {
+            ResetPressedInternal();
+        }
     }
 
     public static void ShowDeath() => Instance?.SetState(StateEnum.Death);

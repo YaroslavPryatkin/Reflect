@@ -7,6 +7,9 @@ public class PlayerHealthController : HealthController
     [Header("Regeneration")]
     [SerializeField] private float regenerationRate = 20f;
     [SerializeField] private float canNotHealAfterTakingDamageTime = 2f;
+    [Header("Noob mod: taken damage")]
+    [SerializeField] private BoolSettingValue settingValue;
+    [SerializeField] private float noobMultiplier = 2f;
     
     private readonly UtilityTimers.TemporaryValue<bool> _canRegenerate = new(true, false);
     
@@ -39,6 +42,12 @@ public class PlayerHealthController : HealthController
         _playerTargetLockController.UnlockEverything();
     }
 
+    protected override void ChangeTakenDamage(ref float takenDamage)
+    {
+        if (settingValue.value)
+            takenDamage *= noobMultiplier;
+    }
+    
     protected override void OnDamageTaken(bool triggerReaction, float damage, DamageDealer damageDealer)
     {
         _playerInputController.ClearAllBuffers();
@@ -47,11 +56,7 @@ public class PlayerHealthController : HealthController
     
     public override void OnHazardEntered()
     {
-        if (LevelController.TryReturnPlayerToSpawnPoint())
-        {
-            GameSavings.IncreaseAmountOfDeaths(gameObject.scene.name);
-            _rb.linearVelocity = Vector3.zero;
-        }
+        LevelController.TryReturnPlayerToSpawnPoint(true);
     }
 
     protected void Update()

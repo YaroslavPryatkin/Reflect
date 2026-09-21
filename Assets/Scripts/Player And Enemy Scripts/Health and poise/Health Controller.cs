@@ -106,14 +106,18 @@ public class HealthController : MonoBehaviour
             _gunController.EarnBullet(bulletRechargeFraction);
 
         if (_iFrames.Value) return;
-
-            GettingHitController.Stun(poiseDamage, true);
         
+        if (!IsDead)
+        {
+            GettingHitController.Stun(poiseDamage, true);
+        }
     }
 
     public void DoNormalDamage(bool triggerReaction, float damage, float poiseDamage, DamageDealer damageDealer)
     {
         if (IsDead || _iFrames.Value) return;
+
+        ChangeTakenDamage(ref damage);
         
         if (GettingHitController.IsStunned)
             ChangeHealth(-damage * damageFractionWhileStunned);
@@ -129,6 +133,9 @@ public class HealthController : MonoBehaviour
         }
     }
 
+    protected virtual void ChangeTakenDamage(ref float takenDamage)
+    {
+    }
 
     protected virtual void OnDamageTaken(bool triggerReaction, float damage, DamageDealer damageDealer)
     {
@@ -152,9 +159,12 @@ public class HealthController : MonoBehaviour
     }
     public void Die()
     {
-        IsDead = true;
-        CurrentHealth = 0f;
-        OnDeath();
+        if (!IsDead)
+        {
+            IsDead = true;
+            CurrentHealth = 0f;
+            OnDeath();
+        }
     }
     
     public bool TryDeflecting(Vector3 attackDirection)

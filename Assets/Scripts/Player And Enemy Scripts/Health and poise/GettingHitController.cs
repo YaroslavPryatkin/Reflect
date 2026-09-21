@@ -52,6 +52,8 @@ public class GettingHitController : MonoBehaviour
     
     private readonly UtilityClasses.ChangeableFractionValueReference _hyperArmor = new();
     
+    
+    
     private void Awake()
     {
         if (!TryGetComponent(out AnimationAndRigManager controller))

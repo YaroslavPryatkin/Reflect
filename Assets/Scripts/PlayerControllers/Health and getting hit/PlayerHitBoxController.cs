@@ -5,7 +5,6 @@ public class PlayerHitBoxController : MonoBehaviour
 
     [SerializeField] private float slideHitboxHeight = 1f;
     
-    
     private PlayerSlidingController _playerSlidingController;
     private PlayerSensors _playerSensors;
     

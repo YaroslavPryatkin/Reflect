@@ -7170,7 +7170,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8509719593763754569, guid: 51500a5382964fa4c851b2f52c890c6d, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 59.499992
+      value: 50.25
       objectReference: {fileID: 0}
     - target: {fileID: 8788374342875901183, guid: 51500a5382964fa4c851b2f52c890c6d, type: 3}
       propertyPath: m_fontSize

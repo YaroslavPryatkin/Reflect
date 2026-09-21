@@ -11,6 +11,9 @@ public class ArenaFinishTriggerController : MonoBehaviour
     private ArenaController _arenaController;
     private int _targetLayers;
 
+    public bool HaveNextArena => !finishLevel;
+    public ArenaController NextArena => nextArena;
+
     private void Awake()
     {
         if (!finishLevel && nextArena == null)

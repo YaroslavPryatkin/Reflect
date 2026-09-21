@@ -12,9 +12,9 @@ public class LevelSave : ISaveValue
 
     public readonly List<int> FinishedArenas = new();
     
-    public void Set(string value)
+    public void Set(string data)
     {
-        var parts = value.Split(';');
+        var parts = data.Split(';');
         if (parts.Length >= 3)
         {
             if(bool.TryParse(parts[0], out var isAvailable))
